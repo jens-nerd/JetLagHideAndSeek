@@ -46,6 +46,7 @@ export async function handleWsOpen(
     const client: ConnectedClient = {
         ws,
         sessionCode: code,
+        sessionId: sessionRow.id,
         participantId: participant.id,
         role: participant.role as "hider" | "seeker",
     };
@@ -53,16 +54,14 @@ export async function handleWsOpen(
     wsManager.register(client);
 
     // Notify others that someone joined
-    wsManager.broadcast(
-        code,
-        {
-            type: "participant_joined",
-            participantId: participant.id,
-            role: participant.role as "hider" | "seeker",
-            displayName: participant.displayName,
-        },
-        client, // exclude the joining client itself
-    );
+    const joinedEvent = {
+        type: "participant_joined" as const,
+        participantId: participant.id,
+        role: participant.role as "hider" | "seeker",
+        displayName: participant.displayName,
+    };
+    wsManager.broadcast(code, joinedEvent, client);
+    void wsManager.persistEvent(db, sessionRow.id, participant.id, joinedEvent);
 
     // Send current state to the newly connected client
     const questionRows = await db.query.questions.findMany({
@@ -131,10 +130,12 @@ export async function handleWsMessage(
                 where: eq(schema.questions.id, questionId),
             }))!;
 
-            wsManager.broadcast(code, {
-                type: "question_added",
+            const questionAddedEvent = {
+                type: "question_added" as const,
                 question: toSessionQuestion(questionRow),
-            });
+            };
+            wsManager.broadcast(code, questionAddedEvent);
+            void wsManager.persistEvent(db, client.sessionId, client.participantId, questionAddedEvent);
             break;
         }
 
@@ -161,10 +162,12 @@ export async function handleWsMessage(
                 where: eq(schema.questions.id, event.questionId),
             }))!;
 
-            wsManager.broadcast(code, {
-                type: "question_answered",
+            const questionAnsweredEvent = {
+                type: "question_answered" as const,
                 question: toSessionQuestion(updatedRow),
-            });
+            };
+            wsManager.broadcast(code, questionAnsweredEvent);
+            void wsManager.persistEvent(db, client.sessionId, client.participantId, questionAnsweredEvent);
             break;
         }
 
@@ -179,14 +182,12 @@ export async function handleWsMessage(
                 .set({ mapLocation: JSON.stringify(event.mapLocation) })
                 .where(eq(schema.sessions.id, sessionRow.id));
 
-            wsManager.broadcast(
-                code,
-                {
-                    type: "map_location_updated",
-                    mapLocation: event.mapLocation,
-                },
-                client,
-            );
+            const mapEvent = {
+                type: "map_location_updated" as const,
+                mapLocation: event.mapLocation,
+            };
+            wsManager.broadcast(code, mapEvent, client);
+            void wsManager.persistEvent(db, client.sessionId, client.participantId, mapEvent);
             break;
         }
 
@@ -204,10 +205,12 @@ export async function handleWsMessage(
                 .set({ status: event.status })
                 .where(eq(schema.sessions.id, sessionRow.id));
 
-            wsManager.broadcast(code, {
-                type: "session_status_changed",
+            const statusEvent = {
+                type: "session_status_changed" as const,
                 status: event.status,
-            });
+            };
+            wsManager.broadcast(code, statusEvent);
+            void wsManager.persistEvent(db, client.sessionId, client.participantId, statusEvent);
             break;
         }
     }
@@ -216,10 +219,12 @@ export async function handleWsMessage(
 /** Called when a WebSocket connection closes */
 export function handleWsClose(client: ConnectedClient): void {
     wsManager.unregister(client);
-    wsManager.broadcast(client.sessionCode, {
-        type: "participant_left",
+    const leftEvent = {
+        type: "participant_left" as const,
         participantId: client.participantId,
-    });
+    };
+    wsManager.broadcast(client.sessionCode, leftEvent);
+    void wsManager.persistEvent(db, client.sessionId, client.participantId, leftEvent);
 }
 
 async function getSessionId(code: string): Promise<string | null> {

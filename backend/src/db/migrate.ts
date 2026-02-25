@@ -43,10 +43,21 @@ CREATE TABLE IF NOT EXISTS questions (
     answered_at              TEXT
 );
 
+CREATE TABLE IF NOT EXISTS ws_events (
+    id             TEXT PRIMARY KEY,
+    session_id     TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    participant_id TEXT,
+    event_type     TEXT NOT NULL,
+    payload        TEXT NOT NULL,
+    created_at     TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_participants_session ON participants(session_id);
 CREATE INDEX IF NOT EXISTS idx_participants_token   ON participants(token);
 CREATE INDEX IF NOT EXISTS idx_questions_session    ON questions(session_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_code        ON sessions(code);
+CREATE INDEX IF NOT EXISTS idx_ws_events_session    ON ws_events(session_id);
+CREATE INDEX IF NOT EXISTS idx_ws_events_type       ON ws_events(session_id, event_type);
 `);
 
 console.log("Database migrated successfully:", DB_PATH);

@@ -47,8 +47,30 @@ export const questions = sqliteTable("questions", {
     answeredAt: text("answered_at"),
 });
 
+/**
+ * Append-only log of every meaningful WebSocket event in a session.
+ * Acts as an audit trail and enables future event-sourcing / replay.
+ * The primary source of truth for game state remains the normalised
+ * sessions / questions tables; this log is supplementary.
+ */
+export const wsEvents = sqliteTable("ws_events", {
+    id: text("id").primaryKey(),
+    sessionId: text("session_id")
+        .notNull()
+        .references(() => sessions.id, { onDelete: "cascade" }),
+    /** Which participant triggered the event (null for system events). */
+    participantId: text("participant_id"),
+    /** Matches ServerToClientEvent["type"] */
+    eventType: text("event_type").notNull(),
+    /** Full JSON payload of the ServerToClientEvent */
+    payload: text("payload").notNull(),
+    createdAt: text("created_at")
+        .notNull()
+        .default(sql`(datetime('now'))`),
+});
+
 // Grouped schema object for convenience imports
-export const schema = { sessions, participants, questions };
+export const schema = { sessions, participants, questions, wsEvents };
 
 // Type helpers for Drizzle inference
 export type Session = typeof sessions.$inferSelect;
@@ -57,3 +79,5 @@ export type DbParticipant = typeof participants.$inferSelect;
 export type NewParticipant = typeof participants.$inferInsert;
 export type DbQuestion = typeof questions.$inferSelect;
 export type NewQuestion = typeof questions.$inferInsert;
+export type WsEvent = typeof wsEvents.$inferSelect;
+export type NewWsEvent = typeof wsEvents.$inferInsert;

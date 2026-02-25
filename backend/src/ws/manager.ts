@@ -1,9 +1,15 @@
 import type { ServerToClientEvent } from "@hideandseek/shared";
 import type { WSContext } from "hono/ws";
+import { nanoid } from "nanoid";
+
+import { wsEvents } from "../db/schema.js";
+import type { Db } from "../db/types.js";
 
 interface ConnectedClient {
     ws: WSContext;
     sessionCode: string;
+    /** DB primary key of the session — used for event logging. */
+    sessionId: string;
     participantId: string;
     role: "hider" | "seeker";
 }
@@ -94,6 +100,32 @@ class WebSocketManager {
 
     getRoom(sessionCode: string): Set<ConnectedClient> | undefined {
         return this.rooms.get(sessionCode);
+    }
+
+    /**
+     * Append a ServerToClientEvent to the ws_events audit log.
+     * Fire-and-forget: errors are swallowed so logging never breaks the WS flow.
+     * The `sync` event is intentionally skipped — it is derived state, not a
+     * discrete action.
+     */
+    async persistEvent(
+        db: Db,
+        sessionId: string,
+        participantId: string | null,
+        event: ServerToClientEvent,
+    ): Promise<void> {
+        if (event.type === "sync") return;
+        try {
+            await db.insert(wsEvents).values({
+                id: nanoid(),
+                sessionId,
+                participantId: participantId ?? undefined,
+                eventType: event.type,
+                payload: JSON.stringify(event),
+            });
+        } catch (err) {
+            console.error("[ws] Failed to persist event:", (err as Error).message);
+        }
     }
 
     seekerCount(sessionCode: string): number {
