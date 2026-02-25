@@ -2,10 +2,24 @@
 import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n";
 import { PlacePicker } from "@/components/PlacePicker";
+import { additionalMapGeoLocations, mapGeoLocation } from "@/lib/context";
 import { hiderAreaConfirmed, pendingRole } from "@/lib/session-context";
 
 export function HiderAreaSearch() {
     const tr = useT();
+
+    function handleConfirm() {
+        // PlacePicker adds selections to additionalMapGeoLocations, not mapGeoLocation.
+        // Promote the selected area to the primary location so buildMapLocationFromContext()
+        // picks it up correctly when creating the session.
+        const additional = additionalMapGeoLocations.get();
+        const selected = additional.find((x) => x.added);
+        if (selected) {
+            mapGeoLocation.set(selected.location);
+            additionalMapGeoLocations.set([]);
+        }
+        hiderAreaConfirmed.set(true);
+    }
 
     return (
         <div className="flex flex-col gap-3 py-2">
@@ -14,7 +28,7 @@ export function HiderAreaSearch() {
             <PlacePicker className="w-full" />
             <Button
                 className="w-full"
-                onClick={() => hiderAreaConfirmed.set(true)}
+                onClick={handleConfirm}
             >
                 {tr("area.confirm")}
             </Button>

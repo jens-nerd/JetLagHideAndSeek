@@ -142,12 +142,19 @@ export function upsertSessionQuestion(question: SessionQuestion): void {
  */
 export function applyServerMapLocation(location: MapLocation): void {
     // Dynamic import to avoid circular dependency with context.ts
-    import("@/lib/context").then(({ mapGeoLocation }) => {
-        // osmFeature is the full OpenStreetMap Feature the app uses natively.
-        if (location.osmFeature) {
-            mapGeoLocation.set(location.osmFeature as any);
-        }
-    });
+    import("@/lib/context").then(
+        ({ mapGeoLocation, additionalMapGeoLocations, mapGeoJSON }) => {
+            if (location.osmFeature) {
+                // Clear additional locations so the seeker doesn't inherit stale areas
+                // from their own localStorage.
+                additionalMapGeoLocations.set([]);
+                // Null out the cached boundary so the map re-fetches and auto-zooms.
+                mapGeoJSON.set(null);
+                // osmFeature is the full OpenStreetMap Feature the app uses natively.
+                mapGeoLocation.set(location.osmFeature as any);
+            }
+        },
+    );
 }
 
 /**
