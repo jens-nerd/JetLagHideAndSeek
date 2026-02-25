@@ -1,8 +1,6 @@
 "use client";
 import { useStore } from "@nanostores/react";
 import { useEffect, useRef, useState } from "react";
-import { MapContainer, TileLayer } from "react-leaflet";
-import type { LatLngBoundsExpression } from "leaflet";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,21 +47,15 @@ export function HiderAreaSearch() {
         setSelected(feature);
         setResults([]);
         setQuery("");
+        // Preview immediately on the main map (same as PlacePicker behaviour)
+        mapGeoLocation.set(feature);
     }
 
     function handleConfirm() {
         if (!selected) return;
-        mapGeoLocation.set(selected);
+        // mapGeoLocation already set in handleSelect
         hiderAreaConfirmed.set(true);
     }
-
-    // Derive Leaflet bounds from the Photon extent array [minLat, minLng, maxLat, maxLng]
-    const bounds: LatLngBoundsExpression | undefined = selected?.properties.extent
-        ? [
-              [selected.properties.extent[0], selected.properties.extent[1]],
-              [selected.properties.extent[2], selected.properties.extent[3]],
-          ]
-        : undefined;
 
     const secondaryLabel = selected
         ? [selected.properties.state, selected.properties.country]
@@ -120,48 +112,16 @@ export function HiderAreaSearch() {
                 <p className="text-xs text-muted-foreground">{tr("area.noResults")}</p>
             )}
 
-            {/* Selected area name + mini-map preview */}
+            {/* Selected area name */}
             {selected && (
-                <div className="flex flex-col gap-2">
-                    <p className="text-sm font-medium">
-                        {selected.properties.name}
-                        {secondaryLabel && (
-                            <span className="text-xs text-muted-foreground ml-1">
-                                {secondaryLabel}
-                            </span>
-                        )}
-                    </p>
-                    {bounds ? (
-                        <MapContainer
-                            key={selected.properties.osm_id}
-                            bounds={bounds}
-                            className="h-36 w-full rounded-md"
-                            zoomControl={false}
-                            dragging={false}
-                            scrollWheelZoom={false}
-                            touchZoom={false}
-                            doubleClickZoom={false}
-                            attributionControl={false}
-                        >
-                            <TileLayer url="https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png" />
-                        </MapContainer>
-                    ) : (
-                        <MapContainer
-                            key={selected.properties.osm_id}
-                            center={selected.geometry.coordinates}
-                            zoom={8}
-                            className="h-36 w-full rounded-md"
-                            zoomControl={false}
-                            dragging={false}
-                            scrollWheelZoom={false}
-                            touchZoom={false}
-                            doubleClickZoom={false}
-                            attributionControl={false}
-                        >
-                            <TileLayer url="https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png" />
-                        </MapContainer>
+                <p className="text-sm font-medium">
+                    {selected.properties.name}
+                    {secondaryLabel && (
+                        <span className="text-xs text-muted-foreground ml-1">
+                            {secondaryLabel}
+                        </span>
                     )}
-                </div>
+                </p>
             )}
 
             {/* Confirm button */}
