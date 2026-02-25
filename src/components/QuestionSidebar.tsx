@@ -19,7 +19,7 @@ import {
     save,
     triggerLocalRefresh,
 } from "@/lib/context";
-import { pendingRole, sessionParticipant } from "@/lib/session-context";
+import { hiderAreaConfirmed, pendingRole, sessionParticipant } from "@/lib/session-context";
 
 import { AddQuestionDialog } from "./AddQuestionDialog";
 import {
@@ -29,6 +29,7 @@ import {
     TentacleQuestionComponent,
     ThermometerQuestionComponent,
 } from "./QuestionCards";
+import { HiderAreaSearch } from "./session/HiderAreaSearch";
 import { RoleSelection } from "./session/RoleSelection";
 import { SessionManager } from "./session/SessionManager";
 import { useSessionMapSync } from "@/hooks/useSessionMapSync";
@@ -41,6 +42,7 @@ export const QuestionSidebar = () => {
     const $isLoading = useStore(isLoading);
     const $participant = useStore(sessionParticipant);
     const $pendingRole = useStore(pendingRole);
+    const $hiderAreaConfirmed = useStore(hiderAreaConfirmed);
     const tr = useT();
 
     // Sync answered session questions into the local map
@@ -68,10 +70,15 @@ export const QuestionSidebar = () => {
             <SidebarGroup className="flex-1 min-h-0 overflow-y-auto">
                 <SidebarGroupContent>
                     <div className="px-3 py-2">
-                        {/* Show role selection when no session and no role chosen yet */}
+                        {/* Onboarding flow:
+                            1. No role chosen      → RoleSelection
+                            2. Hider, area pending → HiderAreaSearch
+                            3. Everything else     → SessionManager */}
                         {!isInSession && $pendingRole === null
                             ? <RoleSelection />
-                            : <SessionManager />
+                            : !isInSession && $pendingRole === "hider" && !$hiderAreaConfirmed
+                                ? <HiderAreaSearch />
+                                : <SessionManager />
                         }
                     </div>
                 </SidebarGroupContent>

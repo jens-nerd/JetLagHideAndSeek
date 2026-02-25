@@ -427,6 +427,15 @@ export const en: Record<TranslationKey, string> = {
     "matchType.custom-zone": "Custom Zone",
     "matchType.custom-points": "Custom Points",
 
+    // ── Play area (HiderAreaSearch) ───────────────────────────────────────────
+    "area.title": "Set play area",
+    "area.hint": "The Hider moves within this area.",
+    "area.searchPlaceholder": "Search city, region or country…",
+    "area.searching": "Searching…",
+    "area.noResults": "No results",
+    "area.confirm": "Confirm area",
+    "area.back": "← Back to role selection",
+
     // ── Role selection (RoleSelection) ────────────────────────────────────────
     "role.chooseRole": "Choose your role",
     "role.iAmHider": "I'm the Hider",

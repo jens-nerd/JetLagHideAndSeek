@@ -426,6 +426,15 @@ export const de = {
     "matchType.custom-zone": "Benutzerdefinierte Zone",
     "matchType.custom-points": "Benutzerdefinierte Punkte",
 
+    // ── Spielgebiet (HiderAreaSearch) ─────────────────────────────────────────
+    "area.title": "Spielgebiet festlegen",
+    "area.hint": "Der Hider bewegt sich innerhalb dieses Gebiets.",
+    "area.searchPlaceholder": "Stadt, Region oder Land suchen…",
+    "area.searching": "Suche…",
+    "area.noResults": "Keine Ergebnisse",
+    "area.confirm": "Gebiet bestätigen",
+    "area.back": "← Zurück zur Rollenauswahl",
+
     // ── Rollenauswahl (RoleSelection) ─────────────────────────────────────────
     "role.chooseRole": "Wähle deine Rolle",
     "role.iAmHider": "Ich bin Hider",

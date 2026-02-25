@@ -39,6 +39,12 @@ export const currentSession = atom<Session | null>(null);
  */
 export const pendingRole = atom<"hider" | "seeker" | null>(null);
 
+/**
+ * True once the hider has confirmed the play area in HiderAreaSearch.
+ * Cleared when leaving the session or navigating back.
+ */
+export const hiderAreaConfirmed = atom<boolean>(false);
+
 /** All questions in the current session */
 export const sessionQuestions = atom<SessionQuestion[]>([]);
 
@@ -77,6 +83,7 @@ export function leaveSession(): void {
     seekerCount.set(0);
     hiderConnected.set(false);
     pendingRole.set(null);
+    hiderAreaConfirmed.set(false);
 
     // ── Map state – reset everything that was set by the session ──────────
     import("@/lib/context").then(
