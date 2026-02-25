@@ -1,8 +1,9 @@
 import { useStore } from "@nanostores/react";
 import { distance, point } from "@turf/turf";
+import { Flame, Snowflake } from "lucide-react";
+import { useT } from "@/i18n";
 
 import { LatitudeLongitude } from "@/components/LatLngPicker";
-import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { defaultUnit } from "@/lib/context";
 import {
@@ -22,16 +23,19 @@ export const ThermometerQuestionComponent = ({
     questionKey,
     sub,
     className,
+    embedded = false,
 }: {
     data: ThermometerQuestion;
     questionKey: number;
     sub?: string;
     className?: string;
+    embedded?: boolean;
 }) => {
     useStore(triggerLocalRefresh);
     const $hiderMode = useStore(hiderMode);
     const $questions = useStore(questions);
     const $isLoading = useStore(isLoading);
+    const tr = useT();
 
     const $defaultUnit = useStore(defaultUnit);
     const DISTANCE_UNIT = $defaultUnit ?? "miles";
@@ -77,11 +81,12 @@ export const ThermometerQuestionComponent = ({
             }}
             locked={!data.drag}
             setLocked={(locked) => questionModified((data.drag = !locked))}
+            embedded={embedded}
         >
             <LatitudeLongitude
                 latitude={data.latA}
                 longitude={data.lngA}
-                label="Start"
+                label={tr("thermometer.start")}
                 colorName={data.colorA}
                 onChange={(lat, lng) => {
                     if (lat !== null) data.latA = lat;
@@ -89,12 +94,13 @@ export const ThermometerQuestionComponent = ({
                     questionModified();
                 }}
                 disabled={!data.drag || $isLoading}
+                compact={embedded}
             />
 
             <LatitudeLongitude
                 latitude={data.latB}
                 longitude={data.lngB}
-                label="End"
+                label={tr("thermometer.end")}
                 colorName={data.colorB}
                 onChange={(lat, lng) => {
                     if (lat !== null) data.latB = lat;
@@ -102,11 +108,12 @@ export const ThermometerQuestionComponent = ({
                     questionModified();
                 }}
                 disabled={!data.drag || $isLoading}
+                compact={embedded}
             />
 
             {distanceValue !== null && (
                 <div className="px-2 text-sm text-muted-foreground">
-                    Distance:{" "}
+                    {tr("thermometer.distance")}:{" "}
                     <span className="font-medium text-foreground">
                         {distanceValue.toFixed(3)} {unitLabel}
                     </span>
@@ -114,14 +121,6 @@ export const ThermometerQuestionComponent = ({
             )}
 
             <div className="flex gap-2 items-center p-2">
-                <Label
-                    className={cn(
-                        "font-semibold text-lg",
-                        $isLoading && "text-muted-foreground",
-                    )}
-                >
-                    Result
-                </Label>
                 <ToggleGroup
                     className="grow"
                     type="single"
@@ -131,10 +130,12 @@ export const ThermometerQuestionComponent = ({
                     }
                     disabled={!!$hiderMode || !data.drag || $isLoading}
                 >
-                    <ToggleGroupItem color="red" value="colder">
-                        Colder
+                    <ToggleGroupItem color="red" value="colder" title="Colder" className="flex items-center justify-center">
+                        <Snowflake className="h-5 w-5" />
                     </ToggleGroupItem>
-                    <ToggleGroupItem value="warmer">Warmer</ToggleGroupItem>
+                    <ToggleGroupItem value="warmer" title="Warmer" className="flex items-center justify-center">
+                        <Flame className="h-5 w-5" />
+                    </ToggleGroupItem>
                 </ToggleGroup>
             </div>
         </QuestionCard>

@@ -165,7 +165,7 @@ const tentacleQuestionSpecificSchemaFifteen = baseTentacleQuestionSchema.extend(
 );
 
 const tentacleQuestionSpecificSchemaOne = baseTentacleQuestionSchema.extend({
-    locationType: tentacleLocationsOne,
+    locationType: tentacleLocationsOne.default("museum"),
     places: z.array(z.any()).optional(),
 });
 

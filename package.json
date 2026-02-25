@@ -8,9 +8,16 @@
         "preview": "astro preview",
         "astro": "astro",
         "lint": "eslint --fix src && prettier . --write",
-        "test": "vitest"
+        "test": "vitest",
+        "test:backend": "BACKEND_URL=http://localhost:3001 pnpm --filter @hideandseek/backend test",
+        "test:all": "pnpm test:backend && pnpm test",
+        "backend:dev": "pnpm --filter @hideandseek/backend dev",
+        "backend:build": "pnpm --filter @hideandseek/backend build",
+        "backend:migrate": "pnpm --filter @hideandseek/backend db:migrate",
+        "backend:start": "pnpm --filter @hideandseek/backend start"
     },
     "dependencies": {
+        "@hideandseek/shared": "workspace:*",
         "@arcgis/core": "^4.32.10",
         "@astrojs/partytown": "^2.1.4",
         "@astrojs/react": "4.2.0",

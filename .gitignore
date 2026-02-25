@@ -22,3 +22,11 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# SQLite database files
+*.db
+*.db-shm
+*.db-wal
+
+# Claude Code memory (local only)
+memory/

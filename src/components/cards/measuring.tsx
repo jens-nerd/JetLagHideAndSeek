@@ -1,5 +1,6 @@
 import { useStore } from "@nanostores/react";
-import { Label } from "@radix-ui/react-label";
+import { ArrowUpFromDot, Target } from "lucide-react";
+import { useT } from "@/i18n";
 import * as React from "react";
 
 import CustomInitDialog from "@/components/CustomInitDialog";
@@ -38,11 +39,13 @@ export const MeasuringQuestionComponent = ({
     questionKey,
     sub,
     className,
+    embedded = false,
 }: {
     data: MeasuringQuestion;
     questionKey: number;
     sub?: string;
     className?: string;
+    embedded?: boolean;
 }) => {
     useStore(triggerLocalRefresh);
     const $hiderMode = useStore(hiderMode);
@@ -52,6 +55,7 @@ export const MeasuringQuestionComponent = ({
     const $isLoading = useStore(isLoading);
     const $customInitPref = useStore(customInitPreference);
     const [customDialogOpen, setCustomDialogOpen] = React.useState(false);
+    const tr = useT();
     const label = `Measuring
     ${
         $questions
@@ -67,10 +71,7 @@ export const MeasuringQuestionComponent = ({
         case "seven11":
             questionSpecific = (
                 <span className="px-2 text-center text-orange-500">
-                    This question will eliminate hiding zones that don&apos;t
-                    fit the criteria. When you click on a zone, the parts of
-                    that zone that don&apos;t satisfy the criteria will be
-                    eliminated.
+                    {tr("measuring.mcdonaldsInfo")}
                 </span>
             );
             break;
@@ -87,8 +88,7 @@ export const MeasuringQuestionComponent = ({
         case "park":
             questionSpecific = (
                 <span className="px-2 text-center text-orange-500">
-                    This question will only influence the map when you click on
-                    a hiding zone in the hiding zone sidebar.
+                    {tr("measuring.clickOnZone")}
                 </span>
             );
             break;
@@ -97,7 +97,7 @@ export const MeasuringQuestionComponent = ({
                 questionSpecific = (
                     <>
                         <p className="px-2 mb-1 text-center text-orange-500">
-                            To modify the measuring question, enable it:
+                            {tr("measuring.modifyInstructions")}
                             <Checkbox
                                 className="mx-1 my-1"
                                 checked={$drawingQuestionKey === questionKey}
@@ -110,7 +110,7 @@ export const MeasuringQuestionComponent = ({
                                 }}
                                 disabled={!data.drag || $isLoading}
                             />
-                            and use the buttons at the bottom left of the map.
+                            {tr("measuring.useMapButtons")}
                         </p>
                         <div className="flex justify-center mb-2">
                             <PresetsDialog
@@ -136,6 +136,7 @@ export const MeasuringQuestionComponent = ({
             }}
             locked={!data.drag}
             setLocked={(locked) => questionModified((data.drag = !locked))}
+            embedded={embedded}
         >
             <CustomInitDialog
                 open={customDialogOpen}
@@ -169,7 +170,7 @@ export const MeasuringQuestionComponent = ({
             />
             <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
                 <Select
-                    trigger="Measuring Type"
+                    trigger={tr("measuring.type")}
                     options={Object.fromEntries(
                         measuringQuestionSchema.options
                             .filter((x) => x.description === NO_GROUP)
@@ -271,16 +272,9 @@ export const MeasuringQuestionComponent = ({
                     questionModified();
                 }}
                 disabled={!data.drag || $isLoading}
+                compact={embedded}
             />
             <div className="flex gap-2 items-center p-2">
-                <Label
-                    className={cn(
-                        "font-semibold text-lg",
-                        $isLoading && "text-muted-foreground",
-                    )}
-                >
-                    Result
-                </Label>
                 <ToggleGroup
                     className="grow"
                     type="single"
@@ -292,11 +286,11 @@ export const MeasuringQuestionComponent = ({
                     }
                     disabled={!!$hiderMode || !data.drag || $isLoading}
                 >
-                    <ToggleGroupItem value="further">
-                        Hider Further
+                    <ToggleGroupItem value="further" title="Hider Further" className="flex items-center justify-center">
+                        <ArrowUpFromDot className="h-5 w-5" />
                     </ToggleGroupItem>
-                    <ToggleGroupItem value="closer">
-                        Hider Closer
+                    <ToggleGroupItem value="closer" title="Hider Closer" className="flex items-center justify-center">
+                        <Target className="h-5 w-5" />
                     </ToggleGroupItem>
                 </ToggleGroup>
             </div>

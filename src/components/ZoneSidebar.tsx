@@ -36,6 +36,7 @@ import {
     useCustomStations as useCustomStationsAtom,
 } from "@/lib/context";
 import { cn } from "@/lib/utils";
+import { locale, t, useT } from "@/i18n";
 import {
     BLANK_GEOJSON,
     findPlacesInZone,
@@ -73,12 +74,14 @@ import { MENU_ITEM_CLASSNAME } from "./ui/sidebar-l";
 import { UnitSelect } from "./UnitSelect";
 
 function _previewText(count: number) {
-    return `${count} custom station${count === 1 ? "" : "s"} imported`;
+    const loc = locale.get();
+    return t("zone.customStationsImported", loc).replace("{count}", String(count));
 }
 
 let buttonJustClicked = false;
 
 export const ZoneSidebar = () => {
+    const tr = useT();
     const $displayHidingZones = useStore(displayHidingZones);
     const $questionFinishedMapData = useStore(questionFinishedMapData);
     const $displayHidingZonesOptions = useStore(displayHidingZonesOptions);
@@ -187,7 +190,7 @@ export const ZoneSidebar = () => {
 
             const needsDefault = !useCustomStations || includeDefaultStations;
             if (needsDefault && $displayHidingZonesOptions.length === 0) {
-                toast.error("At least one place type must be selected");
+                toast.error(t("zone.atLeastOneType", locale.get()));
                 isLoading.set(false);
                 return;
             }
@@ -213,7 +216,7 @@ export const ZoneSidebar = () => {
                 places = osmtogeojson(
                     await findPlacesInZone(
                         $displayHidingZonesOptions[0],
-                        "Finding stations. This may take a while. Do not press any buttons while this is processing. Don't worry, it will be cached.",
+                        t("zone.findingStations", locale.get()),
                         "nwr",
                         "center",
                         $displayHidingZonesOptions.slice(1),
@@ -314,7 +317,7 @@ export const ZoneSidebar = () => {
                         // Custom-only lists don't have reliable OSM IDs
                         if (useCustomStations && !includeDefaultStations) {
                             toast.warning(
-                                "'Same train line' isn't supported with custom-only station lists; skipping this filter.",
+                                t("zone.sameTrainLineCustomOnly", locale.get()),
                             );
                         } else {
                             const nid = nearestTrainStation.properties.id as
@@ -322,7 +325,7 @@ export const ZoneSidebar = () => {
                                 | undefined;
                             if (!nid || !nid.includes("/")) {
                                 toast.warning(
-                                    "Nearest station has no OSM id; skipping 'same train line' filter.",
+                                    t("zone.stationHasNoOsmId", locale.get()),
                                 );
                                 continue;
                             }
@@ -330,12 +333,9 @@ export const ZoneSidebar = () => {
                             const nodes = await trainLineNodeFinder(nid);
 
                             if (nodes.length === 0) {
+                                const stationName = nearestTrainStation.properties["name:en"] || nearestTrainStation.properties.name;
                                 toast.warning(
-                                    `No train line found for ${
-                                        nearestTrainStation.properties[
-                                            "name:en"
-                                        ] || nearestTrainStation.properties.name
-                                    }`,
+                                    t("zone.noTrainLineFound", locale.get()).replace("{name}", stationName),
                                 );
                                 continue;
                             } else {
@@ -359,7 +359,7 @@ export const ZoneSidebar = () => {
                         nearestTrainStation.properties.name;
 
                     if (!englishName)
-                        return toast.error("No English name found");
+                        return toast.error(t("zone.noEnglishName", locale.get()));
 
                     if (question.data.type === "same-first-letter-station") {
                         const letter = englishName[0].toUpperCase();
@@ -491,7 +491,7 @@ export const ZoneSidebar = () => {
     return (
         <Sidebar side="right">
             <div className="flex items-center justify-between">
-                <h2 className="ml-4 mt-4 font-poppins text-2xl">Hiding Zone</h2>
+                <h2 className="ml-4 mt-4 font-poppins text-2xl">{tr("zone.title")}</h2>
                 <SidebarCloseIcon
                     className="mr-2 visible md:hidden scale-x-[-1]"
                     onClick={() => {
@@ -506,7 +506,7 @@ export const ZoneSidebar = () => {
                         <SidebarMenu>
                             <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
                                 <Label className="font-semibold font-poppins">
-                                    Display hiding zones?
+                                    {tr("zone.displayHidingZones")}
                                 </Label>
                                 <Checkbox
                                     defaultChecked={$displayHidingZones}
@@ -521,13 +521,12 @@ export const ZoneSidebar = () => {
                                     "text-orange-500",
                                 )}
                             >
-                                Warning: This feature can drastically slow down
-                                your device.
+                                {tr("zone.warning")}
                             </SidebarMenuItem>
                             <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
                                 <div className="flex flex-row items-center justify-between w-full">
                                     <Label className="font-semibold font-poppins">
-                                        Use custom station list?
+                                        {tr("zone.useCustomStationList")}
                                     </Label>
                                     <Checkbox
                                         checked={useCustomStations}
@@ -541,7 +540,7 @@ export const ZoneSidebar = () => {
                             <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
                                 <div className="flex flex-row items-center justify-between w-full">
                                     <Label className="font-semibold font-poppins">
-                                        Merge duplicated stations?
+                                        {tr("zone.mergeDuplicatedStations")}
                                     </Label>
                                     <Checkbox
                                         checked={mergeDuplicates}
@@ -559,9 +558,7 @@ export const ZoneSidebar = () => {
                                     >
                                         <div className="flex flex-col gap-2 w-full">
                                             <Label className="font-semibold font-poppins leading-5">
-                                                Import stations from URL (CSV,
-                                                GeoJSON, KML). This must be a
-                                                raw file link.
+                                                {tr("zone.importFromUrl")}
                                             </Label>
                                             <div className="flex gap-2">
                                                 <Input
@@ -601,7 +598,7 @@ export const ZoneSidebar = () => {
                                                                 0
                                                             ) {
                                                                 toast.error(
-                                                                    "No stations found in provided URL",
+                                                                    t("zone.noStationsInUrl", locale.get()),
                                                                 );
                                                                 return;
                                                             }
@@ -609,16 +606,16 @@ export const ZoneSidebar = () => {
                                                                 parsed,
                                                             );
                                                             toast.success(
-                                                                `Imported ${parsed.length} stations`,
+                                                                t("zone.importedStations", locale.get()),
                                                             );
                                                         } catch (e: any) {
                                                             toast.error(
-                                                                `Failed to import from URL: ${e.message || e}`,
+                                                                t("zone.failedImportUrl", locale.get()),
                                                             );
                                                         }
                                                     }}
                                                 >
-                                                    Import
+                                                    {tr("zone.import")}
                                                 </button>
                                             </div>
                                             <div>
@@ -656,7 +653,7 @@ export const ZoneSidebar = () => {
                                                                 all.length === 0
                                                             ) {
                                                                 toast.error(
-                                                                    "No stations found in uploaded files",
+                                                                    t("zone.noStationsInFiles", locale.get()),
                                                                 );
                                                                 return;
                                                             }
@@ -691,11 +688,11 @@ export const ZoneSidebar = () => {
                                                                 unique,
                                                             );
                                                             toast.success(
-                                                                `Imported ${unique.length} stations`,
+                                                                t("zone.importedStations", locale.get()),
                                                             );
                                                         } catch (e: any) {
                                                             toast.error(
-                                                                `Failed to import files: ${e.message || e}`,
+                                                                t("zone.failedImportFiles", locale.get()),
                                                             );
                                                         }
                                                     }}
@@ -703,8 +700,7 @@ export const ZoneSidebar = () => {
                                             </div>
                                             <div className="flex flex-row items-center justify-between w-full">
                                                 <Label className="font-semibold font-poppins">
-                                                    Include default stations
-                                                    with custom list?
+                                                    {tr("zone.includeDefaultStations")}
                                                 </Label>
                                                 <Checkbox
                                                     checked={
@@ -735,7 +731,7 @@ export const ZoneSidebar = () => {
                                                             )
                                                         }
                                                     >
-                                                        Clear Imported
+                                                        {tr("zone.clearImported")}
                                                     </Button>
                                                 </div>
                                             )}
@@ -747,55 +743,55 @@ export const ZoneSidebar = () => {
                                 <MultiSelect
                                     options={[
                                         {
-                                            label: "Railway Stations",
+                                            label: tr("placeType.railwayStations"),
                                             value: "[railway=station]",
                                         },
                                         {
-                                            label: "Railway Halts",
+                                            label: tr("placeType.railwayHalts"),
                                             value: "[railway=halt]",
                                         },
                                         {
-                                            label: "Railway Stops",
+                                            label: tr("placeType.railwayStops"),
                                             value: "[railway=stop]",
                                         },
                                         {
-                                            label: "Tram Stops",
+                                            label: tr("placeType.tramStops"),
                                             value: "[railway=tram_stop]",
                                         },
                                         {
-                                            label: "Bus Stops",
+                                            label: tr("placeType.busStops"),
                                             value: "[highway=bus_stop]",
                                         },
                                         {
-                                            label: "Ferry Terminals",
+                                            label: tr("placeType.ferryTerminals"),
                                             value: "[amenity=ferry_terminal]",
                                         },
                                         {
-                                            label: "Ferry Platforms (public transport)",
+                                            label: tr("placeType.ferryPlatforms"),
                                             value: "[public_transport=platform][platform=ferry]",
                                         },
                                         {
-                                            label: "Funicular Stations",
+                                            label: tr("placeType.funicularStations"),
                                             value: "[railway=funicular]",
                                         },
                                         {
-                                            label: "Aerialway Stations",
+                                            label: tr("placeType.aerialwayStations"),
                                             value: "[aerialway=station]",
                                         },
                                         {
-                                            label: "Railway Stations Excluding Subways",
+                                            label: tr("placeType.railwayExcludingSubway"),
                                             value: "[railway=station][subway!=yes]",
                                         },
                                         {
-                                            label: "Subway Stations",
+                                            label: tr("placeType.subwayStations"),
                                             value: "[railway=station][subway=yes]",
                                         },
                                         {
-                                            label: "Light Rail Stations",
+                                            label: tr("placeType.lightRailStations"),
                                             value: "[railway=station][light_rail=yes]",
                                         },
                                         {
-                                            label: "Light Rail Halts",
+                                            label: tr("placeType.lightRailHalts"),
                                             value: "[railway=halt][light_rail=yes]",
                                         },
                                     ]}
@@ -817,7 +813,7 @@ export const ZoneSidebar = () => {
                             </SidebarMenuItem>
                             <SidebarMenuItem>
                                 <Label className="font-semibold font-poppins ml-2">
-                                    Hiding Zone Radius
+                                    {tr("zone.hidingZoneRadius")}
                                 </Label>
                                 <div
                                     className={cn(
@@ -851,7 +847,7 @@ export const ZoneSidebar = () => {
                                     onClick={removeHidingZones}
                                     disabled={$isLoading}
                                 >
-                                    No Display
+                                    {tr("zone.noDisplay")}
                                 </SidebarMenuItem>
                             )}
                             {$displayHidingZones && stations.length > 0 && (
@@ -876,7 +872,7 @@ export const ZoneSidebar = () => {
                                     }}
                                     disabled={$isLoading}
                                 >
-                                    All Stations
+                                    {tr("zone.allStations")}
                                 </SidebarMenuItem>
                             )}
                             {$displayHidingZones && stations.length > 0 && (
@@ -899,7 +895,7 @@ export const ZoneSidebar = () => {
                                     }}
                                     disabled={$isLoading}
                                 >
-                                    All Zones
+                                    {tr("zone.allZones")}
                                 </SidebarMenuItem>
                             )}
                             {$displayHidingZones && stations.length > 0 && (
@@ -924,7 +920,7 @@ export const ZoneSidebar = () => {
                                     }}
                                     disabled={$isLoading}
                                 >
-                                    No Overlap
+                                    {tr("zone.noOverlap")}
                                 </SidebarMenuItem>
                             )}
                             {$displayHidingZones && commandValue && (
@@ -935,7 +931,7 @@ export const ZoneSidebar = () => {
                                     )}
                                     disabled={$isLoading}
                                 >
-                                    Current:{" "}
+                                    {tr("zone.current")}:{" "}
                                     {(() => {
                                         const selected = stations.find(
                                             (x) =>
@@ -991,7 +987,7 @@ export const ZoneSidebar = () => {
                                         }}
                                         disabled={$isLoading}
                                     >
-                                        Clear Disabled
+                                        {tr("zone.clearDisabled")}
                                     </SidebarMenuItem>
                                 )}
                             {$displayHidingZones && (
@@ -1008,18 +1004,18 @@ export const ZoneSidebar = () => {
                                     }}
                                     disabled={$isLoading}
                                 >
-                                    Disable All
+                                    {tr("zone.disableAll")}
                                 </SidebarMenuItem>
                             )}
                             {$displayHidingZones && (
                                 <Command>
                                     <CommandInput
-                                        placeholder="Search for a hiding zone..."
+                                        placeholder={tr("zone.searchPlaceholder")}
                                         disabled={$isLoading}
                                     />
                                     <CommandList className="max-h-full">
                                         <CommandEmpty>
-                                            No hiding zones found.
+                                            {tr("zone.noHidingZonesFound")}
                                         </CommandEmpty>
                                         <CommandGroup>
                                             {stations.map((station) => (
@@ -1160,7 +1156,7 @@ export const ZoneSidebar = () => {
                                                         className="bg-slate-600 p-0.5 rounded-md"
                                                         disabled={$isLoading}
                                                     >
-                                                        View
+                                                        {tr("zone.view")}
                                                     </button>
                                                 </CommandItem>
                                             ))}
@@ -1434,9 +1430,7 @@ async function selectionProcess(
     }
 
     if (_.isEqual(mapData, BLANK_GEOJSON)) {
-        toast.warning(
-            "The hider cannot be in this hiding zone. This wasn't eliminated on the sidebar as its absence was caused by multiple criteria.",
-        );
+        toast.warning(t("zone.hiderCannotBeHere", locale.get()));
     }
 
     showGeoJSON(mapData);

@@ -19,6 +19,7 @@ const Select = <T extends string>({
         { disabled: boolean; options: Options<T> } | Options<T>
     >;
     onValueChange?: (value: T) => void;
+    onOpenChange?: (open: boolean) => void;
     value: T;
 }) => {
     const { placeholder, className } =

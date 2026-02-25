@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
+import { locale, t, useT } from "@/i18n";
 
 import {
     Command,
@@ -57,6 +58,7 @@ export const PlacePicker = ({
     const $polyGeoJSON = useStore(polyGeoJSON);
     const $isLoading = useStore(isLoading);
     const [open, setOpen] = useState(false);
+    const tr = useT();
     const [inputValue, setInputValue] = useState("");
     const debouncedValue = useDebounce<string>(inputValue);
     const [results, setResults] = useState<OpenStreetMap[]>([]);
@@ -104,7 +106,7 @@ export const PlacePicker = ({
                     data-tutorial-id="place-picker"
                 >
                     {$polyGeoJSON
-                        ? "Polygon selected"
+                        ? tr("placePicker.polygonSelected")
                         : $mapGeoLocation &&
                             $mapGeoLocation.properties &&
                             $mapGeoLocation.properties.name
@@ -116,7 +118,7 @@ export const PlacePicker = ({
                             ]
                                 .map((location) => determineName(location))
                                 .join("; ")
-                          : "Hiding bounds"}
+                          : tr("placePicker.hidingBounds")}
                     <ChevronsUpDown className="opacity-50" />
                 </Button>
             </PopoverTrigger>
@@ -224,7 +226,7 @@ export const PlacePicker = ({
                                                 );
                                             } else {
                                                 return toast.error(
-                                                    "Please add another location in addition mode.",
+                                                    t("placePicker.addAnotherLocation", locale.get()),
                                                     {
                                                         autoClose: 3000,
                                                     },
@@ -254,7 +256,7 @@ export const PlacePicker = ({
                 <Separator className="h-[0.5px]" />
                 <Command shouldFilter={false}>
                     <CommandInput
-                        placeholder="Search place..."
+                        placeholder={tr("placePicker.searchPlaceholder")}
                         onKeyUp={(x) => {
                             setInputValue(x.currentTarget.value);
                         }}
@@ -262,7 +264,7 @@ export const PlacePicker = ({
                     <CommandList>
                         <CommandEmpty>
                             {loading ? (
-                                <>Loading...</>
+                                <>{tr("placePicker.loading")}</>
                             ) : error ? (
                                 <>
                                     <a
@@ -271,11 +273,10 @@ export const PlacePicker = ({
                                     >
                                         Photon
                                     </a>{" "}
-                                    is down. Please draw a polygon instead at
-                                    the bottom left of the map.
+                                    {tr("placePicker.photonDown")}
                                 </>
                             ) : (
-                                "No locations found."
+                                tr("placePicker.noLocationsFound")
                             )}
                         </CommandEmpty>
                         <CommandGroup>
@@ -320,7 +321,7 @@ export const PlacePicker = ({
                             clearCache(CacheType.ZONE_CACHE);
                         }}
                     >
-                        Clear Questions & Cache
+                        {tr("placePicker.clearQuestionsAndCache")}
                     </Button>
                     {$polyGeoJSON && (
                         <Button
@@ -332,7 +333,7 @@ export const PlacePicker = ({
                                 questions.set([...questions.get()]);
                             }}
                         >
-                            Reuse Preset Locations
+                            {tr("placePicker.reusePresetLocations")}
                         </Button>
                     )}
                 </Command>

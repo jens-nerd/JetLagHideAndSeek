@@ -1,8 +1,8 @@
 import { useStore } from "@nanostores/react";
+import { LogIn, LogOut } from "lucide-react";
 
 import { LatitudeLongitude } from "@/components/LatLngPicker";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
     MENU_ITEM_CLASSNAME,
     SidebarMenuItem,
@@ -26,11 +26,13 @@ export const RadiusQuestionComponent = ({
     questionKey,
     sub,
     className,
+    embedded = false,
 }: {
     data: RadiusQuestion;
     questionKey: number;
     sub?: string;
     className?: string;
+    embedded?: boolean;
 }) => {
     useStore(triggerLocalRefresh);
     const $hiderMode = useStore(hiderMode);
@@ -56,6 +58,7 @@ export const RadiusQuestionComponent = ({
             }}
             locked={!data.drag}
             setLocked={(locked) => questionModified((data.drag = !locked))}
+            embedded={embedded}
         >
             <SidebarMenuItem>
                 <div className={cn(MENU_ITEM_CLASSNAME, "gap-2 flex flex-row")}>
@@ -83,6 +86,7 @@ export const RadiusQuestionComponent = ({
                 latitude={data.lat}
                 longitude={data.lng}
                 colorName={data.color}
+                label={embedded ? "" : undefined}
                 onChange={(lat, lng) => {
                     if (lat !== null) {
                         data.lat = lat;
@@ -93,16 +97,9 @@ export const RadiusQuestionComponent = ({
                     questionModified();
                 }}
                 disabled={!data.drag || $isLoading}
+                compact={embedded}
             />
             <div className="flex gap-2 items-center p-2">
-                <Label
-                    className={cn(
-                        "font-semibold text-lg",
-                        $isLoading && "text-muted-foreground",
-                    )}
-                >
-                    Result
-                </Label>
                 <ToggleGroup
                     className="grow"
                     type="single"
@@ -112,8 +109,8 @@ export const RadiusQuestionComponent = ({
                     }
                     disabled={!!$hiderMode || !data.drag || $isLoading}
                 >
-                    <ToggleGroupItem value="outside">Outside</ToggleGroupItem>
-                    <ToggleGroupItem value="inside">Inside</ToggleGroupItem>
+                    <ToggleGroupItem value="outside" title="Outside" className="flex items-center justify-center"><LogOut className="h-5 w-5" /></ToggleGroupItem>
+                    <ToggleGroupItem value="inside" title="Inside" className="flex items-center justify-center"><LogIn className="h-5 w-5" /></ToggleGroupItem>
                 </ToggleGroup>
             </div>
         </QuestionCard>

@@ -4,9 +4,12 @@ import {
     ClipboardPasteIcon,
     EditIcon,
     LocateIcon,
+    MapPin,
+    X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
+import { locale, t, useT } from "@/i18n";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -93,17 +96,23 @@ const LatLngEditForm = ({
     longitude,
     onChange,
     disabled,
+    compact = false,
 }: {
     latitude: number;
     longitude: number;
     onChange: (lat: number | null, lng: number | null) => void;
     disabled?: boolean;
+    compact?: boolean;
 }) => {
     const [inputValue, setInputValue] = useState("");
     const debouncedValue = useDebounce<string>(inputValue);
     const [results, setResults] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(false);
+    /** Whether the search dropdown is open */
+    const [searchOpen, setSearchOpen] = useState(false);
+    /** Label of the last selected search result */
+    const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
 
     useEffect(() => {
         if (debouncedValue === "") {
@@ -141,46 +150,76 @@ const LatLngEditForm = ({
 
     return (
         <>
-            <Command shouldFilter={false}>
+            {/* ── Search field with collapse + selected-place chip ── */}
+            <Command
+                shouldFilter={false}
+                onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
+            >
+                {/* Selected place chip */}
+                {selectedLabel && (
+                    <div className="flex items-center gap-1 px-2 py-1 rounded text-xs mb-1"
+                        style={{ backgroundColor: "#84BCDA" }}>
+                        <MapPin className="h-3 w-3 shrink-0 text-white" />
+                        <span className="flex-1 truncate font-medium text-white">{selectedLabel}</span>
+                        <button
+                            type="button"
+                            onClick={() => setSelectedLabel(null)}
+                            className="text-white/70 hover:text-white"
+                        >
+                            <X className="h-3 w-3" />
+                        </button>
+                    </div>
+                )}
                 <CommandInput
-                    placeholder="Search place..."
-                    onKeyUp={(x) => setInputValue(x.currentTarget.value)}
+                    placeholder={t("latlng.searchPlaceholder", locale.get())}
+                    onFocus={() => setSearchOpen(true)}
+                    onKeyUp={(x) => {
+                        setInputValue(x.currentTarget.value);
+                        if (x.currentTarget.value) setSearchOpen(true);
+                    }}
                     disabled={disabled}
                 />
-                <CommandList>
-                    <CommandEmpty>
-                        {loading
-                            ? "Loading..."
-                            : error
-                              ? "Error loading places."
-                              : "No locations found."}
-                    </CommandEmpty>
-                    <CommandGroup>
-                        {results.map((result) => (
-                            <CommandItem
-                                key={`${result.properties.osm_id}${result.properties.name}`}
-                                onSelect={() => {
-                                    const coords = result.geometry.coordinates;
-                                    onChange(coords[0], coords[1]);
-                                }}
-                                className="cursor-pointer"
-                            >
-                                {(() => {
-                                    const _key = `${result.properties.osm_id}${result.properties.name}`;
-                                    return (
-                                        _latlngLabelByKey[_key] ||
-                                        determineName(result)
-                                    );
-                                })()}
-                            </CommandItem>
-                        ))}
-                    </CommandGroup>
-                </CommandList>
+                {searchOpen && (
+                    <CommandList>
+                        <CommandEmpty>
+                            {loading
+                                ? t("latlng.searching", locale.get())
+                                : error
+                                  ? t("latlng.loadError", locale.get())
+                                  : t("latlng.noLocationFound", locale.get())}
+                        </CommandEmpty>
+                        <CommandGroup>
+                            {results.map((result) => {
+                                const _key = `${result.properties.osm_id}${result.properties.name}`;
+                                const lbl = _latlngLabelByKey[_key] || determineName(result);
+                                return (
+                                    <CommandItem
+                                        key={_key}
+                                        onSelect={() => {
+                                            const coords = result.geometry.coordinates;
+                                            onChange(coords[0], coords[1]);
+                                            setSelectedLabel(lbl);
+                                            setSearchOpen(false);
+                                            setInputValue("");
+                                            setResults([]);
+                                        }}
+                                        className="cursor-pointer"
+                                    >
+                                        {lbl}
+                                    </CommandItem>
+                                );
+                            })}
+                        </CommandGroup>
+                    </CommandList>
+                )}
             </Command>
-            <div className="flex gap-2 items-center">
-                <Label className="min-w-16">Latitude</Label>
+
+            {/* ── Lat/Lng inputs ── */}
+            <div className={cn("flex gap-2 items-center", compact ? "w-full" : "flex-wrap")}>
+                <Label className={cn("text-sm shrink-0", compact ? "w-8" : "min-w-10")}>Lat</Label>
                 <Input
                     type="number"
+                    className={cn(compact ? "flex-1 w-0 min-w-0 h-9 text-base" : "flex-1 min-w-0")}
                     value={Math.abs(latitude)}
                     min={0}
                     max={90}
@@ -196,16 +235,18 @@ const LatLngEditForm = ({
                 />
                 <Button
                     variant="outline"
+                    className={cn(compact && "shrink-0 h-9 px-3")}
                     onClick={() => onChange(-latitude, null)}
                     disabled={disabled}
                 >
                     {latitude > 0 ? "N" : "S"}
                 </Button>
             </div>
-            <div className="flex gap-2 items-center">
-                <Label className="min-w-16">Longitude</Label>
+            <div className={cn("flex gap-2 items-center", compact ? "w-full" : "flex-wrap")}>
+                <Label className={cn("text-sm shrink-0", compact ? "w-8" : "min-w-10")}>Lng</Label>
                 <Input
                     type="number"
+                    className={cn(compact ? "flex-1 w-0 min-w-0 h-9 text-base" : "flex-1 min-w-0")}
                     value={Math.abs(longitude)}
                     min={0}
                     max={180}
@@ -221,6 +262,7 @@ const LatLngEditForm = ({
                 />
                 <Button
                     variant="outline"
+                    className={cn(compact && "shrink-0 h-9 px-3")}
                     onClick={() => onChange(null, -longitude)}
                     disabled={disabled}
                 >
@@ -240,6 +282,7 @@ export const LatitudeLongitude = ({
     children,
     disabled,
     inlineEdit = false,
+    compact = false,
 }: {
     latitude: number;
     longitude: number;
@@ -250,11 +293,141 @@ export const LatitudeLongitude = ({
     children?: React.ReactNode;
     disabled?: boolean;
     inlineEdit?: boolean;
+    /**
+     * Compact mode: no coloured SidebarMenuItem background, text-link action
+     * buttons instead of icon buttons. Designed for embedding inside panels
+     * with their own styling (e.g. the blue pending-question box).
+     */
+    compact?: boolean;
 }) => {
     const $isLoading = useStore(isLoading);
+    const tr = useT();
 
     const color = colorName ? ICON_COLORS[colorName] : "transparent";
 
+    // Shared action handlers
+    const handleLocate = () => {
+        if (!navigator || !navigator.geolocation)
+            return alert(t("latlng.geolocationNotSupported", locale.get()));
+        isLoading.set(true);
+        toast.promise(
+            new Promise<GeolocationPosition>((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                    maximumAge: 0,
+                    enableHighAccuracy: true,
+                });
+            })
+                .then((position) => {
+                    onChange(position.coords.latitude, position.coords.longitude);
+                })
+                .finally(() => {
+                    isLoading.set(false);
+                }),
+            {
+                pending: t("latlng.fetchingLocation", locale.get()),
+                success: t("latlng.locationFetched", locale.get()),
+                error: t("latlng.couldNotFetchLocation", locale.get()),
+            },
+            { autoClose: 500 },
+        );
+    };
+
+    const handlePaste = () => {
+        if (!navigator || !navigator.clipboard) {
+            toast.error(t("addQuestion.clipboardNotSupported", locale.get()));
+            return;
+        }
+        isLoading.set(true);
+        toast.promise(
+            navigator.clipboard
+                .readText()
+                .then((text) => {
+                    const coords = parseCoordinatesFromText(text);
+                    if (coords.lat !== null && coords.lng !== null) {
+                        onChange(coords.lat, coords.lng);
+                        return;
+                    }
+                    throw new Error("Could not find coordinates in clipboard content");
+                })
+                .finally(() => {
+                    isLoading.set(false);
+                }),
+            {
+                pending: t("latlng.readingClipboard", locale.get()),
+                success: t("latlng.coordinatesSet", locale.get()),
+                error: t("latlng.noValidCoordinates", locale.get()),
+            },
+            { autoClose: 1000 },
+        );
+    };
+
+    const handleCopy = () => {
+        if (!navigator || !navigator.clipboard) {
+            toast.error("Clipboard API not supported in your browser");
+            return;
+        }
+        toast.promise(
+            navigator.clipboard.writeText(
+                `${Math.abs(latitude)}°${latitude > 0 ? "N" : "S"}, ${Math.abs(longitude)}°${longitude > 0 ? "E" : "W"}`,
+            ),
+            {
+                pending: t("latlng.writingToClipboard", locale.get()),
+                success: t("latlng.coordinatesCopied", locale.get()),
+                error: t("latlng.errorCopying", locale.get()),
+            },
+            { autoClose: 1000 },
+        );
+    };
+
+    // ── Compact mode ──────────────────────────────────────────────────────────
+    if (compact) {
+        return (
+            <>
+                <div className={cn("rounded-md p-2 space-y-1", $isLoading && "opacity-50")}
+                    style={{ backgroundColor: color || undefined }}
+                >
+                    {/* Label + coordinates on one line */}
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                        {label && <span className="font-bold text-sm text-white">{label}</span>}
+                        <span className="tabular-nums text-xs font-medium text-white">
+                            {Math.abs(latitude).toFixed(5)}°{latitude > 0 ? "N" : "S"}{" "}
+                            {Math.abs(longitude).toFixed(5)}°{longitude > 0 ? "E" : "W"}
+                        </span>
+                    </div>
+                    {/* Edit form always inline in compact mode */}
+                    <LatLngEditForm
+                        latitude={latitude}
+                        longitude={longitude}
+                        onChange={onChange}
+                        disabled={disabled}
+                        compact={true}
+                    />
+                    {/* Text-link action row */}
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                        <button
+                            type="button"
+                            onClick={handleLocate}
+                            disabled={disabled}
+                            className="underline font-medium text-white disabled:opacity-40 hover:text-white/80"
+                        >
+                            GPS
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handlePaste}
+                            disabled={disabled}
+                            className="underline font-medium text-white disabled:opacity-40 hover:text-white/80"
+                        >
+                            {tr("latlng.fromClipboard")}
+                        </button>
+                    </div>
+                </div>
+                {children}
+            </>
+        );
+    }
+
+    // ── Standard (full) mode ──────────────────────────────────────────────────
     return (
         <>
             <SidebarMenuItem
@@ -323,7 +496,7 @@ export const LatitudeLongitude = ({
                             <DialogContent>
                                 <DialogHeader>
                                     <DialogTitle className="text-2xl">
-                                        Update {label}
+                                        {tr("latlng.updateLocation")} {label}
                                     </DialogTitle>
                                 </DialogHeader>
                                 <LatLngEditForm
@@ -334,7 +507,7 @@ export const LatitudeLongitude = ({
                                 />
                                 <DialogFooter>
                                     <DialogClose asChild>
-                                        <Button>Done</Button>
+                                        <Button>{tr("latlng.done")}</Button>
                                     </DialogClose>
                                 </DialogFooter>
                             </DialogContent>
@@ -349,42 +522,7 @@ export const LatitudeLongitude = ({
                     >
                         <Button
                             variant="outline"
-                            onClick={() => {
-                                if (!navigator || !navigator.geolocation)
-                                    return alert("Geolocation not supported");
-
-                                isLoading.set(true);
-
-                                toast.promise(
-                                    new Promise<GeolocationPosition>(
-                                        (resolve, reject) => {
-                                            navigator.geolocation.getCurrentPosition(
-                                                resolve,
-                                                reject,
-                                                {
-                                                    maximumAge: 0,
-                                                    enableHighAccuracy: true,
-                                                },
-                                            );
-                                        },
-                                    )
-                                        .then((position) => {
-                                            onChange(
-                                                position.coords.latitude,
-                                                position.coords.longitude,
-                                            );
-                                        })
-                                        .finally(() => {
-                                            isLoading.set(false);
-                                        }),
-                                    {
-                                        pending: "Fetching location",
-                                        success: "Location fetched",
-                                        error: "Could not fetch location",
-                                    },
-                                    { autoClose: 500 },
-                                );
-                            }}
+                            onClick={handleLocate}
                             disabled={disabled}
                             title="Set to current location"
                         >
@@ -392,48 +530,7 @@ export const LatitudeLongitude = ({
                         </Button>
                         <Button
                             variant="outline"
-                            onClick={() => {
-                                if (!navigator || !navigator.clipboard) {
-                                    toast.error(
-                                        "Clipboard API not supported in your browser",
-                                    );
-                                    return;
-                                }
-
-                                isLoading.set(true);
-
-                                toast.promise(
-                                    navigator.clipboard
-                                        .readText()
-                                        .then((text) => {
-                                            const coords =
-                                                parseCoordinatesFromText(text);
-                                            if (
-                                                coords.lat !== null &&
-                                                coords.lng !== null
-                                            ) {
-                                                onChange(
-                                                    coords.lat,
-                                                    coords.lng,
-                                                );
-                                                return;
-                                            }
-                                            throw new Error(
-                                                "Could not find coordinates in clipboard content",
-                                            );
-                                        })
-                                        .finally(() => {
-                                            isLoading.set(false);
-                                        }),
-                                    {
-                                        pending: "Reading from clipboard",
-                                        success:
-                                            "Coordinates set from clipboard",
-                                        error: "No valid coordinates found in clipboard",
-                                    },
-                                    { autoClose: 1000 },
-                                );
-                            }}
+                            onClick={handlePaste}
                             disabled={disabled}
                             title="Paste coordinates from clipboard"
                         >
@@ -441,28 +538,7 @@ export const LatitudeLongitude = ({
                         </Button>
                         <Button
                             variant="outline"
-                            onClick={() => {
-                                if (!navigator || !navigator.clipboard) {
-                                    toast.error(
-                                        "Clipboard API not supported in your browser",
-                                    );
-                                    return;
-                                }
-
-                                toast.promise(
-                                    navigator.clipboard.writeText(
-                                        `${Math.abs(latitude)}°${latitude > 0 ? "N" : "S"}, ${Math.abs(
-                                            longitude,
-                                        )}°${longitude > 0 ? "E" : "W"}`,
-                                    ),
-                                    {
-                                        pending: "Writing to clipboard...",
-                                        success: "Coordinates copied!",
-                                        error: "An error occurred while copying",
-                                    },
-                                    { autoClose: 1000 },
-                                );
-                            }}
+                            onClick={handleCopy}
                             title="Copy coordinates to clipboard"
                         >
                             <ClipboardCopyIcon />

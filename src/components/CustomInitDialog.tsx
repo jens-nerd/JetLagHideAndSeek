@@ -1,6 +1,7 @@
 import { useStore } from "@nanostores/react";
 import * as React from "react";
 import { useState } from "react";
+import { useT } from "@/i18n";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -31,6 +32,7 @@ export const CustomInitDialog: React.FC<Props> = ({
 }) => {
     useStore(customInitPreference);
     const [remember, setRemember] = useState(false);
+    const tr = useT();
 
     const handleBlank = async () => {
         if (remember) customInitPreference.set("blank");
@@ -45,10 +47,9 @@ export const CustomInitDialog: React.FC<Props> = ({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>New Custom Question</DialogTitle>
+                    <DialogTitle>{tr("customInit.title")}</DialogTitle>
                     <DialogDescription>
-                        Do you want the new question to start blank, or copy
-                        what the current question contains?
+                        {tr("customInit.description")}
                     </DialogDescription>
                 </DialogHeader>
                 <div className="flex items-center gap-2">
@@ -58,14 +59,14 @@ export const CustomInitDialog: React.FC<Props> = ({
                         onCheckedChange={(c) => setRemember(Boolean(c))}
                     />
                     <label htmlFor={checkboxId} className="text-sm">
-                        Remember my choice
+                        {tr("customInit.rememberChoice")}
                     </label>
                 </div>
                 <DialogFooter>
                     <Button variant="secondary" onClick={handleBlank}>
-                        Start blank
+                        {tr("customInit.startBlank")}
                     </Button>
-                    <Button onClick={handlePrefill}>Copy from current</Button>
+                    <Button onClick={handlePrefill}>{tr("customInit.copyFromCurrent")}</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

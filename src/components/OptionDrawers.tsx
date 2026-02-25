@@ -50,6 +50,7 @@ import {
     uploadToPastebin,
 } from "@/lib/utils";
 import { questionsSchema } from "@/maps/schema";
+import { locale, t, useT, type Locale } from "@/i18n";
 
 import { LatitudeLongitude } from "./LatLngPicker";
 import { Button } from "./ui/button";
@@ -71,6 +72,7 @@ const PASTEBIN_URL_PARAM = "pb";
 
 export const OptionDrawers = ({ className }: { className?: string }) => {
     useStore(triggerLocalRefresh);
+    const tr = useT();
     const $defaultUnit = useStore(defaultUnit);
     const $highlightTrainLines = useStore(highlightTrainLines);
     const $animateMapMovements = useStore(animateMapMovements);
@@ -87,6 +89,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
     const lastDefaultUnit = useRef($defaultUnit);
     const hasSyncedInitialUnit = useRef(false);
     const [isOptionsOpen, setOptionsOpen] = useState(false);
+    const [hasOpenSelect, setHasOpenSelect] = useState(false);
 
     useEffect(() => {
         const currentDefault = $defaultUnit;
@@ -118,7 +121,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                 // Remove hiding zone parameter after initial load
                 window.history.replaceState({}, "", window.location.pathname);
             } catch (e) {
-                toast.error(`Invalid hiding zone settings: ${e}`);
+                toast.error(t("toast.options.hidingZoneInvalid", locale.get()));
             }
         } else if (hidingZoneCompressed !== null) {
             // Modern compressed format
@@ -132,7 +135,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                         window.location.pathname,
                     );
                 } catch (e) {
-                    toast.error(`Invalid hiding zone settings: ${e}`);
+                    toast.error(t("toast.options.hidingZoneInvalid", locale.get()));
                 }
             });
         } else if (pastebinId !== null) {
@@ -146,18 +149,14 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                             "",
                             window.location.pathname,
                         );
-                        toast.success(
-                            "Successfully loaded data from Pastebin link!",
-                        );
+                        toast.success(t("toast.options.hidingZoneLoaded", locale.get()));
                     } catch (e) {
-                        toast.error(`Invalid data from Pastebin: ${e}`);
+                        toast.error(t("toast.options.hidingZoneInvalid", locale.get()));
                     }
                 })
                 .catch((error) => {
                     console.error("Failed to fetch from Pastebin:", error);
-                    toast.error(
-                        `Failed to load from Pastebin: ${error.message}`,
-                    );
+                    toast.error(t("toast.options.hidingZoneInvalid", locale.get()));
                 });
         }
     }, []);
@@ -220,7 +219,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                         });
                     if (normalized.length > 0) {
                         customPresets.set(normalized);
-                        toast.info(`Imported ${normalized.length} preset(s)`);
+                        toast.info(t("toast.options.importedPresets", locale.get()));
                     }
                 } catch (err) {
                     console.warn("Failed to import presets", err);
@@ -257,11 +256,11 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                 includeDefaultStations.set(geojson.includeDefaultStations);
             }
 
-            toast.success("Hiding zone loaded successfully", {
+            toast.success(t("toast.options.hidingZoneLoaded", locale.get()), {
                 autoClose: 2000,
             });
         } catch (e) {
-            toast.error(`Invalid hiding zone settings: ${e}`);
+            toast.error(t("toast.options.hidingZoneInvalid", locale.get()));
         }
     };
 
@@ -281,7 +280,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                         compressedData = await compress(hidingZoneString);
                     } catch (error) {
                         console.error("Compression failed:", error);
-                        toast.error(`Failed to prepare data for sharing`);
+                        toast.error(t("toast.options.failedToPrepareData", locale.get()));
                         return;
                     }
 
@@ -291,12 +290,12 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                     if ($alwaysUsePastebin || shareUrl.length > 2000) {
                         if (!$pastebinApiKey) {
                             toast.error(
-                                "Data is too large for a URL or Pastebin is forced. Please enter a Pastebin API key in Options to share via Pastebin.",
+                                t("toast.options.shareDataTooLarge", locale.get()),
                             );
                             return;
                         }
                         try {
-                            toast.info("Data is being shared via Pastebin...");
+                            toast.info(t("toast.options.sharingViaPastebin", locale.get()));
                             const pastebinUrl = await uploadToPastebin(
                                 $pastebinApiKey,
                                 hidingZoneString,
@@ -306,12 +305,12 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                             );
                             shareUrl = `${baseUrl}?${PASTEBIN_URL_PARAM}=${pasteId}`;
                             toast.success(
-                                "Successfully uploaded to Pastebin! URL is ready to be shared.",
+                                t("toast.options.pastebinSuccess", locale.get()),
                             );
                         } catch (error) {
                             console.error("Pastebin upload failed:", error);
                             toast.error(
-                                `Pastebin upload failed. Please check your API key and try again.`,
+                                t("toast.options.pastebinFailed", locale.get()),
                             );
                             return;
                         }
@@ -322,14 +321,14 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                         console.log(`result ${result}`);
                         if (result === false) {
                             return toast.error(
-                                `Clipboard not supported. Try manually copying/pasting: ${shareUrl}`,
+                                t("toast.options.clipboardNotSupported", locale.get()),
                                 { className: "p-0 w-[1000px]" },
                             );
                         }
 
                         if (result === "clipboard") {
                             toast.success(
-                                "Hiding zone URL copied to clipboard",
+                                t("toast.options.hidingZoneUrlCopied", locale.get()),
                                 {
                                     autoClose: 2000,
                                 },
@@ -339,7 +338,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                 }}
                 data-tutorial-id="share-questions-button"
             >
-                Share
+                {tr("options.share")}
             </Button>
             <Button
                 className="w-24 shadow-md"
@@ -347,7 +346,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                     showTutorial.set(true);
                 }}
             >
-                Tutorial
+                {tr("options.tutorial")}
             </Button>
             <Drawer open={isOptionsOpen} onOpenChange={setOptionsOpen}>
                 <DrawerTrigger className="w-24" asChild>
@@ -355,75 +354,100 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                         className="w-24 shadow-md"
                         data-tutorial-id="option-questions-button"
                     >
-                        Options
+                        {tr("options.title")}
                     </Button>
                 </DrawerTrigger>
-                <DrawerContent>
+                <DrawerContent onPointerDownOutside={(e) => { if (hasOpenSelect) e.preventDefault(); }}>
                     <div className="flex flex-col items-center gap-4 mb-4">
                         <DrawerHeader>
                             <DrawerTitle className="text-4xl font-semibold font-poppins">
-                                Options
+                                {tr("options.title")}
                             </DrawerTitle>
                         </DrawerHeader>
                         <div className="overflow-y-scroll max-h-[40vh] flex flex-col items-center gap-4 max-w-[1000px] px-12">
+                            {/* ── Language switcher (first item) ── */}
+                            <div className="flex flex-row items-center gap-2">
+                                <Label className="text-base font-semibold font-poppins">
+                                    {tr("language.label")}
+                                </Label>
+                                <div className="flex gap-1">
+                                    <Button
+                                        size="sm"
+                                        variant={locale.get() === "de" ? "default" : "outline"}
+                                        onClick={() => locale.set("de")}
+                                    >
+                                        {tr("language.de")}
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        variant={locale.get() === "en" ? "default" : "outline"}
+                                        onClick={() => locale.set("en")}
+                                    >
+                                        {tr("language.en")}
+                                    </Button>
+                                </div>
+                            </div>
+                            <Separator className="bg-slate-300 w-[280px]" />
                             <div className="flex flex-row max-[330px]:flex-col gap-4">
                                 <Button
                                     onClick={() => {
                                         if (!navigator || !navigator.clipboard)
                                             return toast.error(
-                                                "Clipboard not supported",
+                                                t("toast.options.clipboardNotSupported", locale.get()),
                                             );
                                         navigator.clipboard.writeText(
                                             JSON.stringify($hidingZone),
                                         );
                                         toast.success(
-                                            "Hiding zone copied successfully",
+                                            t("toast.options.hidingZoneCopied", locale.get()),
                                             {
                                                 autoClose: 2000,
                                             },
                                         );
                                     }}
                                 >
-                                    Copy Hiding Zone
+                                    {tr("options.copyHidingZone")}
                                 </Button>
                                 <Button
                                     onClick={() => {
                                         if (!navigator || !navigator.clipboard)
                                             return toast.error(
-                                                "Clipboard not supported",
+                                                t("toast.options.clipboardNotSupported", locale.get()),
                                             );
                                         navigator.clipboard
                                             .readText()
                                             .then(loadHidingZone);
                                     }}
                                 >
-                                    Paste Hiding Zone
+                                    {tr("options.pasteHidingZone")}
                                 </Button>
                             </div>
                             <Separator className="bg-slate-300 w-[280px]" />
-                            <Label>Default Unit</Label>
+                            <Label>{tr("options.defaultUnit")}</Label>
                             <UnitSelect
                                 unit={$defaultUnit}
                                 onChange={defaultUnit.set}
+                                onOpenChange={setHasOpenSelect}
                             />
                             <Separator className="bg-slate-300 w-[280px]" />
-                            <Label>New Custom Question Defaults</Label>
+                            <Label>{tr("options.newCustomQuestionDefaults")}</Label>
                             <Select
-                                trigger="New custom default"
+                                trigger={tr("options.newCustomQuestionDefaults")}
                                 options={{
-                                    ask: "Ask each time",
-                                    blank: "Start blank",
-                                    prefill: "Copy from current",
+                                    ask: tr("selectOption.askEachTime"),
+                                    blank: tr("selectOption.startBlank"),
+                                    prefill: tr("selectOption.copyFromCurrent"),
                                 }}
                                 value={$customInitPref}
                                 onValueChange={(v) =>
                                     customInitPreference.set(v as any)
                                 }
+                                onOpenChange={setHasOpenSelect}
                             />
                             <Separator className="bg-slate-300 w-[280px]" />
                             <div className="flex flex-row items-center gap-2">
                                 <label className="text-2xl font-semibold font-poppins">
-                                    Animate map movements?
+                                    {tr("options.animateMapMovements")}
                                 </label>
                                 <Checkbox
                                     checked={$animateMapMovements}
@@ -439,21 +463,13 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                             )}
                             <div className="flex flex-row items-center gap-2">
                                 <label className="text-2xl font-semibold font-poppins">
-                                    Highlight train lines?
+                                    {tr("options.highlightTrainLines")}
                                 </label>
                                 <Checkbox
                                     checked={$highlightTrainLines}
                                     onCheckedChange={() => {
                                         const willBeEnabled =
                                             !$highlightTrainLines;
-                                        if (
-                                            willBeEnabled &&
-                                            !$thunderforestApiKey
-                                        ) {
-                                            toast.warn(
-                                                "A Thunderforest API key is required to highlight train lines. Please add one in the options below.",
-                                            );
-                                        }
                                         highlightTrainLines.set(willBeEnabled);
                                     }}
                                 />
@@ -461,7 +477,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                             {$highlightTrainLines && (
                                 <>
                                     <div className="flex flex-col items-center gap-2">
-                                        <Label>Thunderforest API Key</Label>
+                                        <Label>{tr("options.thunderforestApiKey")}</Label>
                                         <Input
                                             type="text"
                                             value={$thunderforestApiKey}
@@ -471,20 +487,19 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                                                     e.target.value,
                                                 )
                                             }
-                                            placeholder="Enter your Thunderforest API key"
+                                            placeholder={tr("options.thunderforestApiKey")}
                                         />
                                         <p className="text-xs text-gray-500">
-                                            Needed for highlighting train lines.
-                                            Create a key{" "}
+                                            {tr("options.thunderforestApiKeyHelp1")}{" "}
                                             <a
                                                 href="https://manage.thunderforest.com/users/sign_up?price=hobby-project-usd"
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="text-blue-500 cursor-pointer"
                                             >
-                                                here.
+                                                {tr("options.thunderforestApiKeyHere")}.
                                             </a>{" "}
-                                            Don&apos;t worry, it&apos;s free.
+                                            {tr("options.thunderforestApiKeyHelp2")}
                                         </p>
                                     </div>
                                     <Separator className="bg-slate-300 w-[280px]" />{" "}
@@ -492,7 +507,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                             )}
                             <Separator className="bg-slate-300 w-[280px]" />
                             <div className="flex flex-col items-center gap-2">
-                                <Label>Pastebin API Key</Label>
+                                <Label>{tr("options.pastebinApiKey")}</Label>
                                 <Input
                                     type="text"
                                     value={$pastebinApiKey}
@@ -500,18 +515,17 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                                     onChange={(e) =>
                                         pastebinApiKey.set(e.target.value)
                                     }
-                                    placeholder="Enter your Pastebin API key"
+                                    placeholder={tr("options.pastebinApiKey")}
                                 />
                                 <p className="text-xs text-gray-500">
-                                    Needed for sharing large game data. Create a
-                                    key{" "}
+                                    {tr("options.pastebinApiKeyHelp1")}{" "}
                                     <a
                                         href="https://pastebin.com/doc_api"
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="text-blue-500 cursor-pointer"
                                     >
-                                        here
+                                        {tr("options.pastebinApiKeyHere")}
                                     </a>
                                     .
                                 </p>
@@ -519,7 +533,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                             <Separator className="bg-slate-300 w-[280px]" />
                             <div className="flex flex-row items-center gap-2">
                                 <label className="text-2xl font-semibold font-poppins">
-                                    Force Pastebin for sharing?
+                                    {tr("options.forcePastebin")}
                                 </label>
                                 <Checkbox
                                     checked={$alwaysUsePastebin}
@@ -532,7 +546,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                             </div>
                             <div className="flex flex-row items-center gap-2">
                                 <label className="text-2xl font-semibold font-poppins">
-                                    Enable planning mode?
+                                    {tr("options.planningMode")}
                                 </label>
                                 <Checkbox
                                     checked={$planningMode}
@@ -560,7 +574,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                             </div>
                             <div className="flex flex-row items-center gap-2">
                                 <label className="text-2xl font-semibold font-poppins">
-                                    Auto save?
+                                    {tr("options.autoSave")}
                                 </label>
                                 <Checkbox
                                     checked={$autoSave}
@@ -571,7 +585,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                             </div>
                             <div className="flex flex-row items-center gap-2">
                                 <label className="text-2xl font-semibold font-poppins">
-                                    Auto zoom?
+                                    {tr("options.autoZoom")}
                                 </label>
                                 <Checkbox
                                     checked={$autoZoom}
@@ -582,7 +596,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                             </div>
                             <div className="flex flex-row items-center gap-2">
                                 <label className="text-2xl font-semibold font-poppins">
-                                    Follow Me (GPS)?
+                                    {tr("options.followMe")}
                                 </label>
                                 <Checkbox
                                     checked={$followMe}
@@ -593,7 +607,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                             </div>
                             <div className="flex flex-row items-center gap-2">
                                 <label className="text-2xl font-semibold font-poppins">
-                                    Hider mode?
+                                    {tr("options.hiderMode")}
                                 </label>
                                 <Checkbox
                                     checked={!!$hiderMode}
@@ -644,7 +658,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                                                 );
                                             }
                                         }}
-                                        label="Hider Location"
+                                        label={tr("options.hiderLocation")}
                                     />
                                     {!autoSave && (
                                         <SidebarMenuItem>
@@ -652,7 +666,7 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
                                                 className="bg-blue-600 p-2 rounded-md font-semibold font-poppins transition-shadow duration-500 mt-2"
                                                 onClick={save}
                                             >
-                                                Save
+                                                {tr("options.save")}
                                             </SidebarMenuButton>
                                         </SidebarMenuItem>
                                     )}

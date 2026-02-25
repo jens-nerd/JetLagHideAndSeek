@@ -1,6 +1,8 @@
 import { useStore } from "@nanostores/react";
 import * as turf from "@turf/turf";
-import { Suspense, use } from "react";
+import { Component, Suspense, use, useState } from "react";
+import type { ReactNode } from "react";
+import { locale, t, useT } from "@/i18n";
 
 import { LatitudeLongitude } from "@/components/LatLngPicker";
 import PresetsDialog from "@/components/PresetsDialog";
@@ -37,15 +39,18 @@ export const TentacleQuestionComponent = ({
     questionKey,
     sub,
     className,
+    embedded = false,
 }: {
     data: TentacleQuestion;
     questionKey: number;
     sub?: string;
     className?: string;
+    embedded?: boolean;
 }) => {
     const $questions = useStore(questions);
     const $drawingQuestionKey = useStore(drawingQuestionKey);
     const $isLoading = useStore(isLoading);
+    const [retryKey, setRetryKey] = useState(0);
     const label = `Tentacles
     ${
         $questions
@@ -66,6 +71,7 @@ export const TentacleQuestionComponent = ({
             }}
             locked={!data.drag}
             setLocked={(locked) => questionModified((data.drag = !locked))}
+            embedded={embedded}
         >
             <SidebarMenuItem>
                 <div className={cn(MENU_ITEM_CLASSNAME, "gap-2 flex flex-row")}>
@@ -145,7 +151,7 @@ export const TentacleQuestionComponent = ({
             {data.locationType === "custom" && data.drag && (
                 <>
                     <p className="px-2 mb-1 text-center text-orange-500">
-                        To modify tentacle locations, enable it:
+                        {t("tentacles.modifyInstructions", locale.get())}
                         <Checkbox
                             className="mx-1 my-1"
                             checked={$drawingQuestionKey === questionKey}
@@ -158,7 +164,7 @@ export const TentacleQuestionComponent = ({
                             }}
                             disabled={!data.drag || $isLoading}
                         />
-                        and use the buttons at the bottom left of the map.
+                        {t("tentacles.useMapButtons", locale.get())}
                     </p>
                     <div className="flex justify-center mb-2">
                         <PresetsDialog
@@ -182,44 +188,88 @@ export const TentacleQuestionComponent = ({
                     questionModified();
                 }}
                 disabled={!data.drag || $isLoading}
+                compact={embedded}
             />
             <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
-                <Suspense
-                    fallback={
-                        <div className="flex items-center justify-center w-full h-8">
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="24"
-                                height="24"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                className="animate-spin"
-                            >
-                                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                            </svg>
-                        </div>
-                    }
+                <TentacleErrorBoundary
+                    key={retryKey}
+                    onRetry={() => setRetryKey((k) => k + 1)}
                 >
-                    <TentacleLocationSelector
-                        data={data}
-                        promise={
-                            data.locationType === "custom"
-                                ? Promise.resolve(
-                                      turf.featureCollection(data.places),
-                                  )
-                                : findTentacleLocations(data)
+                    <Suspense
+                        fallback={
+                            <div className="flex items-center justify-center w-full h-8">
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="24"
+                                    height="24"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className="animate-spin"
+                                >
+                                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                                </svg>
+                            </div>
                         }
-                        disabled={!data.drag || $isLoading}
-                    />
-                </Suspense>
+                    >
+                        <TentacleLocationSelector
+                            key={retryKey}
+                            data={data}
+                            promise={
+                                data.locationType === "custom"
+                                    ? Promise.resolve(
+                                          turf.featureCollection(data.places),
+                                      )
+                                    : findTentacleLocations(data)
+                            }
+                            disabled={!data.drag || $isLoading}
+                        />
+                    </Suspense>
+                </TentacleErrorBoundary>
             </SidebarMenuItem>
         </QuestionCard>
     );
 };
+
+// ── Error boundary for the Overpass fetch ─────────────────────────────────────
+// React's `use()` hook throws when the promise rejects; <Suspense> only handles
+// the pending state, not errors.  We need a class-based Error Boundary so that
+// a failed Overpass request shows a graceful message instead of crashing the
+// entire question card (and therefore the panel).
+class TentacleErrorBoundary extends Component<
+    { children: ReactNode; onRetry: () => void },
+    { hasError: boolean }
+> {
+    constructor(props: { children: ReactNode; onRetry: () => void }) {
+        super(props);
+        this.state = { hasError: false };
+    }
+
+    static getDerivedStateFromError() {
+        return { hasError: true };
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <button
+                    type="button"
+                    className="text-xs text-muted-foreground underline cursor-pointer"
+                    onClick={() => {
+                        this.setState({ hasError: false });
+                        this.props.onRetry();
+                    }}
+                >
+                    {t("tentacles.noLocationsRetry", locale.get())}
+                </button>
+            );
+        }
+        return this.props.children;
+    }
+}
 
 const TentacleLocationSelector = ({
     data,
@@ -277,11 +327,12 @@ const TentacleLocationSelector = ({
         questionModified();
     }
 
+    const trLocal = useT();
     return (
         <Select
-            trigger="Location"
+            trigger={trLocal("sqp.descLocation")}
             options={{
-                false: "Not Within",
+                false: trLocal("tentacles.notWithin"),
                 ...mapToObj(filteredFeatures, (feature: any) => [
                     feature.properties.name,
                     feature.properties.name,

@@ -1,12 +1,13 @@
 import { useStore } from "@nanostores/react";
+import { ChevronsLeftRight, Equal, Shuffle } from "lucide-react";
 import * as React from "react";
 import { toast } from "react-toastify";
+import { useT } from "@/i18n";
 
 import CustomInitDialog from "@/components/CustomInitDialog";
 import { LatitudeLongitude } from "@/components/LatLngPicker";
 import PresetsDialog from "@/components/PresetsDialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import {
     MENU_ITEM_CLASSNAME,
@@ -42,11 +43,13 @@ export const MatchingQuestionComponent = ({
     questionKey,
     sub,
     className,
+    embedded = false,
 }: {
     data: MatchingQuestion;
     questionKey: number;
     sub?: string;
     className?: string;
+    embedded?: boolean;
 }) => {
     useStore(triggerLocalRefresh);
     const $hiderMode = useStore(hiderMode);
@@ -55,6 +58,7 @@ export const MatchingQuestionComponent = ({
     const $drawingQuestionKey = useStore(drawingQuestionKey);
     const $isLoading = useStore(isLoading);
     const $customInitPref = useStore(customInitPreference);
+    const tr = useT();
     const [customDialogOpen, setCustomDialogOpen] = React.useState(false);
     const [pendingCustomType, setPendingCustomType] = React.useState<
         "custom-zone" | "custom-points" | null
@@ -76,17 +80,17 @@ export const MatchingQuestionComponent = ({
                 <>
                     <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
                         <Select
-                            trigger="OSM Zone"
+                            trigger={tr("matching.osmZone")}
                             options={{
-                                2: "OSM Zone 2 (Country)",
-                                3: "OSM Zone 3 (region in Japan)",
-                                4: "OSM Zone 4 (prefecture in Japan)",
-                                5: "OSM Zone 5",
-                                6: "OSM Zone 6",
-                                7: "OSM Zone 7",
-                                8: "OSM Zone 8",
-                                9: "OSM Zone 9",
-                                10: "OSM Zone 10",
+                                2: tr("osmZone.2"),
+                                3: tr("osmZone.3"),
+                                4: tr("osmZone.4"),
+                                5: tr("osmZone.5"),
+                                6: tr("osmZone.6"),
+                                7: tr("osmZone.7"),
+                                8: tr("osmZone.8"),
+                                9: tr("osmZone.9"),
+                                10: tr("osmZone.10"),
                             }}
                             value={data.cat.adminLevel.toString()}
                             onValueChange={(value) =>
@@ -108,9 +112,7 @@ export const MatchingQuestionComponent = ({
                     </SidebarMenuItem>
                     {data.type === "letter-zone" && (
                         <span className="px-2 text-center text-orange-500">
-                            Warning: The zone data has been simplified by
-                            &plusmn;360 feet (100 meters) in order for the
-                            browser to not crash.
+                            {tr("matching.warningLetterZone")}
                         </span>
                     )}
                 </>
@@ -119,10 +121,7 @@ export const MatchingQuestionComponent = ({
         case "same-train-line":
             questionSpecific = (
                 <span className="px-2 text-center text-orange-500">
-                    Warning: The train line data is based on OpenStreetMap and
-                    may have fewer train stations than expected. If you are
-                    using this tool, ensure that the other players are also
-                    using this tool.
+                    {tr("matching.warningSameTrainLine")}
                 </span>
             );
             break;
@@ -139,8 +138,7 @@ export const MatchingQuestionComponent = ({
         case "park":
             questionSpecific = (
                 <span className="px-2 text-center text-orange-500">
-                    This question will only influence the map when you click on
-                    a hiding zone in the hiding zone sidebar.
+                    {tr("matching.clickOnZone")}
                 </span>
             );
             break;
@@ -150,9 +148,9 @@ export const MatchingQuestionComponent = ({
                 questionSpecific = (
                     <>
                         <p className="px-2 mb-1 text-center text-orange-500">
-                            To modify the matching{" "}
-                            {data.type === "custom-zone" ? "zones" : "points"},
-                            enable it:
+                            {data.type === "custom-zone"
+                                ? tr("matching.modifyZoneInstructions")
+                                : tr("matching.modifyPointsInstructions")}
                             <Checkbox
                                 className="mx-1 my-1"
                                 checked={$drawingQuestionKey === questionKey}
@@ -165,7 +163,7 @@ export const MatchingQuestionComponent = ({
                                 }}
                                 disabled={$isLoading}
                             />
-                            and use the buttons at the bottom left of the map.
+                            {tr("matching.useMapButtons")}
                         </p>
                         <div className="flex justify-center mb-2">
                             <PresetsDialog
@@ -190,6 +188,7 @@ export const MatchingQuestionComponent = ({
             }}
             locked={!data.drag}
             setLocked={(locked) => questionModified((data.drag = !locked))}
+            embedded={embedded}
         >
             <CustomInitDialog
                 open={customDialogOpen}
@@ -382,23 +381,10 @@ export const MatchingQuestionComponent = ({
                         questionModified();
                     }}
                     disabled={!data.drag || $isLoading}
+                    compact={embedded}
                 />
             )}
-            <div
-                className={cn(
-                    "flex gap-2 items-center p-2",
-                    data.type === "same-length-station" && "flex-col",
-                )}
-            >
-                <Label
-                    className={cn(
-                        "font-semibold text-lg",
-                        $isLoading && "text-muted-foreground",
-                        data.type === "same-length-station" && "text-center",
-                    )}
-                >
-                    Result
-                </Label>
+            <div className="flex gap-2 items-center p-2">
                 {data.type === "same-length-station" ? (
                     <ToggleGroup
                         className="grow"
@@ -430,11 +416,15 @@ export const MatchingQuestionComponent = ({
                         }}
                         disabled={!!$hiderMode || !data.drag || $isLoading}
                     >
-                        <ToggleGroupItem value="shorter">
-                            Shorter
+                        <ToggleGroupItem value="shorter" title="Shorter" className="flex items-center justify-center">
+                            <ChevronsLeftRight className="h-5 w-5 scale-x-50" />
                         </ToggleGroupItem>
-                        <ToggleGroupItem value="same">Same</ToggleGroupItem>
-                        <ToggleGroupItem value="longer">Longer</ToggleGroupItem>
+                        <ToggleGroupItem value="same" title="Same" className="flex items-center justify-center">
+                            <Equal className="h-5 w-5" />
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="longer" title="Longer" className="flex items-center justify-center">
+                            <ChevronsLeftRight className="h-5 w-5" />
+                        </ToggleGroupItem>
                     </ToggleGroup>
                 ) : (
                     <ToggleGroup
@@ -450,10 +440,12 @@ export const MatchingQuestionComponent = ({
                         }}
                         disabled={!!$hiderMode || !data.drag || $isLoading}
                     >
-                        <ToggleGroupItem value="different">
-                            Different
+                        <ToggleGroupItem value="different" title="Different" className="flex items-center justify-center">
+                            <Shuffle className="h-5 w-5" />
                         </ToggleGroupItem>
-                        <ToggleGroupItem value="same">Same</ToggleGroupItem>
+                        <ToggleGroupItem value="same" title="Same" className="flex items-center justify-center">
+                            <Equal className="h-5 w-5" />
+                        </ToggleGroupItem>
                     </ToggleGroup>
                 )}
             </div>

@@ -2,6 +2,7 @@ import { useStore } from "@nanostores/react";
 import * as turf from "@turf/turf";
 import React from "react";
 import { toast } from "react-toastify";
+import { locale, t, useT } from "@/i18n";
 
 import {
     Dialog,
@@ -20,6 +21,7 @@ export const AddQuestionDialog = ({
 }) => {
     const $isLoading = useStore(isLoading);
     const [open, setOpen] = React.useState(false);
+    const tr = useT();
 
     const runAddRadius = () => {
         const map = leafletMapContext.get();
@@ -88,7 +90,7 @@ export const AddQuestionDialog = ({
 
     const runPasteQuestion = async () => {
         if (!navigator || !navigator.clipboard) {
-            toast.error("Clipboard API not supported in your browser");
+            toast.error(t("addQuestion.clipboardNotSupported", locale.get()));
             return false;
         }
 
@@ -106,9 +108,9 @@ export const AddQuestionDialog = ({
                     return addQuestion(question);
                 }),
                 {
-                    pending: "Reading from clipboard",
-                    success: "Question added from clipboard!",
-                    error: "No valid question found in clipboard",
+                    pending: t("addQuestion.readingFromClipboard", locale.get()),
+                    success: t("addQuestion.questionAdded", locale.get()),
+                    error: t("addQuestion.noValidQuestion", locale.get()),
                 },
                 { autoClose: 1000 },
             );
@@ -123,9 +125,9 @@ export const AddQuestionDialog = ({
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>{children}</DialogTrigger>
             <DialogContent>
-                <DialogTitle>Add Question</DialogTitle>
+                <DialogTitle>{tr("addQuestion.title")}</DialogTitle>
                 <DialogDescription>
-                    Select which question type you would like to add.
+                    {tr("addQuestion.description")}
                 </DialogDescription>
 
                 <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -135,7 +137,7 @@ export const AddQuestionDialog = ({
                         }}
                         disabled={$isLoading}
                     >
-                        Add Radius
+                        {tr("addQuestion.addRadius")}
                     </SidebarMenuButton>
                     <SidebarMenuButton
                         onClick={() => {
@@ -143,7 +145,7 @@ export const AddQuestionDialog = ({
                         }}
                         disabled={$isLoading}
                     >
-                        Add Thermometer
+                        {tr("addQuestion.addThermometer")}
                     </SidebarMenuButton>
                     <SidebarMenuButton
                         onClick={() => {
@@ -151,7 +153,7 @@ export const AddQuestionDialog = ({
                         }}
                         disabled={$isLoading}
                     >
-                        Add Tentacles
+                        {tr("addQuestion.addTentacles")}
                     </SidebarMenuButton>
                     <SidebarMenuButton
                         onClick={() => {
@@ -159,7 +161,7 @@ export const AddQuestionDialog = ({
                         }}
                         disabled={$isLoading}
                     >
-                        Add Matching
+                        {tr("addQuestion.addMatching")}
                     </SidebarMenuButton>
                     <SidebarMenuButton
                         onClick={() => {
@@ -167,7 +169,7 @@ export const AddQuestionDialog = ({
                         }}
                         disabled={$isLoading}
                     >
-                        Add Measuring
+                        {tr("addQuestion.addMeasuring")}
                     </SidebarMenuButton>
                     <SidebarMenuButton
                         onClick={async () => {
@@ -176,7 +178,7 @@ export const AddQuestionDialog = ({
                         }}
                         disabled={$isLoading}
                     >
-                        Paste Question
+                        {tr("addQuestion.pasteQuestion")}
                     </SidebarMenuButton>
                 </div>
             </DialogContent>

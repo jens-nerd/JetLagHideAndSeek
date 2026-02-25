@@ -2,6 +2,7 @@ import { useStore } from "@nanostores/react";
 import { LockIcon, UnlockIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import { VscChevronDown, VscShare, VscTrash } from "react-icons/vsc";
+import { useT } from "@/i18n";
 
 import {
     AlertDialog,
@@ -43,6 +44,7 @@ export const QuestionCard = ({
     locked,
     setLocked,
     setCollapsed,
+    embedded = false,
 }: {
     children: React.ReactNode;
     questionKey: number;
@@ -53,11 +55,14 @@ export const QuestionCard = ({
     locked?: boolean;
     setLocked?: (locked: boolean) => void;
     setCollapsed?: (collapsed: boolean) => void;
+    /** When true: renders without the dark sidebar shell and hides Share/Delete/Lock buttons. */
+    embedded?: boolean;
 }) => {
     const [isCollapsed, setIsCollapsed] = useState(collapsed ?? false);
     const $questions = useStore(questions);
     const $isLoading = useStore(isLoading);
     const copyButtonRef = useRef<HTMLButtonElement>(null);
+    const tr = useT();
 
     const toggleCollapse = () => {
         if (setCollapsed) {
@@ -65,6 +70,15 @@ export const QuestionCard = ({
         }
         setIsCollapsed((prevState) => !prevState);
     };
+
+    // Embedded mode: plain wrapper without dark sidebar chrome or action buttons
+    if (embedded) {
+        return (
+            <div className={cn("flex flex-col gap-2", className)}>
+                {children}
+            </div>
+        );
+    }
 
     return (
         <>
@@ -102,15 +116,10 @@ export const QuestionCard = ({
                                 <DialogContent>
                                     <DialogHeader>
                                         <DialogTitle className="text-2xl">
-                                            Share this Question!
+                                            {tr("card.shareTitle")}
                                         </DialogTitle>
                                         <DialogDescription>
-                                            Below you can access the JSON
-                                            representing the question. Send this
-                                            to another player for them to copy.
-                                            They can then click &ldquo;Paste
-                                            Question&rdquo; at the bottom of the
-                                            &ldquo;Questions&rdquo; sidebar.
+                                            {tr("card.shareDescription")}
                                         </DialogDescription>
                                     </DialogHeader>
                                     <Button
@@ -134,7 +143,7 @@ export const QuestionCard = ({
                                                 .then(() => {
                                                     if (copyButtonRef.current) {
                                                         copyButtonRef.current.textContent =
-                                                            "Copied!";
+                                                            tr("card.copied");
                                                         copyButtonRef.current.classList.add(
                                                             "bg-green-500",
                                                         );
@@ -143,7 +152,7 @@ export const QuestionCard = ({
                                                                 copyButtonRef.current
                                                             ) {
                                                                 copyButtonRef.current.textContent =
-                                                                    "Copy to Clipboard";
+                                                                    tr("card.copyToClipboard");
                                                                 copyButtonRef.current.classList.remove(
                                                                     "bg-green-500",
                                                                 );
@@ -154,7 +163,7 @@ export const QuestionCard = ({
                                                 .catch(() => {
                                                     if (copyButtonRef.current) {
                                                         copyButtonRef.current.textContent =
-                                                            "Failed to Copy";
+                                                            tr("card.failedToCopy");
                                                         copyButtonRef.current.classList.add(
                                                             "bg-red-500",
                                                         );
@@ -163,7 +172,7 @@ export const QuestionCard = ({
                                                                 copyButtonRef.current
                                                             ) {
                                                                 copyButtonRef.current.textContent =
-                                                                    "Copy to Clipboard";
+                                                                    tr("card.copyToClipboard");
                                                                 copyButtonRef.current.classList.remove(
                                                                     "bg-red-500",
                                                                 );
@@ -173,7 +182,7 @@ export const QuestionCard = ({
                                                 });
                                         }}
                                     >
-                                        Copy to Clipboard
+                                        {tr("card.copyToClipboard")}
                                     </Button>
                                     <textarea
                                         className="w-full h-[300px] bg-slate-900 text-white rounded-md p-2"
@@ -201,24 +210,22 @@ export const QuestionCard = ({
                                 <AlertDialogContent>
                                     <AlertDialogHeader>
                                         <AlertDialogTitle>
-                                            Are you absolutely sure?
+                                            {tr("card.areYouSure")}
                                         </AlertDialogTitle>
                                         <AlertDialogDescription>
-                                            This action cannot be undone. This
-                                            will permanently delete the
-                                            question.
+                                            {tr("card.cannotBeUndone")}
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                         <AlertDialogCancel>
-                                            Cancel
+                                            {tr("card.cancel")}
                                         </AlertDialogCancel>
                                         <AlertDialogAction
                                             onClick={() => {
                                                 questions.set([]);
                                             }}
                                         >
-                                            Delete All Questions
+                                            {tr("card.deleteAllQuestions")}
                                         </AlertDialogAction>
                                         <AlertDialogAction
                                             onClick={() => {
@@ -232,7 +239,7 @@ export const QuestionCard = ({
                                             }}
                                             className="mb-2 sm:mb-0"
                                         >
-                                            Delete Question
+                                            {tr("card.deleteQuestion")}
                                         </AlertDialogAction>
                                     </AlertDialogFooter>
                                 </AlertDialogContent>
