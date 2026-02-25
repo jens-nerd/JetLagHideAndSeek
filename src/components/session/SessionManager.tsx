@@ -18,6 +18,7 @@ import {
     buildMapLocationFromContext,
     currentSession,
     leaveSession,
+    pendingRole,
     sessionCode,
     sessionParticipant,
     wsStatus,
@@ -34,9 +35,14 @@ export function SessionManager() {
     const status = useStore(wsStatus);
     const session = useStore(currentSession);
 
-    const [view, setView] = useState<View>(
-        participant && code ? "active" : "idle",
-    );
+    const [view, setView] = useState<View>(() => {
+        if (participant && code) return "active";
+        // Auto-open the correct dialog when the user has already chosen a role
+        const role = pendingRole.get();
+        if (role === "hider") return "create";
+        if (role === "seeker") return "join";
+        return "idle";
+    });
     const [displayName, setDisplayName] = useState("");
     const [joinCode, setJoinCode] = useState("");
     const [loading, setLoading] = useState(false);
@@ -197,7 +203,7 @@ export function SessionManager() {
             {/* Create dialog */}
             <Dialog
                 open={view === "create"}
-                onOpenChange={(o) => !o && setView("idle")}
+                onOpenChange={(o) => { if (!o) { pendingRole.set(null); setView("idle"); } }}
             >
                 <DialogContent>
                     <DialogHeader>
@@ -225,6 +231,12 @@ export function SessionManager() {
                         >
                             {loading ? tr("session.creating") : tr("session.startSession")}
                         </Button>
+                        <button
+                            className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
+                            onClick={() => { pendingRole.set(null); setView("idle"); }}
+                        >
+                            {tr("role.back")}
+                        </button>
                     </div>
                 </DialogContent>
             </Dialog>
@@ -232,7 +244,7 @@ export function SessionManager() {
             {/* Join dialog */}
             <Dialog
                 open={view === "join"}
-                onOpenChange={(o) => !o && setView("idle")}
+                onOpenChange={(o) => { if (!o) { pendingRole.set(null); setView("idle"); } }}
             >
                 <DialogContent>
                     <DialogHeader>
@@ -277,6 +289,12 @@ export function SessionManager() {
                         >
                             {loading ? tr("session.joining") : tr("session.joinButton")}
                         </Button>
+                        <button
+                            className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
+                            onClick={() => { pendingRole.set(null); setView("idle"); }}
+                        >
+                            {tr("role.back")}
+                        </button>
                     </div>
                 </DialogContent>
             </Dialog>

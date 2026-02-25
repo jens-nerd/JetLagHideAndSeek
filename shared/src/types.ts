@@ -1,5 +1,16 @@
 import { z } from "zod";
 
+// ── Map defaults ──────────────────────────────────────────────────────────────
+
+/**
+ * Default map viewport shown on first load (no session / no saved location).
+ * Center is the geographic midpoint of Germany; zoom 6 shows the whole country.
+ */
+export const DEFAULT_VIEWPORT = {
+    center: [51.1, 10.4] as [number, number],
+    zoom: 6,
+} as const;
+
 // ── Session ──────────────────────────────────────────────────────────────────
 
 export const sessionStatusSchema = z.enum(["waiting", "active", "finished"]);

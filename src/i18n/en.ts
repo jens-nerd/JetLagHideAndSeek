@@ -426,4 +426,12 @@ export const en: Record<TranslationKey, string> = {
     "matchType.same-train-line": "Same Train Line",
     "matchType.custom-zone": "Custom Zone",
     "matchType.custom-points": "Custom Points",
+
+    // ── Role selection (RoleSelection) ────────────────────────────────────────
+    "role.chooseRole": "Choose your role",
+    "role.iAmHider": "I'm the Hider",
+    "role.iAmSeeker": "I'm the Seeker",
+    "role.hiderDesc": "You hide and answer questions using your GPS location.",
+    "role.seekerDesc": "You ask questions and search for the Hider based on the answers.",
+    "role.back": "← Back to role selection",
 };

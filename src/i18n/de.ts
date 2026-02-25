@@ -425,6 +425,14 @@ export const de = {
     "matchType.same-train-line": "Gleiche Bahnlinie",
     "matchType.custom-zone": "Benutzerdefinierte Zone",
     "matchType.custom-points": "Benutzerdefinierte Punkte",
+
+    // ── Rollenauswahl (RoleSelection) ─────────────────────────────────────────
+    "role.chooseRole": "Wähle deine Rolle",
+    "role.iAmHider": "Ich bin Hider",
+    "role.iAmSeeker": "Ich bin Seeker",
+    "role.hiderDesc": "Du versteckst dich und beantwortest Fragen mit deinem GPS-Standort.",
+    "role.seekerDesc": "Du stellst Fragen und suchst den Hider anhand der Antworten.",
+    "role.back": "← Zurück zur Rollenauswahl",
 } as const;
 
 export type Translations = typeof de;

@@ -33,6 +33,12 @@ export const sessionCode = persistentAtom<string | null>(
 /** Full session object (refreshed from server or synced via WS) */
 export const currentSession = atom<Session | null>(null);
 
+/**
+ * Role chosen in the onboarding screen before a session is created/joined.
+ * Cleared when the session starts or the user navigates back to role selection.
+ */
+export const pendingRole = atom<"hider" | "seeker" | null>(null);
+
 /** All questions in the current session */
 export const sessionQuestions = atom<SessionQuestion[]>([]);
 
@@ -70,6 +76,7 @@ export function leaveSession(): void {
     wsStatus.set("disconnected");
     seekerCount.set(0);
     hiderConnected.set(false);
+    pendingRole.set(null);
 
     // ── Map state – reset everything that was set by the session ──────────
     import("@/lib/context").then(

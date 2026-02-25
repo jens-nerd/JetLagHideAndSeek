@@ -28,6 +28,7 @@ import {
     thunderforestApiKey,
     triggerLocalRefresh,
 } from "@/lib/context";
+import { DEFAULT_VIEWPORT } from "@hideandseek/shared";
 import { cn } from "@/lib/utils";
 import { applyQuestionsToMapGeoData, holedMask } from "@/maps";
 import { hiderifyQuestion } from "@/maps";
@@ -165,8 +166,8 @@ export const Map = ({ className }: { className?: string }) => {
     const displayMap = useMemo(
         () => (
             <MapContainer
-                center={$mapGeoLocation.geometry.coordinates}
-                zoom={5}
+                center={DEFAULT_VIEWPORT.center}
+                zoom={DEFAULT_VIEWPORT.zoom}
                 className={cn("w-[500px] h-[500px]", className)}
                 ref={leafletMapContext.set}
                 // @ts-expect-error Typing doesn't update from react-contextmenu

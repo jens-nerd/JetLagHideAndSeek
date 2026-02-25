@@ -19,7 +19,7 @@ import {
     save,
     triggerLocalRefresh,
 } from "@/lib/context";
-import { sessionParticipant } from "@/lib/session-context";
+import { pendingRole, sessionParticipant } from "@/lib/session-context";
 
 import { AddQuestionDialog } from "./AddQuestionDialog";
 import {
@@ -29,6 +29,7 @@ import {
     TentacleQuestionComponent,
     ThermometerQuestionComponent,
 } from "./QuestionCards";
+import { RoleSelection } from "./session/RoleSelection";
 import { SessionManager } from "./session/SessionManager";
 import { useSessionMapSync } from "@/hooks/useSessionMapSync";
 import { useMapLocationSync } from "@/hooks/useMapLocationSync";
@@ -39,6 +40,7 @@ export const QuestionSidebar = () => {
     const $autoSave = useStore(autoSave);
     const $isLoading = useStore(isLoading);
     const $participant = useStore(sessionParticipant);
+    const $pendingRole = useStore(pendingRole);
     const tr = useT();
 
     // Sync answered session questions into the local map
@@ -66,7 +68,11 @@ export const QuestionSidebar = () => {
             <SidebarGroup className="flex-1 min-h-0 overflow-y-auto">
                 <SidebarGroupContent>
                     <div className="px-3 py-2">
-                        <SessionManager />
+                        {/* Show role selection when no session and no role chosen yet */}
+                        {!isInSession && $pendingRole === null
+                            ? <RoleSelection />
+                            : <SessionManager />
+                        }
                     </div>
                 </SidebarGroupContent>
             </SidebarGroup>
