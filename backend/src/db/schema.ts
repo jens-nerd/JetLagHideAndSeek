@@ -47,6 +47,9 @@ export const questions = sqliteTable("questions", {
     answeredAt: text("answered_at"),
 });
 
+// Grouped schema object for convenience imports
+export const schema = { sessions, participants, questions };
+
 // Type helpers for Drizzle inference
 export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
