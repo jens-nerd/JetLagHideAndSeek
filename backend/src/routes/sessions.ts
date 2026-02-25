@@ -11,6 +11,7 @@ import { Hono } from "hono";
 import { nanoid } from "nanoid";
 
 import { schema } from "../db/schema.js";
+import type { Session, DbQuestion } from "../db/schema.js";
 import type { Db } from "../db/types.js";
 import { wsManager } from "../ws/manager.js";
 
@@ -25,7 +26,7 @@ function generateCode(): string {
 }
 
 /** Convert a DB session row to the shared Session type */
-function toSession(row: schema.Session) {
+function toSession(row: Session) {
     return {
         id: row.id,
         code: row.code,
@@ -36,7 +37,7 @@ function toSession(row: schema.Session) {
     };
 }
 
-export function toSessionQuestion(row: schema.DbQuestion) {
+export function toSessionQuestion(row: DbQuestion) {
     return {
         id: row.id,
         sessionId: row.sessionId,
