@@ -19,7 +19,7 @@ import {
     save,
     triggerLocalRefresh,
 } from "@/lib/context";
-import { hiderAreaConfirmed, pendingRole, sessionParticipant } from "@/lib/session-context";
+import { hiderAreaConfirmed, pendingRole, sessionParticipant, sessionQuestions } from "@/lib/session-context";
 
 import { AddQuestionDialog } from "./AddQuestionDialog";
 import {
@@ -43,6 +43,7 @@ export const QuestionSidebar = () => {
     const $participant = useStore(sessionParticipant);
     const $pendingRole = useStore(pendingRole);
     const $hiderAreaConfirmed = useStore(hiderAreaConfirmed);
+    const $sessionQuestions = useStore(sessionQuestions);
     const tr = useT();
 
     // Sync answered session questions into the local map
@@ -78,7 +79,17 @@ export const QuestionSidebar = () => {
                             ? <RoleSelection />
                             : !isInSession && $pendingRole === "hider" && !$hiderAreaConfirmed
                                 ? <HiderAreaSearch />
-                                : <SessionManager />
+                                : <>
+                                    {isHider && isInSession && $sessionQuestions.length === 0 && (
+                                        <button
+                                            className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors mb-2 block"
+                                            onClick={() => hiderAreaConfirmed.set(false)}
+                                        >
+                                            Gebiet anpassen
+                                        </button>
+                                    )}
+                                    <SessionManager />
+                                </>
                         }
                     </div>
                 </SidebarGroupContent>

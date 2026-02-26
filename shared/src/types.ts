@@ -32,8 +32,10 @@ export interface MapLocation {
     lat: number;
     lng: number;
     name: string;
-    /** Full OSM Feature object (for map boundary computation) */
+    /** Full OSM Feature object for the primary zone */
     osmFeature?: unknown;
+    /** Additional OSM zones selected by the hider (preserved across session join) */
+    additionalOsmFeatures?: { location: unknown; added: boolean }[];
 }
 
 // ── Participant ───────────────────────────────────────────────────────────────

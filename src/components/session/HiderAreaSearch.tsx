@@ -10,13 +10,23 @@ export function HiderAreaSearch() {
 
     function handleConfirm() {
         // PlacePicker adds selections to additionalMapGeoLocations, not mapGeoLocation.
-        // Promote the selected area to the primary location so buildMapLocationFromContext()
-        // picks it up correctly when creating the session.
-        const additional = additionalMapGeoLocations.get();
-        const selected = additional.find((x) => x.added);
-        if (selected) {
-            mapGeoLocation.set(selected.location);
-            additionalMapGeoLocations.set([]);
+        // We may need to promote the first added zone to the primary location so that
+        // buildMapLocationFromContext / determineMapBoundaries has a real zone as primary.
+        //
+        // BUT: only do this when mapGeoLocation is still the Germany default (osm_id 51477).
+        // If the user removed Germany via the X button in PlacePicker, the first added
+        // zone was already auto-promoted to mapGeoLocation by PlacePicker itself.
+        // In that case, promoting again would discard the correct primary and lose it.
+        const GERMANY_DEFAULT_OSM_ID = 51477;
+        const currentOsmId = (mapGeoLocation.get() as any)?.properties?.osm_id;
+
+        if (currentOsmId === GERMANY_DEFAULT_OSM_ID) {
+            const additional = additionalMapGeoLocations.get();
+            const firstAdded = additional.find((x) => x.added);
+            if (firstAdded) {
+                mapGeoLocation.set(firstAdded.location);
+                additionalMapGeoLocations.set(additional.filter((x) => x !== firstAdded));
+            }
         }
         hiderAreaConfirmed.set(true);
     }

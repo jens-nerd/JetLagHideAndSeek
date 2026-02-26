@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import {
     applyServerMapLocation,
     currentSession,
+    getRole,
     hiderConnected,
     seekerCount,
     sessionQuestions,
@@ -74,7 +75,15 @@ export function useSessionWebSocket({ code, token, onSync }: Options): void {
                         break;
 
                     case "map_location_updated":
-                        applyServerMapLocation(event.mapLocation);
+                        // The hider is the source of map updates via REST PATCH.
+                        // The backend broadcasts to all participants (including
+                        // the hider), which would create a feedback loop:
+                        // hider sets location → PATCH → WS broadcast → hider sets
+                        // location again → PATCH → … infinitely.
+                        // Seekers still need to receive and apply these updates.
+                        if (getRole() !== "hider") {
+                            applyServerMapLocation(event.mapLocation);
+                        }
                         break;
 
                     case "session_status_changed":

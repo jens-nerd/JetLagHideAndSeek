@@ -35,7 +35,7 @@ export function useMapLocationSync() {
                 return;
             }
 
-            const mapLocationPayload = await buildMapLocationFromContext();
+            const mapLocationPayload = buildMapLocationFromContext();
             if (!mapLocationPayload) return;
 
             try {

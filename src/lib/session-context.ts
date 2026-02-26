@@ -11,6 +11,22 @@ import type {
     SessionQuestion,
 } from "@hideandseek/shared";
 import { atom } from "nanostores";
+import { clearCache } from "@/maps/api/cache";
+import { CacheType } from "@/maps/api/types";
+// Static import from context.ts is safe: context.ts does not import
+// session-context.ts, so there is no circular dependency.
+// Moving to a static import ensures leaveSession() resets ALL map state
+// SYNCHRONOUSLY (before the next render), preventing stale zone data from
+// bleeding into a subsequent HiderAreaSearch session.
+import {
+    additionalMapGeoLocations,
+    hiderMode,
+    isLoading,
+    mapGeoJSON,
+    mapGeoLocation,
+    questionModified,
+    questions,
+} from "@/lib/context";
 
 // ── Persisted (survive page reload) ──────────────────────────────────────────
 
@@ -85,42 +101,47 @@ export function leaveSession(): void {
     pendingRole.set(null);
     hiderAreaConfirmed.set(false);
 
+    // ── Map cache – fully clear all session-specific cached data ──────────
+    clearCache(CacheType.CACHE);
+    clearCache(CacheType.ZONE_CACHE);
+
     // ── Map state – reset everything that was set by the session ──────────
-    import("@/lib/context").then(
-        ({ questions, mapGeoJSON, mapGeoLocation, hiderMode, questionModified }) => {
-            // Remove all session questions from the local map
-            questions.set([]);
-            questionModified();
+    // All resets are synchronous so that any subsequent render (e.g. the
+    // user immediately clicking "Ich bin Hider" after leaving) sees clean
+    // state and HiderAreaSearch starts with no stale zones.
 
-            // Clear the computed map overlay
-            mapGeoJSON.set(null);
+    // Remove all session questions from the local map
+    questions.set([]);
+    questionModified();
 
-            // Deactivate hider GPS mode
-            hiderMode.set(false);
+    // Clear the computed map overlay
+    mapGeoJSON.set(null);
 
-            // Reset map to the default location (Japan).
-            // The default value is duplicated here to keep session-context.ts
-            // free of a static import from context.ts (avoids circular deps).
-            mapGeoLocation.set({
-                geometry: {
-                    coordinates: [36.5748441, 139.2394179],
-                    type: "Point",
-                },
-                type: "Feature",
-                properties: {
-                    osm_type: "R",
-                    osm_id: 382313,
-                    extent: [45.7112046, 122.7141754, 20.2145811, 154.205541],
-                    country: "Japan",
-                    osm_key: "place",
-                    countrycode: "JP",
-                    osm_value: "country",
-                    name: "Japan",
-                    type: "country",
-                },
-            } as any);
+    // Clear additional zones selected by the hider
+    additionalMapGeoLocations.set([]);
+
+    // Deactivate hider GPS mode
+    hiderMode.set(false);
+
+    // Reset map to the default location (Germany).
+    mapGeoLocation.set({
+        geometry: {
+            coordinates: [51.1657, 10.4515],
+            type: "Point",
         },
-    );
+        type: "Feature",
+        properties: {
+            osm_type: "R",
+            osm_id: 51477,
+            extent: [55.0581, 5.8663, 47.2701, 15.0419],
+            country: "Germany",
+            osm_key: "place",
+            countrycode: "DE",
+            osm_value: "country",
+            name: "Germany",
+            type: "country",
+        },
+    } as any);
 }
 
 /** Upsert a question in the local list (add or update in place) */
@@ -141,20 +162,39 @@ export function upsertSessionQuestion(question: SessionQuestion): void {
  * atom so the map boundary updates immediately.
  */
 export function applyServerMapLocation(location: MapLocation): void {
-    // Dynamic import to avoid circular dependency with context.ts
-    import("@/lib/context").then(
-        ({ mapGeoLocation, additionalMapGeoLocations, mapGeoJSON }) => {
-            if (location.osmFeature) {
-                // Clear additional locations so the seeker doesn't inherit stale areas
-                // from their own localStorage.
-                additionalMapGeoLocations.set([]);
-                // Null out the cached boundary so the map re-fetches and auto-zooms.
-                mapGeoJSON.set(null);
-                // osmFeature is the full OpenStreetMap Feature the app uses natively.
-                mapGeoLocation.set(location.osmFeature as any);
-            }
-        },
-    );
+    if (!location.osmFeature) return;
+
+    const newOsmId = (location.osmFeature as any)?.properties?.osm_id;
+    const currentOsmId = (mapGeoLocation.get() as any)?.properties?.osm_id;
+
+    // Clear the cached boundary so the map re-fetches with the new zones.
+    mapGeoJSON.set(null);
+
+    // If the primary zone changed, there may be an in-flight Overpass fetch for
+    // the OLD zone holding isLoading = true.  Resetting it here lets the
+    // upcoming mapGeoLocation.set() trigger refreshQuestions immediately
+    // instead of having to wait (5–30 s) for the stale fetch to finish.
+    if (newOsmId !== currentOsmId) {
+        isLoading.set(false);
+    }
+
+    // Restore additional zones saved by the hider; clear if none present
+    // so the seeker doesn't inherit stale areas from their own localStorage.
+    if (location.additionalOsmFeatures?.length) {
+        additionalMapGeoLocations.set(
+            location.additionalOsmFeatures.map((x: any) => ({
+                added: x.added ?? true,
+                location: x.location,
+                base: false,
+            })),
+        );
+    } else {
+        additionalMapGeoLocations.set([]);
+    }
+
+    // Set primary zone last so the mapGeoLocation change triggers
+    // refreshQuestions after additionals are already in place.
+    mapGeoLocation.set(location.osmFeature as any);
 }
 
 /**
@@ -163,8 +203,7 @@ export function applyServerMapLocation(location: MapLocation): void {
  * The osmFeature field carries the full Feature so the seeker's map can
  * render the exact same boundary as the hider.
  */
-export async function buildMapLocationFromContext(): Promise<MapLocation | null> {
-    const { mapGeoLocation } = await import("@/lib/context");
+export function buildMapLocationFromContext(): MapLocation | null {
     const feature = mapGeoLocation.get();
     if (!feature) return null;
 
@@ -179,5 +218,16 @@ export async function buildMapLocationFromContext(): Promise<MapLocation | null>
         (feature as any)?.properties?.display_name ??
         "";
 
-    return { lat, lng, name, osmFeature: feature };
+    const additionals = additionalMapGeoLocations.get();
+    return {
+        lat,
+        lng,
+        name,
+        osmFeature: feature,
+        // Persist additional zones so the seeker receives the full multi-zone setup.
+        additionalOsmFeatures:
+            additionals.length > 0
+                ? additionals.map((x) => ({ location: x.location, added: x.added }))
+                : undefined,
+    };
 }

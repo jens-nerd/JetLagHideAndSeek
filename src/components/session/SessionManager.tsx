@@ -69,7 +69,7 @@ export function SessionManager() {
         setError(null);
         try {
             // Include the current map location so seekers see the right map immediately
-            const mapLocation = await buildMapLocationFromContext();
+            const mapLocation = buildMapLocationFromContext();
             const res = await createSession({
                 displayName: displayName.trim(),
                 mapLocation: mapLocation ?? undefined,

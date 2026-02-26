@@ -62,7 +62,10 @@ export const Map = ({ className }: { className?: string }) => {
     const refreshQuestions = async (focus: boolean = false) => {
         if (!map) return;
 
-        if ($isLoading) return;
+        // Read directly from the atom, not the closure snapshot. The setTimeout
+        // retry path (further below) calls the stale closure where $isLoading
+        // was still true, so we must check the live atom value here.
+        if (isLoading.get()) return;
 
         isLoading.set(true);
 
@@ -70,6 +73,11 @@ export const Map = ({ className }: { className?: string }) => {
             await clearCache();
         }
 
+        // Snapshot location before any async work so we can detect mid-fetch changes.
+        // Use osm_id for stable comparison — applyServerMapLocation creates new
+        // object references for the same logical location, so === would always fail.
+        const locationAtStart = mapGeoLocation.get();
+        const osmIdAtStart = (locationAtStart as any)?.properties?.osm_id;
         let mapGeoData = mapGeoJSON.get();
 
         if (!mapGeoData) {
@@ -81,8 +89,14 @@ export const Map = ({ className }: { className?: string }) => {
                 await toast.promise(
                     determineMapBoundaries()
                         .then((x) => {
-                            mapGeoJSON.set(x);
-                            mapGeoData = x;
+                            // Only cache the result when the location hasn't changed
+                            // during the async Overpass fetch (race-condition guard).
+                            // Compare by osm_id (stable) instead of object reference.
+                            const currentOsmId = (mapGeoLocation.get() as any)?.properties?.osm_id;
+                            if (currentOsmId === osmIdAtStart) {
+                                mapGeoJSON.set(x);
+                                mapGeoData = x;
+                            }
                         })
                         .catch((error) => console.log(error)),
                     {
@@ -90,6 +104,18 @@ export const Map = ({ className }: { className?: string }) => {
                     },
                 );
             }
+        }
+
+        // Location changed while we were loading (e.g. Seeker joined mid-fetch):
+        // the stale boundary was discarded above. Reset loading and schedule a
+        // fresh fetch for the new location.
+        if (!mapGeoData) {
+            isLoading.set(false);
+            const currentOsmId = (mapGeoLocation.get() as any)?.properties?.osm_id;
+            if (currentOsmId !== osmIdAtStart) {
+                setTimeout(() => refreshQuestions(true), 0);
+            }
+            return;
         }
 
         if ($hiderMode !== false) {
@@ -160,6 +186,13 @@ export const Map = ({ className }: { className?: string }) => {
             }
         } finally {
             isLoading.set(false);
+            // If location changed while we processed questions, re-run for
+            // the new location (handles the Seeker-join race condition when
+            // mapGeoJSON was already populated before applyServerMapLocation ran).
+            const finalOsmId = (mapGeoLocation.get() as any)?.properties?.osm_id;
+            if (finalOsmId !== osmIdAtStart) {
+                setTimeout(() => refreshQuestions(true), 0);
+            }
         }
     };
 
@@ -339,7 +372,7 @@ export const Map = ({ className }: { className?: string }) => {
         if (!map) return;
 
         refreshQuestions(true);
-    }, [$questions, map, $hiderMode]);
+    }, [$questions, map, $hiderMode, $mapGeoLocation]);
 
     useEffect(() => {
         const intervalId = setInterval(async () => {
