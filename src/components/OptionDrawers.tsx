@@ -340,14 +340,14 @@ export const OptionDrawers = ({ className }: { className?: string }) => {
             >
                 {tr("options.share")}
             </Button>
-            <Button
+            {/* <Button
                 className="w-24 shadow-md"
                 onClick={() => {
                     showTutorial.set(true);
                 }}
             >
                 {tr("options.tutorial")}
-            </Button>
+            </Button> */}
             <Drawer open={isOptionsOpen} onOpenChange={setOptionsOpen}>
                 <DrawerTrigger className="w-24" asChild>
                     <Button

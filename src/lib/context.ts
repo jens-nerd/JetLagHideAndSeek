@@ -77,7 +77,7 @@ export const questionModified = (..._: any[]) => {
 
 export const leafletMapContext = atom<Map | null>(null);
 
-export const defaultUnit = persistentAtom<Units>("defaultUnit", "miles");
+export const defaultUnit = persistentAtom<Units>("defaultUnit", "kilometers");
 export const highlightTrainLines = persistentAtom<boolean>(
     "highlightTrainLines",
     false,
@@ -339,7 +339,7 @@ export const alwaysUsePastebin = persistentAtom<boolean>(
     },
 );
 
-export const showTutorial = persistentAtom<boolean>("showTutorials", true, {
+export const showTutorial = persistentAtom<boolean>("showTutorials", false /* auto-open disabled */, {
     encode: JSON.stringify,
     decode: JSON.parse,
 });

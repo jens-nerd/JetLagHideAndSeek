@@ -4,14 +4,13 @@ import { useT } from "@/i18n";
 
 import {
     Sidebar,
-    SidebarContent,
-    SidebarContext,
     SidebarGroup,
     SidebarGroupContent,
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
 } from "@/components/ui/sidebar-l";
+import { SidebarContext } from "@/components/ui/sidebar-l-context";
 import {
     autoSave,
     isLoading,
@@ -22,13 +21,6 @@ import {
 import { hiderAreaConfirmed, pendingRole, sessionParticipant, sessionQuestions } from "@/lib/session-context";
 
 import { AddQuestionDialog } from "./AddQuestionDialog";
-import {
-    MatchingQuestionComponent,
-    MeasuringQuestionComponent,
-    RadiusQuestionComponent,
-    TentacleQuestionComponent,
-    ThermometerQuestionComponent,
-} from "./QuestionCards";
 import { HiderAreaSearch } from "./session/HiderAreaSearch";
 import { RoleSelection } from "./session/RoleSelection";
 import { SessionManager } from "./session/SessionManager";
@@ -94,60 +86,10 @@ export const QuestionSidebar = () => {
                     </div>
                 </SidebarGroupContent>
             </SidebarGroup>
-            {!isHider && !isInSession && (
-                <SidebarContent>
-                    {$questions.map((question) => {
-                        switch (question.id) {
-                            case "radius":
-                                return (
-                                    <RadiusQuestionComponent
-                                        data={question.data}
-                                        key={question.key}
-                                        questionKey={question.key}
-                                    />
-                                );
-                            case "thermometer":
-                                return (
-                                    <ThermometerQuestionComponent
-                                        data={question.data}
-                                        key={question.key}
-                                        questionKey={question.key}
-                                    />
-                                );
-                            case "tentacles":
-                                return (
-                                    <TentacleQuestionComponent
-                                        data={question.data}
-                                        key={question.key}
-                                        questionKey={question.key}
-                                    />
-                                );
-                            case "matching":
-                                return (
-                                    <MatchingQuestionComponent
-                                        data={question.data}
-                                        key={question.key}
-                                        questionKey={question.key}
-                                    />
-                                );
-                            case "measuring":
-                                return (
-                                    <MeasuringQuestionComponent
-                                        data={question.data}
-                                        key={question.key}
-                                        questionKey={question.key}
-                                    />
-                                );
-                            default:
-                                return null;
-                        }
-                    })}
-                </SidebarContent>
-            )}
             <SidebarGroup>
                 <SidebarGroupContent>
                     <SidebarMenu data-tutorial-id="add-questions-buttons">
-                        {!isInSession && (
+                        {/* {!isInSession && (
                             <SidebarMenuItem>
                                 <AddQuestionDialog>
                                     <SidebarMenuButton disabled={$isLoading}>
@@ -155,18 +97,7 @@ export const QuestionSidebar = () => {
                                     </SidebarMenuButton>
                                 </AddQuestionDialog>
                             </SidebarMenuItem>
-                        )}
-                        <SidebarMenuItem>
-                            <a
-                                href="https://github.com/taibeled/JetLagHideAndSeek"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                <SidebarMenuButton className="bg-emerald-600 transition-colors">
-                                    {tr("sidebar.starOnGithub")}
-                                </SidebarMenuButton>
-                            </a>
-                        </SidebarMenuItem>
+                        )} */}
                         {!$autoSave && (
                             <SidebarMenuItem>
                                 <SidebarMenuButton

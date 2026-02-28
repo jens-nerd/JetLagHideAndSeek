@@ -351,7 +351,7 @@ export const Map = ({ className }: { className?: string }) => {
                 </div>
                 <PolygonDraw />
                 <ScaleControl position="bottomleft" />
-                <MapPrint
+                {/* <MapPrint
                     position="topright"
                     sizeModes={["Current", "A4Portrait", "A4Landscape"]}
                     hideControlContainer={false}
@@ -362,7 +362,7 @@ export const Map = ({ className }: { className?: string }) => {
                         "leaflet-draw",
                     ]}
                     title="Print"
-                />
+                /> */}
             </MapContainer>
         ),
         [map, $highlightTrainLines, $thunderforestApiKey],
