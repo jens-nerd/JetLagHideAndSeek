@@ -199,6 +199,7 @@ const Sidebar = React.forwardRef<
                     open={openMobile}
                     onOpenChange={setOpenMobile}
                     {...props}
+                    modal={false}
                 >
                     <SheetContent
                         data-sidebar="sidebar"
