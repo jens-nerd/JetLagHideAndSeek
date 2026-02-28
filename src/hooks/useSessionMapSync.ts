@@ -104,6 +104,13 @@ export function useSessionMapSync() {
         // mapGeoJSON is reset to null so refreshQuestions() starts from the raw
         // polyGeoJSON base instead of the previously-clipped cached result.
         const applyMerged = () => {
+            // If there are no answered session questions to sync and the local
+            // questions atom is already empty, skip the update entirely.
+            // Setting localQuestions to a new [] reference (even when it was
+            // already []) would trigger Map's useEffect → a redundant second
+            // Overpass fetch cycle with no benefit.
+            if (merged.length === 0 && localQuestions.get().length === 0) return;
+
             if (isLoading.get()) {
                 // Another refreshQuestions() is in flight — subscribe and apply
                 // as soon as it finishes.
