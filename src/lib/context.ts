@@ -339,10 +339,7 @@ export const alwaysUsePastebin = persistentAtom<boolean>(
     },
 );
 
-export const showTutorial = persistentAtom<boolean>("showTutorials", false /* auto-open disabled */, {
-    encode: JSON.stringify,
-    decode: JSON.parse,
-});
+export const showTutorial = atom<boolean>(false);
 export const tutorialStep = atom<number>(0);
 
 export const customInitPreference = persistentAtom<"ask" | "blank" | "prefill">(
