@@ -83,6 +83,34 @@ export const hiderConnected = atom<boolean>(false);
  */
 export const pendingDraftKey = atom<number | null>(null);
 
+/**
+ * Active GPS-tracking session for a Thermometer question.
+ * Non-null while the seeker is driving from point A toward point B.
+ * Lives outside the sidebar so it survives the sidebar Sheet unmounting.
+ */
+export type ThermometerGpsTrackingState = {
+    /** Key of the draft question in questions_atom */
+    questionKey: number;
+    /** Target distance in kilometres (always km internally) */
+    targetKm: number;
+    /** GPS start position = point A */
+    startLat: number;
+    startLng: number;
+    /** Current GPS position = live candidate for point B */
+    currentLat: number;
+    currentLng: number;
+    /** Distance traveled from A so far (km) */
+    traveled: number;
+    /** Timestamp (ms) of the last significant movement (> 5 m) */
+    lastMoveTime: number;
+    /** Latest GPS accuracy in metres, null = unknown */
+    accuracy: number | null;
+    /** True when watchPosition has not delivered a fix recently */
+    signalLost: boolean;
+};
+
+export const thermometerGpsTracking = atom<ThermometerGpsTrackingState | null>(null);
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 export function getRole(): Role | null {
@@ -109,6 +137,7 @@ export function leaveSession(): void {
     pendingRole.set(null);
     hiderAreaConfirmed.set(false);
     pendingDraftKey.set(null);
+    thermometerGpsTracking.set(null);
 
     // ── Map cache – fully clear all session-specific cached data ──────────
     clearCache(CacheType.CACHE);

@@ -38,6 +38,7 @@ import { DraggableMarkers } from "./DraggableMarkers";
 import { LeafletFullScreenButton } from "./LeafletFullScreenButton";
 import { MapPrint } from "./MapPrint";
 import { PolygonDraw } from "./PolygonDraw";
+import { ThermometerGpsLayer } from "./ThermometerGpsLayer";
 
 export const Map = ({ className }: { className?: string }) => {
     useStore(additionalMapGeoLocations);
@@ -344,6 +345,7 @@ export const Map = ({ className }: { className?: string }) => {
                     />
                 )}
                 <DraggableMarkers />
+                <ThermometerGpsLayer />
                 <div className="leaflet-top leaflet-right">
                     <div className="leaflet-control flex-col flex gap-2">
                         <LeafletFullScreenButton />

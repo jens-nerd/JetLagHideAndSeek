@@ -31,11 +31,13 @@ import {
 } from "@/components/ui/dialog";
 import {
     addQuestion as addLocalQuestion,
+    defaultUnit,
     hiderMode,
     isLoading,
     leafletMapContext,
     questions as questions_atom,
 } from "@/lib/context";
+import { SidebarContext } from "@/components/ui/sidebar-l-context";
 import { hiderifyQuestion } from "@/maps";
 import { addQuestion, answerQuestion } from "@/lib/session-api";
 import {
@@ -43,6 +45,7 @@ import {
     sessionCode,
     sessionParticipant,
     sessionQuestions,
+    thermometerGpsTracking,
 } from "@/lib/session-context";
 import type { SessionQuestion } from "@hideandseek/shared";
 import { locale, t, useT, type TranslationKey } from "@/i18n";
@@ -324,7 +327,15 @@ export function SessionQuestionPanel() {
     const $hiderMode = useStore(hiderMode);
     const $isLoading = useStore(isLoading);
     const $localQuestions = useStore(questions_atom);
+    const $defaultUnit = useStore(defaultUnit);
+    const $gpsTracking = useStore(thermometerGpsTracking);
     const [sendingType, setSendingType] = useState<string | null>(null);
+    /** Active thermometer GPS setup dialog: { selectedKm: null | number } | null */
+    const [thermometerSetup, setThermometerSetup] = useState<{
+        selectedKm: number | null;
+        loadingGps: boolean;
+        errorMsg: string | null;
+    } | null>(null);
     /**
      * Key of the locally-added question that is staged but not yet sent.
      * Stored in a global atom so it survives the sidebar Sheet unmounting
@@ -383,24 +394,27 @@ export function SessionQuestionPanel() {
     const isHider = participant.role === "hider";
 
     // ── Seeker: step 1 – add question locally so the seeker can configure it ─
+
+    /** Internal helper: stage a question with explicit data (bypasses map-center defaults) */
+    function stageQuestionWithData(type: string, data: Record<string, unknown>) {
+        addLocalQuestion({ id: type as any, data });
+        const added = [...questions_atom.get()].reverse().find((q) => q.id === type);
+        if (added) pendingDraftKey.set(added.key as number);
+    }
+
     function stageQuestion(type: string) {
+        // Thermometer: show GPS-setup dialog first instead of staging directly
+        if (type === "thermometer") {
+            setThermometerSetup({ selectedKm: null, loadingGps: false, errorMsg: null });
+            return;
+        }
+
         const map = leafletMapContext.get();
         if (!map) return;
         const center = map.getCenter();
 
-        // Build the question data matching AddQuestionDialog's logic
         let questionData: Record<string, unknown>;
-        if (type === "thermometer") {
-            const dest = turf.destination([center.lng, center.lat], 5, 90, {
-                units: "miles",
-            });
-            questionData = {
-                latA: center.lat,
-                lngA: center.lng,
-                latB: dest.geometry.coordinates[1],
-                lngB: dest.geometry.coordinates[0],
-            };
-        } else if (type === "tentacles") {
+        if (type === "tentacles") {
             // Start with theme_park so schemaFifteen's default is used initially;
             // the user can then switch to any locationType in the question card.
             questionData = { lat: center.lat, lng: center.lng, locationType: "theme_park" };
@@ -408,11 +422,67 @@ export function SessionQuestionPanel() {
             questionData = { lat: center.lat, lng: center.lng };
         }
 
-        addLocalQuestion({ id: type as any, data: questionData });
+        stageQuestionWithData(type, questionData);
+    }
 
-        // Remember the key of the question we just added so we can find it later
-        const added = [...questions_atom.get()].reverse().find((q) => q.id === type);
-        if (added) pendingDraftKey.set(added.key as number);
+    // ── Seeker: GPS thermometer start ─────────────────────────────────────────
+    async function startGpsTracking(targetKm: number) {
+        setThermometerSetup((s) => s ? { ...s, loadingGps: true, errorMsg: null } : s);
+        try {
+            const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                    enableHighAccuracy: true,
+                    timeout: 15_000,
+                }),
+            );
+            const { latitude: lat, longitude: lng } = pos.coords;
+
+            // Stage thermometer with GPS start as A; B = 100 m east (placeholder, updated when done)
+            const dest = turf.destination([lng, lat], 0.1, 90, { units: "kilometers" });
+            stageQuestionWithData("thermometer", {
+                latA: lat,
+                lngA: lng,
+                latB: dest.geometry.coordinates[1],
+                lngB: dest.geometry.coordinates[0],
+            });
+
+            // Kick off tracking (ThermometerGpsLayer picks this up)
+            thermometerGpsTracking.set({
+                questionKey: pendingDraftKey.get()!,
+                targetKm,
+                startLat: lat,
+                startLng: lng,
+                currentLat: lat,
+                currentLng: lng,
+                traveled: 0,
+                lastMoveTime: Date.now(),
+                accuracy: pos.coords.accuracy ?? null,
+                signalLost: false,
+            });
+
+            setThermometerSetup(null);
+            // Close sidebar so the user can see the map + overlay
+            SidebarContext.get().setOpenMobile(false);
+        } catch {
+            setThermometerSetup((s) =>
+                s ? { ...s, loadingGps: false, errorMsg: t("sqp.gpsUnavailable", locale.get()) } : s,
+            );
+        }
+    }
+
+    // ── Seeker: manual thermometer (classic flow) ─────────────────────────────
+    function stageThermometerManual() {
+        const map = leafletMapContext.get();
+        if (!map) return;
+        const center = map.getCenter();
+        const dest = turf.destination([center.lng, center.lat], 5, 90, { units: "miles" });
+        stageQuestionWithData("thermometer", {
+            latA: center.lat,
+            lngA: center.lng,
+            latB: dest.geometry.coordinates[1],
+            lngB: dest.geometry.coordinates[0],
+        });
+        setThermometerSetup(null);
     }
 
     // ── Seeker: step 2 – send the staged question to the hider ───────────────
@@ -534,31 +604,140 @@ export function SessionQuestionPanel() {
             : null;
 
     if (!isHider) {
+        // ── Distance chips for GPS thermometer setup ──────────────────────────
+        const isMetric = $defaultUnit !== "miles";
+        const distanceChips: { label: string; km: number }[] = isMetric
+            ? [
+                { label: "1 km",  km: 1  },
+                { label: "3 km",  km: 3  },
+                { label: "8 km",  km: 8  },
+                { label: "25 km", km: 25 },
+                { label: "80 km", km: 80 },
+              ]
+            : [
+                { label: "½ mi", km: 0.80  },
+                { label: "5 mi", km: 8.05  },
+                { label: "15 mi", km: 24.14 },
+                { label: "50 mi", km: 80.47 },
+              ];
+
         return (
             <div className="flex flex-col gap-3 mt-2">
                 {/* ── Section header */}
                 <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: "#067BC2" }}>
                     {tr("sqp.askQuestion")}
                 </p>
-                {/* ── Question-type buttons */}
-                <div className="flex flex-wrap gap-1.5">
-                    {["radius", "thermometer", "tentacles", "matching", "measuring"].map((type) => (
-                        <Button
-                            key={type}
-                            size="sm"
-                            disabled={
-                                sendingType !== null ||
-                                $isLoading ||
-                                pendingLocalKey !== null
-                            }
-                            onClick={() => stageQuestion(type)}
-                            className="text-white border-0 disabled:opacity-40"
-                            style={{ backgroundColor: "#067BC2" }}
-                        >
-                            {getQuestionLabel(type)}
-                        </Button>
-                    ))}
-                </div>
+
+                {/* ── Thermometer GPS setup card ──────────────────────────── */}
+                {thermometerSetup !== null && (
+                    <div className="rounded-md p-3 flex flex-col gap-2" style={{ backgroundColor: "#067BC2" }}>
+                        <p className="text-sm font-bold text-white">🌡️ Thermometer konfigurieren</p>
+
+                        {/* Distance chips */}
+                        <p className="text-xs text-white/80">Zieldistanz:</p>
+                        <div className="flex flex-wrap gap-1.5">
+                            {distanceChips.map((chip) => (
+                                <button
+                                    key={chip.km}
+                                    type="button"
+                                    onClick={() =>
+                                        setThermometerSetup((s) =>
+                                            s ? { ...s, selectedKm: chip.km } : s,
+                                        )
+                                    }
+                                    className="px-3 py-1 rounded-full text-xs font-bold transition-colors"
+                                    style={
+                                        thermometerSetup.selectedKm === chip.km
+                                            ? { backgroundColor: "#ECC30B", color: "#000" }
+                                            : { backgroundColor: "rgba(255,255,255,0.15)", color: "#fff" }
+                                    }
+                                >
+                                    {chip.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Error message */}
+                        {thermometerSetup.errorMsg && (
+                            <p className="text-xs text-red-200">{thermometerSetup.errorMsg}</p>
+                        )}
+
+                        {/* Action buttons */}
+                        <div className="flex flex-col gap-1 mt-1">
+                            <Button
+                                size="sm"
+                                disabled={
+                                    thermometerSetup.selectedKm === null ||
+                                    thermometerSetup.loadingGps
+                                }
+                                onClick={() =>
+                                    thermometerSetup.selectedKm !== null &&
+                                    startGpsTracking(thermometerSetup.selectedKm)
+                                }
+                                className="border-0 font-bold disabled:opacity-40"
+                                style={{ backgroundColor: "#ECC30B", color: "#000" }}
+                            >
+                                {thermometerSetup.loadingGps ? "GPS wird geladen…" : "🛰️ GPS-Tracking starten"}
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={stageThermometerManual}
+                                disabled={thermometerSetup.loadingGps}
+                                className="border-0 font-medium disabled:opacity-40"
+                                style={{ backgroundColor: "rgba(255,255,255,0.15)", color: "#fff" }}
+                            >
+                                Manuell
+                            </Button>
+                            <button
+                                type="button"
+                                onClick={() => setThermometerSetup(null)}
+                                disabled={thermometerSetup.loadingGps}
+                                className="text-xs underline font-medium disabled:opacity-40"
+                                style={{ color: "#84BCDA" }}
+                            >
+                                Abbrechen
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* ── GPS tracking active indicator ────────────────────────── */}
+                {$gpsTracking !== null &&
+                    $gpsTracking.questionKey === pendingLocalKey && (
+                    <div className="rounded-md px-3 py-2 text-xs text-white flex items-center gap-2"
+                        style={{ backgroundColor: "#067BC2" }}>
+                        <span>🛰️</span>
+                        <span>
+                            GPS-Tracking läuft…{" "}
+                            {$gpsTracking.traveled.toFixed(2)} /{" "}
+                            {$gpsTracking.targetKm} km
+                        </span>
+                    </div>
+                )}
+
+                {/* ── Question-type buttons (hidden while setup shown) ─────── */}
+                {thermometerSetup === null && (
+                    <div className="flex flex-wrap gap-1.5">
+                        {["radius", "thermometer", "tentacles", "matching", "measuring"].map((type) => (
+                            <Button
+                                key={type}
+                                size="sm"
+                                disabled={
+                                    sendingType !== null ||
+                                    $isLoading ||
+                                    pendingLocalKey !== null ||
+                                    $gpsTracking !== null
+                                }
+                                onClick={() => stageQuestion(type)}
+                                className="text-white border-0 disabled:opacity-40"
+                                style={{ backgroundColor: "#067BC2" }}
+                            >
+                                {getQuestionLabel(type)}
+                            </Button>
+                        ))}
+                    </div>
+                )}
 
                 <QuestionList
                     questions={sqList}
@@ -566,7 +745,12 @@ export function SessionQuestionPanel() {
                     pendingLocalQuestion={pendingLocalQuestion}
                     sendingType={sendingType}
                     onCancelPending={cancelPendingQuestion}
-                    onSendPending={sendPendingQuestion}
+                    onSendPending={
+                        // Disable send while GPS tracking is still running for this question
+                        $gpsTracking !== null && $gpsTracking.questionKey === pendingLocalKey
+                            ? undefined
+                            : sendPendingQuestion
+                    }
                 />
             </div>
         );
@@ -830,13 +1014,17 @@ function QuestionList({
                     <div className="flex flex-col items-start gap-1">
                         <Button
                             size="sm"
-                            disabled={sendingType !== null}
+                            disabled={sendingType !== null || onSendPending === undefined}
                             onClick={onSendPending}
                             className="border-0 font-bold disabled:opacity-40"
                             style={{ backgroundColor: "#ECC30B", color: "#000" }}
                         >
-                            {sendingType !== null ? tr("sqp.sending") : tr("sqp.sendQuestion")}
-                            <Send className="ml-1 h-3 w-3" />
+                            {sendingType !== null
+                                ? tr("sqp.sending")
+                                : onSendPending === undefined
+                                    ? "🛰️ Tracking läuft…"
+                                    : tr("sqp.sendQuestion")}
+                            {onSendPending !== undefined && <Send className="ml-1 h-3 w-3" />}
                         </Button>
                         <button
                             type="button"
