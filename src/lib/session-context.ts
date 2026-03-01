@@ -75,6 +75,14 @@ export const seekerCount = atom<number>(0);
 /** Whether the hider is connected */
 export const hiderConnected = atom<boolean>(false);
 
+/**
+ * Key of the locally-staged (draft) question that the seeker has configured
+ * but not yet sent to the hider.  Stored as an atom (not React state) so that
+ * it survives the sidebar Sheet unmounting on mobile when the user closes the
+ * panel to inspect the map.
+ */
+export const pendingDraftKey = atom<number | null>(null);
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 export function getRole(): Role | null {
@@ -100,6 +108,7 @@ export function leaveSession(): void {
     hiderConnected.set(false);
     pendingRole.set(null);
     hiderAreaConfirmed.set(false);
+    pendingDraftKey.set(null);
 
     // ── Map cache – fully clear all session-specific cached data ──────────
     clearCache(CacheType.CACHE);

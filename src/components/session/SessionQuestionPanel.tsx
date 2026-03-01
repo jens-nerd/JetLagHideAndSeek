@@ -39,6 +39,7 @@ import {
 import { hiderifyQuestion } from "@/maps";
 import { addQuestion, answerQuestion } from "@/lib/session-api";
 import {
+    pendingDraftKey,
     sessionCode,
     sessionParticipant,
     sessionQuestions,
@@ -324,8 +325,12 @@ export function SessionQuestionPanel() {
     const $isLoading = useStore(isLoading);
     const $localQuestions = useStore(questions_atom);
     const [sendingType, setSendingType] = useState<string | null>(null);
-    /** Key of the locally-added question that is staged but not yet sent */
-    const [pendingLocalKey, setPendingLocalKey] = useState<number | null>(null);
+    /**
+     * Key of the locally-added question that is staged but not yet sent.
+     * Stored in a global atom so it survives the sidebar Sheet unmounting
+     * on mobile (when the user closes the panel to look at the map).
+     */
+    const pendingLocalKey = useStore(pendingDraftKey);
 
     // ── Hider answer state ──────────────────────────────────────────────────
     /** The session question currently being answered (preview mode) */
@@ -407,7 +412,7 @@ export function SessionQuestionPanel() {
 
         // Remember the key of the question we just added so we can find it later
         const added = [...questions_atom.get()].reverse().find((q) => q.id === type);
-        if (added) setPendingLocalKey(added.key as number);
+        if (added) pendingDraftKey.set(added.key as number);
     }
 
     // ── Seeker: step 2 – send the staged question to the hider ───────────────
@@ -416,7 +421,7 @@ export function SessionQuestionPanel() {
         const match = questions_atom.get().find((q) => q.key === pendingLocalKey);
         if (!match) {
             toast.error(t("sqp.questionNotFound", locale.get()));
-            setPendingLocalKey(null);
+            pendingDraftKey.set(null);
             return;
         }
         setSendingType(match.id);
@@ -426,7 +431,7 @@ export function SessionQuestionPanel() {
                 data: match.data,
             });
             toast.success(t("sqp.questionSent", locale.get()));
-            setPendingLocalKey(null);
+            pendingDraftKey.set(null);
         } catch (e: unknown) {
             toast.error((e as Error).message);
         } finally {
@@ -439,7 +444,7 @@ export function SessionQuestionPanel() {
         if (pendingLocalKey === null) return;
         const current = questions_atom.get();
         questions_atom.set(current.filter((q) => q.key !== pendingLocalKey));
-        setPendingLocalKey(null);
+        pendingDraftKey.set(null);
     }
 
     // ── Hider: enter preview mode for a question ────────────────────────────
