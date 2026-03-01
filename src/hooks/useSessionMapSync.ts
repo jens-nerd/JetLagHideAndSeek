@@ -21,7 +21,7 @@ import {
     mapGeoJSON,
     questions as localQuestions,
 } from "@/lib/context";
-import { sessionParticipant, sessionQuestions } from "@/lib/session-context";
+import { pendingDraftKey, sessionParticipant, sessionQuestions } from "@/lib/session-context";
 import { questionsSchema } from "@/maps/schema";
 
 /**
@@ -94,6 +94,21 @@ export function useSessionMapSync() {
         // pipeline is never fed incomplete/default question data.
         const merged = [...parsedAnswered];
 
+        // ── 3. Preserve the seeker's pending draft question ───────────────────
+        // When the mobile sidebar Sheet closes, QuestionSidebar (and this hook)
+        // unmount. On reopen they remount and this effect runs again. Without
+        // this guard, `localQuestions.set(merged)` would wipe the draft question
+        // that was staged in questions_atom before the sidebar was closed.
+        // We re-include the draft question in finalMerged so it survives the
+        // sidebar close/reopen cycle. Once it is sent (pendingDraftKey → null)
+        // the answered version from parsedAnswered takes its place naturally.
+        const draftKey = pendingDraftKey.get();
+        const draftQuestion =
+            draftKey !== null
+                ? localQuestions.get().find((q) => q.key === draftKey) ?? null
+                : null;
+        const finalMerged = draftQuestion ? [draftQuestion, ...merged] : merged;
+
         // Apply the merged questions once any in-flight refreshQuestions() has
         // finished.  Map.tsx reads `$isLoading` from the React render closure,
         // so if we set atoms while isLoading=true the resulting useEffect fires
@@ -109,7 +124,7 @@ export function useSessionMapSync() {
             // Setting localQuestions to a new [] reference (even when it was
             // already []) would trigger Map's useEffect → a redundant second
             // Overpass fetch cycle with no benefit.
-            if (merged.length === 0 && localQuestions.get().length === 0) return;
+            if (finalMerged.length === 0 && localQuestions.get().length === 0) return;
 
             if (isLoading.get()) {
                 // Another refreshQuestions() is in flight — subscribe and apply
@@ -118,12 +133,12 @@ export function useSessionMapSync() {
                     if (!loading) {
                         unsub();
                         mapGeoJSON.set(null);
-                        localQuestions.set(merged);
+                        localQuestions.set(finalMerged);
                     }
                 });
             } else {
                 mapGeoJSON.set(null);
-                localQuestions.set(merged);
+                localQuestions.set(finalMerged);
             }
         };
         applyMerged();
