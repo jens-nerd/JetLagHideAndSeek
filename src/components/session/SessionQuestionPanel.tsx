@@ -42,6 +42,7 @@ import { SidebarContext } from "@/components/ui/sidebar-l-context";
 import { adjustMapGeoDataForQuestion, hiderifyQuestion } from "@/maps";
 import { addQuestion, answerQuestion } from "@/lib/session-api";
 import { handleSubmitError } from "@/lib/handle-submit-error";
+import { LocationCard } from "./picker/LocationCard";
 import {
     pendingDraftKey,
     sessionCode,
@@ -850,9 +851,7 @@ export function SessionQuestionPanel() {
                 hiderMode={$hiderMode}
                 previewResult={previewResult}
                 submitting={submitting}
-                loadingGPS={loadingGPS}
-                onLoadGPS={loadGPS}
-                onPlaceManualPin={placeManualPin}
+                onHiderLocationChange={(lat, lng) => hiderMode.set({ latitude: lat, longitude: lng })}
                 onSubmitAnswer={submitAnswer}
                 onCancelAnswering={cancelAnswering}
                 pendingAnswerType={pendingAnswerSq?.type ?? null}
@@ -986,9 +985,7 @@ export function QuestionList({
     hiderMode: $hiderMode,
     previewResult,
     submitting,
-    loadingGPS,
-    onLoadGPS,
-    onPlaceManualPin,
+    onHiderLocationChange,
     onSubmitAnswer,
     onCancelAnswering,
     pendingAnswerType,
@@ -1010,9 +1007,8 @@ export function QuestionList({
     hiderMode?: { latitude: number; longitude: number } | false;
     previewResult?: PreviewResult | null;
     submitting?: boolean;
-    loadingGPS?: boolean;
-    onLoadGPS?: () => void;
-    onPlaceManualPin?: () => void;
+    /** Called when hider changes their location (GPS, manual input, search, clipboard) */
+    onHiderLocationChange?: (lat: number, lng: number) => void;
     onSubmitAnswer?: () => void;
     onCancelAnswering?: () => void;
     pendingAnswerType?: string | null;
@@ -1035,24 +1031,6 @@ export function QuestionList({
     }
 
     // ── Inline styles ──────────────────────────────────────────────────────
-    const coordInputStyle: React.CSSProperties = {
-        background: "rgba(255,255,255,0.06)",
-        border: "1px solid rgba(255,255,255,0.1)",
-        borderRadius: 8,
-        color: "#fff",
-        fontSize: "13px",
-        padding: "8px 10px",
-        fontFamily: "inherit",
-        width: "100%",
-        boxSizing: "border-box" as const,
-    };
-    const coordLabelStyle: React.CSSProperties = {
-        fontSize: "12px",
-        fontWeight: 600,
-        color: "#E5E7EB",
-        marginBottom: 4,
-        display: "block",
-    };
     const actionLinkStyle: React.CSSProperties = {
         color: "#22C55E",
         fontSize: "12px",
@@ -1371,51 +1349,15 @@ export function QuestionList({
                                     </p>
                                 </div>
 
-                                {/* GPS coordinates (when pin is set) */}
-                                {$hiderMode && typeof $hiderMode === "object" && (
-                                    <div style={{ display: "flex", gap: 12 }}>
-                                        <div style={{ flex: 1 }}>
-                                            <label style={coordLabelStyle}>Breitengrad</label>
-                                            <input
-                                                type="text"
-                                                readOnly
-                                                value={$hiderMode.latitude.toFixed(6)}
-                                                style={coordInputStyle}
-                                            />
-                                        </div>
-                                        <div style={{ flex: 1 }}>
-                                            <label style={coordLabelStyle}>Längengrad</label>
-                                            <input
-                                                type="text"
-                                                readOnly
-                                                value={$hiderMode.longitude.toFixed(6)}
-                                                style={coordInputStyle}
-                                            />
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Action links */}
-                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                    <button
-                                        type="button"
-                                        onClick={onLoadGPS}
-                                        disabled={loadingGPS}
-                                        style={{
-                                            ...actionLinkStyle,
-                                            opacity: loadingGPS ? 0.5 : 1,
-                                        }}
-                                    >
-                                        → {loadingGPS ? tr("sqp.loadingGps") : "GPS aktualisieren"}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={onPlaceManualPin}
-                                        style={actionLinkStyle}
-                                    >
-                                        → Standort manuell eingeben
-                                    </button>
-                                </div>
+                                {/* Hider location — GPS + manual input via shared LocationCard */}
+                                <LocationCard
+                                    accentColor="green"
+                                    title="Dein Standort (Hider)"
+                                    lat={$hiderMode && typeof $hiderMode === "object" ? $hiderMode.latitude : 0}
+                                    lng={$hiderMode && typeof $hiderMode === "object" ? $hiderMode.longitude : 0}
+                                    onChange={(lat, lng) => onHiderLocationChange?.(lat, lng)}
+                                    autoFetchGps={false}
+                                />
 
                                 {/* Preview result */}
                                 {$hiderMode === false ? (
