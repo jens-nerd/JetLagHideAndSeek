@@ -362,6 +362,15 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
                 {mode === "gps" && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
+                        {/* Start location — uses shared LocationCard */}
+                        <LocationCard
+                            accentColor="red"
+                            title="Dein Standort"
+                            lat={startLat}
+                            lng={startLng}
+                            onChange={(lat, lng) => { setStartLat(lat); setStartLng(lng); }}
+                        />
+
                         {/* Distance chips */}
                         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                             <span style={{
@@ -397,15 +406,6 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
                                 ))}
                             </div>
                         </div>
-
-                        {/* Start location — uses shared LocationCard */}
-                        <LocationCard
-                            accentColor="red"
-                            title="Dein Standort"
-                            lat={startLat}
-                            lng={startLng}
-                            onChange={(lat, lng) => { setStartLat(lat); setStartLng(lng); }}
-                        />
 
                     </div>
                 )}

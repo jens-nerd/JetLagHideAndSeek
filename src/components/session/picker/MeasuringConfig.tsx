@@ -450,6 +450,15 @@ export function MeasuringConfig({
             }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
+                    {/* ── Dein Standort (Seeker) ──────────────────────────── */}
+                    <LocationCard
+                        accentColor="green"
+                        title="Dein Standort (Seeker)"
+                        lat={centerLat}
+                        lng={centerLng}
+                        onChange={(lat, lng) => { setCenterLat(lat); setCenterLng(lng); }}
+                    />
+
                     {/* ── Fragetyp dropdown ──────────────────────────────── */}
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                         <span style={sectionLabel}>Fragetyp</span>
@@ -476,15 +485,6 @@ export function MeasuringConfig({
                             ))}
                         </select>
                     </div>
-
-                    {/* ── Dein Standort (Seeker) ──────────────────────────── */}
-                    <LocationCard
-                        accentColor="green"
-                        title="Dein Standort (Seeker)"
-                        lat={centerLat}
-                        lng={centerLng}
-                        onChange={(lat, lng) => { setCenterLat(lat); setCenterLng(lng); }}
-                    />
 
                     {/* ── Distance to reference point ─────────────────────── */}
                     {nearestResult && (
