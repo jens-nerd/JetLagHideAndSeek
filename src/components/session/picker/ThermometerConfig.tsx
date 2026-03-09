@@ -26,6 +26,7 @@ import {
     questions as questions_atom,
 } from "@/lib/context";
 import { addQuestion } from "@/lib/session-api";
+import { handleSubmitError } from "@/lib/handle-submit-error";
 import {
     pendingDraftKey,
     sessionCode,
@@ -323,8 +324,8 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
             onDone?.();
             pickerOpen.set(false);
             bottomSheetState.set("collapsed");
-        } catch {
-            toast.error("Server derzeit nicht erreichbar. Bitte probiere die Frage gleich nochmal zu senden.");
+        } catch (e) {
+            handleSubmitError(e);
             setSubmitting(false);
             // Picker stays open — user can retry immediately
         }

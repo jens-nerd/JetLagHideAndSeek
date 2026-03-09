@@ -41,6 +41,7 @@ import {
 import { SidebarContext } from "@/components/ui/sidebar-l-context";
 import { adjustMapGeoDataForQuestion, hiderifyQuestion } from "@/maps";
 import { addQuestion, answerQuestion } from "@/lib/session-api";
+import { handleSubmitError } from "@/lib/handle-submit-error";
 import {
     pendingDraftKey,
     sessionCode,
@@ -656,7 +657,7 @@ export function SessionQuestionPanel() {
             toast.success(t("sqp.questionSent", locale.get()));
             pendingDraftKey.set(null);
         } catch (e: unknown) {
-            toast.error((e as Error).message);
+            handleSubmitError(e);
         } finally {
             setSendingType(null);
         }
@@ -754,7 +755,7 @@ export function SessionQuestionPanel() {
             setPreviewResult(null);
             latestAnswerDataRef.current = null;
         } catch (e: unknown) {
-            toast.error((e as Error).message);
+            handleSubmitError(e);
         } finally {
             setSubmitting(false);
         }

@@ -16,6 +16,7 @@ import { useT, type TranslationKey } from "@/i18n";
 import { bottomSheetState, pickerOpen } from "@/lib/bottom-sheet-state";
 import { PHOTO_CHALLENGES, type PhotoChallenge } from "@/lib/photo-challenges";
 import { addQuestion } from "@/lib/session-api";
+import { handleSubmitError } from "@/lib/handle-submit-error";
 import { gameSize, sessionCode, sessionParticipant } from "@/lib/session-context";
 import { PickerFooter } from "./PickerFooter";
 import { PickerHeader, type WsStatus } from "./PickerHeader";
@@ -62,10 +63,8 @@ export function PhotoConfig({
             onDone?.();
             pickerOpen.set(false);
             bottomSheetState.set("collapsed");
-        } catch {
-            toast.error(
-                "Server derzeit nicht erreichbar. Bitte probiere die Frage gleich nochmal zu senden.",
-            );
+        } catch (e) {
+            handleSubmitError(e);
             setSubmitting(false);
         }
     }
