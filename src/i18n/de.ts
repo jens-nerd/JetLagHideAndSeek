@@ -385,6 +385,7 @@ export const de = {
     "sqp.previewLocationFound": "Ort gefunden",
     "sqp.previewNearestPlace": "Nächster Ort",
     "sqp.previewPlaceFound": "Ort gefunden",
+    "sqp.previewOutsideRadius": "Außerhalb des Umkreises",
 
     // ── Standorttypen (tentacles / measuring / matching) ─────────────────────
     "locType.theme_park": "Freizeitpark",
