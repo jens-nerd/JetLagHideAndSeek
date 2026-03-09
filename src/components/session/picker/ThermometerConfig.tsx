@@ -9,13 +9,13 @@
  *              shows a colored preview line on the map; "Frage absenden" submits
  */
 import { useStore } from "@nanostores/react";
-import { MapPin } from "lucide-react";
+// lucide-react: no icons needed directly (LocationCard handles them)
 import { useEffect, useRef, useState } from "react";
 
 import * as L from "leaflet";
 import * as turf from "@turf/turf";
 
-import { formatCoord } from "./location-utils";
+
 
 import { useT } from "@/i18n";
 import { bottomSheetState, pickerOpen } from "@/lib/bottom-sheet-state";
@@ -105,12 +105,8 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
 
     // GPS mode state
     const [selectedKm, setSelectedKm] = useState<number | null>(null);
-    const [loadingGps, setLoadingGps] = useState(false);
-    const [gpsError, setGpsError] = useState<string | null>(null);
-    /** GPS-fetched start pin — set by "GPS-Standort setzen", used by "Thermometer starten" */
-    const [gpsPin, setGpsPin] = useState<{ lat: number; lng: number; accuracy: number | null } | null>(null);
 
-    // Manual mode state — initialized from map center
+    // Coordinates — initialized from map center, shared between GPS and manual mode
     const map = leafletMapContext.get();
     const center = map?.getCenter() ?? { lat: 51.1, lng: 10.4 };
     const [startLat, setStartLat] = useState(center.lat);
@@ -124,36 +120,8 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
     // Leaflet layer refs
     const startMarkerRef = useRef<L.Marker | null>(null);
     const endMarkerRef = useRef<L.Marker | null>(null);
-    const gpsMarkerRef = useRef<L.Marker | null>(null);
     const coldPolygonRef = useRef<L.Polygon | null>(null);
     const warmPolygonRef = useRef<L.Polygon | null>(null);
-
-    // ── Effect: GPS pin marker (GPS mode) ────────────────────────────────────────
-
-    useEffect(() => {
-        const currentMap = leafletMapContext.get();
-        if (!currentMap) return;
-        if (gpsMarkerRef.current) {
-            currentMap.removeLayer(gpsMarkerRef.current);
-            gpsMarkerRef.current = null;
-        }
-        if (mode !== "gps" || !gpsPin) return;
-        gpsMarkerRef.current = L.marker([gpsPin.lat, gpsPin.lng], {
-            icon: L.divIcon({
-                html: `<div style="width:16px;height:16px;background:#E8323A;border-radius:50%;border:2px solid #fff;box-shadow:0 0 5px rgba(0,0,0,0.6)"></div>`,
-                iconSize: [16, 16],
-                iconAnchor: [8, 8],
-                className: "",
-            }),
-        }).addTo(currentMap);
-        return () => {
-            const m = leafletMapContext.get();
-            if (gpsMarkerRef.current) {
-                m?.removeLayer(gpsMarkerRef.current);
-                gpsMarkerRef.current = null;
-            }
-        };
-    }, [mode, gpsPin]);
 
     // ── Effect: Start/End markers (manual mode) — created once per mode change ───
     // Markers are draggable; dragend updates React state.
@@ -298,52 +266,27 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
         if (added) pendingDraftKey.set(added.key as number);
     }
 
-    // ── GPS mode: step 1 — fetch GPS and pin location ────────────────────────────
-
-    async function handleFetchGpsPin() {
-        setLoadingGps(true);
-        setGpsError(null);
-        try {
-            const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
-                navigator.geolocation.getCurrentPosition(resolve, reject, {
-                    enableHighAccuracy: true,
-                    timeout: 15_000,
-                }),
-            );
-            setGpsPin({
-                lat: pos.coords.latitude,
-                lng: pos.coords.longitude,
-                accuracy: pos.coords.accuracy ?? null,
-            });
-        } catch {
-            setGpsError("GPS nicht verfügbar. Bitte Berechtigungen prüfen.");
-        } finally {
-            setLoadingGps(false);
-        }
-    }
-
-    // ── GPS mode: step 2 — submit question and start tracking ────────────────────
+    // ── GPS mode: submit question and start tracking ─────────────────────────────
 
     function handleStartThermometer() {
-        if (selectedKm === null || !gpsPin) return;
-        const { lat, lng, accuracy } = gpsPin;
-        const dest = turf.destination([lng, lat], 0.1, 90, { units: "kilometers" });
+        if (selectedKm === null) return;
+        const dest = turf.destination([startLng, startLat], 0.1, 90, { units: "kilometers" });
         stageQuestionWithData("thermometer", {
-            latA: lat,
-            lngA: lng,
+            latA: startLat,
+            lngA: startLng,
             latB: dest.geometry.coordinates[1],
             lngB: dest.geometry.coordinates[0],
         });
         thermometerGpsTracking.set({
             questionKey: pendingDraftKey.get()!,
             targetKm: selectedKm,
-            startLat: lat,
-            startLng: lng,
-            currentLat: lat,
-            currentLng: lng,
+            startLat,
+            startLng,
+            currentLat: startLat,
+            currentLng: startLng,
             traveled: 0,
             lastMoveTime: Date.now(),
-            accuracy,
+            accuracy: null,
             signalLost: false,
         });
         onDone?.();
@@ -455,57 +398,14 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
                             </div>
                         </div>
 
-                        {/* GPS pin button — sets start location, not a submit */}
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                            <span style={{
-                                color: "#99A1AF",
-                                fontSize: "12px",
-                                fontWeight: 600,
-                                letterSpacing: "0.08em",
-                                textTransform: "uppercase",
-                            }}>
-                                Startpunkt
-                            </span>
-                            <button
-                                type="button"
-                                onClick={handleFetchGpsPin}
-                                disabled={loadingGps}
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 10,
-                                    padding: "12px 16px",
-                                    background: "#2A2A3A",
-                                    border: gpsPin
-                                        ? "1px solid rgba(74,222,128,0.4)"
-                                        : "1px solid rgba(255,255,255,0.08)",
-                                    borderRadius: 10,
-                                    cursor: loadingGps ? "wait" : "pointer",
-                                    color: "#fff",
-                                    fontSize: "14px",
-                                    fontWeight: 600,
-                                    textAlign: "left",
-                                    width: "100%",
-                                    boxSizing: "border-box",
-                                    opacity: loadingGps ? 0.6 : 1,
-                                }}
-                            >
-                                <MapPin size={16} color={gpsPin ? "#4ADE80" : "var(--color-primary)"} style={{ flexShrink: 0 }} />
-                                <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1 }}>
-                                    <span>{loadingGps ? "GPS wird geladen…" : gpsPin ? "Standort aktualisieren" : "GPS-Standort setzen"}</span>
-                                    {gpsPin && (
-                                        <span style={{ color: "#4ADE80", fontSize: "11px", fontWeight: 400, fontFamily: "monospace" }}>
-                                            ✓ {formatCoord(gpsPin.lat, gpsPin.lng)}
-                                        </span>
-                                    )}
-                                </div>
-                            </button>
-                            {gpsError && (
-                                <p style={{ color: "#FCA5A5", fontSize: "13px", margin: 0 }}>
-                                    {gpsError}
-                                </p>
-                            )}
-                        </div>
+                        {/* Start location — uses shared LocationCard */}
+                        <LocationCard
+                            accentColor="red"
+                            title="Dein Standort"
+                            lat={startLat}
+                            lng={startLng}
+                            onChange={(lat, lng) => { setStartLat(lat); setStartLng(lng); }}
+                        />
 
                     </div>
                 )}
@@ -597,13 +497,11 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
             {mode === "gps" && (
                 <PickerFooter
                     primaryLabel="🏁 Thermometer starten"
-                    primaryDisabled={selectedKm === null || gpsPin === null}
+                    primaryDisabled={selectedKm === null}
                     onPrimary={handleStartThermometer}
-                    secondaryLabel="Manuell"
-                    secondaryDisabled={loadingGps}
+                    secondaryLabel="Manuell (A+B)"
                     onSecondary={() => setMode("manual")}
                     onCancel={onBack}
-                    cancelDisabled={loadingGps}
                 />
             )}
 
