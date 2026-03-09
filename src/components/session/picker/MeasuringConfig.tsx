@@ -10,7 +10,7 @@
  */
 import { useStore } from "@nanostores/react";
 import * as L from "leaflet";
-import { LocateFixed, MapPin, Navigation, Search } from "lucide-react";
+import { LocateFixed } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 
@@ -24,6 +24,7 @@ import {
 } from "@/lib/session-context";
 import { locale, t, type TranslationKey } from "@/i18n";
 import { ConfigCard } from "./ConfigCard";
+import { LocationCard } from "./LocationCard";
 import { PickerFooter } from "./PickerFooter";
 import { PickerHeader, type WsStatus } from "./PickerHeader";
 
@@ -112,12 +113,6 @@ function getMeasLabel(type: string): string {
     return t(key, locale.get()) ?? type;
 }
 
-function formatCoord(lat: number, lng: number): string {
-    const latDir = lat >= 0 ? "N" : "S";
-    const lngDir = lng >= 0 ? "E" : "W";
-    return `${Math.abs(lat).toFixed(6)}°${latDir} ${Math.abs(lng).toFixed(6)}°${lngDir}`;
-}
-
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
     const R = 6371;
     const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -128,32 +123,6 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
             Math.cos((lat2 * Math.PI) / 180) *
             Math.sin(dLng / 2) ** 2;
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function parseClipboardCoords(text: string): { lat: number; lng: number } | null {
-    const s = text.trim();
-    const simple = s.match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
-    if (simple) {
-        const lat = parseFloat(simple[1]);
-        const lng = parseFloat(simple[2]);
-        if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) return { lat, lng };
-    }
-    return null;
-}
-
-async function searchPhoton(query: string): Promise<{ lat: number; lng: number; name: string }[]> {
-    if (!query.trim()) return [];
-    const resp = await fetch(
-        `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5`,
-    );
-    const data = await resp.json();
-    return (data.features ?? []).map((f: any) => ({
-        lat: f.geometry.coordinates[1],
-        lng: f.geometry.coordinates[0],
-        name: [f.properties.name, f.properties.city, f.properties.country]
-            .filter(Boolean)
-            .join(", "),
-    }));
 }
 
 // ── Question preview with highlighted keywords ───────────────────────────────
@@ -214,33 +183,6 @@ const sectionLabel: React.CSSProperties = {
     textTransform: "uppercase",
 };
 
-const inputStyle: React.CSSProperties = {
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.1)",
-    borderRadius: 8,
-    color: "#fff",
-    fontSize: "13px",
-    padding: "8px 10px",
-    outline: "none",
-    width: "100%",
-    boxSizing: "border-box",
-    fontFamily: "inherit",
-};
-
-const greenLink: React.CSSProperties = {
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    color: "#22C55E",
-    fontSize: "13px",
-    fontWeight: 600,
-    padding: 0,
-    textAlign: "left",
-    display: "flex",
-    alignItems: "center",
-    gap: 4,
-};
-
 // ── Main component ──────────────────────────────────────────────────────────
 
 export interface MeasuringConfigProps {
@@ -260,7 +202,6 @@ export function MeasuringConfig({
 }: MeasuringConfigProps) {
     const $gameSize = useStore(gameSize);
 
-    const [mode, setMode] = useState<"gps" | "manual">("gps");
     const [measType, setMeasType] = useState("airport");
 
     // ── Center coordinate ────────────────────────────────────────────────────
@@ -268,19 +209,6 @@ export function MeasuringConfig({
     const rawCenter = mapInst?.getCenter() ?? { lat: 51.1, lng: 10.4 };
     const [centerLat, setCenterLat] = useState(rawCenter.lat);
     const [centerLng, setCenterLng] = useState(rawCenter.lng);
-
-    // ── GPS state ────────────────────────────────────────────────────────────
-    const [gpsLoading, setGpsLoading] = useState(false);
-    const [gpsError, setGpsError] = useState<string | null>(null);
-
-    // ── Manual state ─────────────────────────────────────────────────────────
-    const [latStr, setLatStr] = useState(rawCenter.lat.toFixed(6));
-    const [lngStr, setLngStr] = useState(rawCenter.lng.toFixed(6));
-    const [searchQuery, setSearchQuery] = useState("");
-    const [searchResults, setSearchResults] = useState<{ lat: number; lng: number; name: string }[]>([]);
-    const [searchLoading, setSearchLoading] = useState(false);
-    const [coordError, setCoordError] = useState<string | null>(null);
-    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // ── Find nearest state ───────────────────────────────────────────────────
     const [nearestResult, setNearestResult] = useState<{
@@ -306,12 +234,6 @@ export function MeasuringConfig({
 
     const ungrouped = filteredTypes.filter((mt) => !mt.group);
     const groups = [...new Set(filteredTypes.filter((mt) => mt.group).map((mt) => mt.group!))];
-
-    // ── Auto-fetch GPS on mount ──────────────────────────────────────────────
-    useEffect(() => {
-        fetchGps();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
 
     // ── Draw seeker marker on map ────────────────────────────────────────────
     useEffect(() => {
@@ -346,80 +268,6 @@ export function MeasuringConfig({
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [measType, centerLat, centerLng]);
-
-    // ── GPS fetch ────────────────────────────────────────────────────────────
-    async function fetchGps() {
-        setGpsLoading(true);
-        setGpsError(null);
-        try {
-            const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
-                navigator.geolocation.getCurrentPosition(resolve, reject, {
-                    enableHighAccuracy: true,
-                    timeout: 15_000,
-                }),
-            );
-            setCenterLat(pos.coords.latitude);
-            setCenterLng(pos.coords.longitude);
-            setLatStr(pos.coords.latitude.toFixed(6));
-            setLngStr(pos.coords.longitude.toFixed(6));
-        } catch {
-            setGpsError("GPS nicht verfügbar. Bitte Berechtigungen prüfen.");
-        } finally {
-            setGpsLoading(false);
-        }
-    }
-
-    // ── Manual mode helpers ──────────────────────────────────────────────────
-    function setPosition(newLat: number, newLng: number) {
-        setCenterLat(newLat);
-        setCenterLng(newLng);
-        setLatStr(newLat.toFixed(6));
-        setLngStr(newLng.toFixed(6));
-    }
-
-    function applyLatStr(s: string) {
-        setLatStr(s);
-        const v = parseFloat(s);
-        if (!isNaN(v) && v >= -90 && v <= 90) setCenterLat(v);
-    }
-
-    function applyLngStr(s: string) {
-        setLngStr(s);
-        const v = parseFloat(s);
-        if (!isNaN(v) && v >= -180 && v <= 180) setCenterLng(v);
-    }
-
-    function handleSearchChange(q: string) {
-        setSearchQuery(q);
-        setSearchResults([]);
-        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-        if (!q.trim()) return;
-        searchTimeoutRef.current = setTimeout(async () => {
-            setSearchLoading(true);
-            try {
-                setSearchResults(await searchPhoton(q));
-            } catch { /* ignore */ }
-            finally { setSearchLoading(false); }
-        }, 400);
-    }
-
-    function selectResult(r: { lat: number; lng: number }) {
-        setPosition(r.lat, r.lng);
-        setSearchQuery("");
-        setSearchResults([]);
-    }
-
-    async function pasteClipboard() {
-        setCoordError(null);
-        try {
-            const text = await navigator.clipboard.readText();
-            const coords = parseClipboardCoords(text);
-            if (!coords) { setCoordError("Ungültige Koordinaten"); return; }
-            setPosition(coords.lat, coords.lng);
-        } catch {
-            setCoordError("Zwischenablage nicht verfügbar");
-        }
-    }
 
     // ── Find nearest POI via Overpass ─────────────────────────────────────────
     async function handleFindNearest() {
@@ -630,171 +478,13 @@ export function MeasuringConfig({
                     </div>
 
                     {/* ── Dein Standort (Seeker) ──────────────────────────── */}
-                    <ConfigCard accentColor="green">
-                        {/* Card header with icon */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <LocateFixed size={18} color="#fff" />
-                            <span style={{ color: "#fff", fontSize: "16px", fontWeight: 700 }}>
-                                Dein Standort (Seeker)
-                            </span>
-                        </div>
-
-                        {mode === "gps" ? (
-                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                <button
-                                    type="button"
-                                    onClick={fetchGps}
-                                    disabled={gpsLoading}
-                                    style={{ ...greenLink, cursor: gpsLoading ? "wait" : "pointer" }}
-                                >
-                                    <Navigation size={14} />
-                                    {gpsLoading ? "GPS wird geladen…" : "GPS aktualisieren"}
-                                </button>
-
-                                <span style={{
-                                    color: "#fff",
-                                    fontSize: "14px",
-                                    fontWeight: 500,
-                                    fontFamily: "monospace",
-                                }}>
-                                    {formatCoord(centerLat, centerLng)}
-                                </span>
-
-                                {gpsError && (
-                                    <span style={{ color: "#FCA5A5", fontSize: "12px" }}>{gpsError}</span>
-                                )}
-
-                                <button
-                                    type="button"
-                                    onClick={() => setMode("manual")}
-                                    style={greenLink}
-                                >
-                                    → Standort manuell eingeben
-                                </button>
-                            </div>
-                        ) : (
-                            /* ── Manual mode ──────────────────────────────── */
-                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                <span style={{ color: "#fff", fontSize: "13px", fontWeight: 600, fontFamily: "monospace" }}>
-                                    {formatCoord(centerLat, centerLng)}
-                                </span>
-
-                                {/* Place search */}
-                                <div style={{ position: "relative" }}>
-                                    <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                                        <Search size={14} color="#6B7280" style={{ position: "absolute", left: 10, pointerEvents: "none" }} />
-                                        <input
-                                            type="text"
-                                            placeholder="Ort suchen…"
-                                            value={searchQuery}
-                                            onChange={(e) => handleSearchChange(e.target.value)}
-                                            style={{ ...inputStyle, paddingLeft: 32 }}
-                                        />
-                                    </div>
-                                    {(searchResults.length > 0 || searchLoading) && (
-                                        <div style={{
-                                            position: "absolute",
-                                            top: "100%",
-                                            left: 0,
-                                            right: 0,
-                                            marginTop: 4,
-                                            background: "#1E1E2A",
-                                            border: "1px solid rgba(255,255,255,0.1)",
-                                            borderRadius: 8,
-                                            zIndex: 10,
-                                            maxHeight: 180,
-                                            overflowY: "auto",
-                                        }}>
-                                            {searchLoading && (
-                                                <div style={{ padding: "10px 12px", color: "#6B7280", fontSize: "12px" }}>
-                                                    Suche läuft…
-                                                </div>
-                                            )}
-                                            {searchResults.map((r, i) => (
-                                                <button
-                                                    key={i}
-                                                    type="button"
-                                                    onClick={() => selectResult(r)}
-                                                    style={{
-                                                        display: "block",
-                                                        width: "100%",
-                                                        textAlign: "left",
-                                                        background: "none",
-                                                        border: "none",
-                                                        borderBottom: i < searchResults.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none",
-                                                        padding: "10px 12px",
-                                                        color: "#fff",
-                                                        fontSize: "13px",
-                                                        cursor: "pointer",
-                                                    }}
-                                                >
-                                                    {r.name || formatCoord(r.lat, r.lng)}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Lat / Lng inputs */}
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                        <label style={{ color: "#6B7280", fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em" }}>
-                                            BREITE
-                                        </label>
-                                        <input type="number" value={latStr} onChange={(e) => applyLatStr(e.target.value)} step="0.000001" style={inputStyle} />
-                                    </div>
-                                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                        <label style={{ color: "#6B7280", fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em" }}>
-                                            LÄNGE
-                                        </label>
-                                        <input type="number" value={lngStr} onChange={(e) => applyLngStr(e.target.value)} step="0.000001" style={inputStyle} />
-                                    </div>
-                                </div>
-
-                                {/* GPS + Clipboard + Back */}
-                                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                                    <button
-                                        type="button"
-                                        onClick={fetchGps}
-                                        disabled={gpsLoading}
-                                        style={{
-                                            background: "none", border: "none",
-                                            cursor: gpsLoading ? "wait" : "pointer",
-                                            color: "var(--color-primary)", fontSize: "12px", fontWeight: 600,
-                                            padding: 0, display: "flex", alignItems: "center", gap: 4,
-                                        }}
-                                    >
-                                        <MapPin size={12} />
-                                        {gpsLoading ? "GPS…" : "GPS"}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={pasteClipboard}
-                                        style={{
-                                            background: "none", border: "none", cursor: "pointer",
-                                            color: "var(--color-primary)", fontSize: "12px", fontWeight: 600, padding: 0,
-                                        }}
-                                    >
-                                        Aus Zwischenablage
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setMode("gps")}
-                                        style={{
-                                            background: "none", border: "none", cursor: "pointer",
-                                            color: "#22C55E", fontSize: "12px", fontWeight: 600, padding: 0,
-                                        }}
-                                    >
-                                        ← Zurück
-                                    </button>
-                                </div>
-
-                                {coordError && (
-                                    <span style={{ color: "#FCA5A5", fontSize: "12px" }}>{coordError}</span>
-                                )}
-                            </div>
-                        )}
-                    </ConfigCard>
+                    <LocationCard
+                        accentColor="green"
+                        title="Dein Standort (Seeker)"
+                        lat={centerLat}
+                        lng={centerLng}
+                        onChange={(lat, lng) => { setCenterLat(lat); setCenterLng(lng); }}
+                    />
 
                     {/* ── Distance to reference point ─────────────────────── */}
                     {nearestResult && (
@@ -891,24 +581,13 @@ export function MeasuringConfig({
             </div>
 
             {/* ── Footer ──────────────────────────────────────────────── */}
-            {mode === "gps" ? (
-                <PickerFooter
-                    primaryLabel={submitting ? "Wird gesendet…" : "Frage stellen  ✈"}
-                    primaryDisabled={submitting}
-                    onPrimary={handleSubmit}
-                    onCancel={onBack}
-                    cancelDisabled={submitting}
-                />
-            ) : (
-                <PickerFooter
-                    primaryLabel={submitting ? "Wird gesendet…" : "Frage stellen  ✈"}
-                    primaryDisabled={submitting}
-                    onPrimary={handleSubmit}
-                    onCancel={() => setMode("gps")}
-                    cancelLabel="Zurück zu GPS"
-                    cancelDisabled={submitting}
-                />
-            )}
+            <PickerFooter
+                primaryLabel={submitting ? "Wird gesendet…" : "Frage stellen  ✈"}
+                primaryDisabled={submitting}
+                onPrimary={handleSubmit}
+                onCancel={onBack}
+                cancelDisabled={submitting}
+            />
         </>
     );
 }

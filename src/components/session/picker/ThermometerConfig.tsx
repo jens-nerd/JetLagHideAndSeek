@@ -9,11 +9,13 @@
  *              shows a colored preview line on the map; "Frage absenden" submits
  */
 import { useStore } from "@nanostores/react";
-import { MapPin, Search } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import * as L from "leaflet";
 import * as turf from "@turf/turf";
+
+import { formatCoord } from "./location-utils";
 
 import { useT } from "@/i18n";
 import { bottomSheetState, pickerOpen } from "@/lib/bottom-sheet-state";
@@ -32,45 +34,13 @@ import {
 } from "@/lib/session-context";
 import { toast } from "react-toastify";
 import { ConfigCard } from "./ConfigCard";
+import { LocationCard } from "./LocationCard";
 import { PickerFooter } from "./PickerFooter";
 import { PickerHeader, type WsStatus } from "./PickerHeader";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 type Mode = "gps" | "manual";
-
-interface SearchResult {
-    lat: number;
-    lng: number;
-    name: string;
-}
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
-
-function formatCoord(lat: number, lng: number): string {
-    const latDir = lat >= 0 ? "N" : "S";
-    const lngDir = lng >= 0 ? "E" : "W";
-    return `${Math.abs(lat).toFixed(4)}° ${latDir}, ${Math.abs(lng).toFixed(4)}° ${lngDir}`;
-}
-
-function parseClipboardCoords(text: string): { lat: number; lng: number } | null {
-    const t = text.trim();
-    // "48.1234, 9.1234" or "48.1234,9.1234"
-    const simple = t.match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
-    if (simple) {
-        const lat = parseFloat(simple[1]);
-        const lng = parseFloat(simple[2]);
-        if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) return { lat, lng };
-    }
-    // "48.1234° N 9.1234° E" or "48.1234° 9.1234°"
-    const degree = t.match(/^(-?\d+(?:\.\d+)?)\s*°?\s*[NSns]?\s+(-?\d+(?:\.\d+)?)\s*°?\s*[EWew]?$/);
-    if (degree) {
-        const lat = parseFloat(degree[1]);
-        const lng = parseFloat(degree[2]);
-        if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) return { lat, lng };
-    }
-    return null;
-}
 
 /**
  * Returns [coldPolygon, warmPolygon] as arrays of [lat, lng] pairs.
@@ -112,261 +82,6 @@ function computeVoronoi(
     } catch {
         return null;
     }
-}
-
-async function searchPhoton(query: string): Promise<SearchResult[]> {
-    if (!query.trim()) return [];
-    const resp = await fetch(
-        `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5`,
-    );
-    const data = await resp.json();
-    return (data.features ?? []).map((f: any) => ({
-        lat: f.geometry.coordinates[1],
-        lng: f.geometry.coordinates[0],
-        name: [f.properties.name, f.properties.city, f.properties.country]
-            .filter(Boolean)
-            .join(", "),
-    }));
-}
-
-// ── CoordPicker — coordinate input block inside a ConfigCard ──────────────────
-
-interface CoordPickerProps {
-    lat: number;
-    lng: number;
-    onChange: (lat: number, lng: number) => void;
-    label: "start" | "end";
-}
-
-function CoordPicker({ lat, lng, onChange, label }: CoordPickerProps) {
-    const [latStr, setLatStr] = useState(lat.toFixed(6));
-    const [lngStr, setLngStr] = useState(lng.toFixed(6));
-    const [searchQuery, setSearchQuery] = useState("");
-    const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-    const [searchLoading, setSearchLoading] = useState(false);
-    const [gpsLoading, setGpsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    // Keep input strings in sync when parent changes lat/lng (e.g. GPS updates)
-    useEffect(() => { setLatStr(lat.toFixed(6)); }, [lat]);
-    useEffect(() => { setLngStr(lng.toFixed(6)); }, [lng]);
-
-    function applyLatStr(s: string) {
-        setLatStr(s);
-        const v = parseFloat(s);
-        if (!isNaN(v) && v >= -90 && v <= 90) onChange(v, lng);
-    }
-
-    function applyLngStr(s: string) {
-        setLngStr(s);
-        const v = parseFloat(s);
-        if (!isNaN(v) && v >= -180 && v <= 180) onChange(lat, v);
-    }
-
-    function handleSearchChange(q: string) {
-        setSearchQuery(q);
-        setSearchResults([]);
-        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-        if (!q.trim()) return;
-        searchTimeoutRef.current = setTimeout(async () => {
-            setSearchLoading(true);
-            try {
-                const results = await searchPhoton(q);
-                setSearchResults(results);
-            } catch {
-                // silently ignore
-            } finally {
-                setSearchLoading(false);
-            }
-        }, 400);
-    }
-
-    function selectResult(r: SearchResult) {
-        onChange(r.lat, r.lng);
-        setSearchQuery("");
-        setSearchResults([]);
-    }
-
-    async function fetchGps() {
-        setGpsLoading(true);
-        setError(null);
-        try {
-            const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
-                navigator.geolocation.getCurrentPosition(resolve, reject, {
-                    enableHighAccuracy: true,
-                    timeout: 10_000,
-                }),
-            );
-            onChange(pos.coords.latitude, pos.coords.longitude);
-        } catch {
-            setError("GPS nicht verfügbar");
-        } finally {
-            setGpsLoading(false);
-        }
-    }
-
-    async function pasteClipboard() {
-        setError(null);
-        try {
-            const text = await navigator.clipboard.readText();
-            const coords = parseClipboardCoords(text);
-            if (!coords) { setError("Ungültige Koordinaten"); return; }
-            onChange(coords.lat, coords.lng);
-        } catch {
-            setError("Zwischenablage nicht verfügbar");
-        }
-    }
-
-    const inputStyle: React.CSSProperties = {
-        background: "rgba(255,255,255,0.06)",
-        border: "1px solid rgba(255,255,255,0.1)",
-        borderRadius: 8,
-        color: "#fff",
-        fontSize: "13px",
-        padding: "8px 10px",
-        outline: "none",
-        width: "100%",
-        boxSizing: "border-box",
-        fontFamily: "inherit",
-    };
-
-    return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {/* Coordinate display */}
-            <span style={{ color: "#fff", fontSize: "13px", fontWeight: 600, fontFamily: "monospace" }}>
-                {formatCoord(lat, lng)}
-            </span>
-
-            {/* Search */}
-            <div style={{ position: "relative" }}>
-                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                    <Search size={14} color="#6B7280" style={{ position: "absolute", left: 10, pointerEvents: "none" }} />
-                    <input
-                        type="text"
-                        placeholder="Ort suchen…"
-                        value={searchQuery}
-                        onChange={(e) => handleSearchChange(e.target.value)}
-                        style={{ ...inputStyle, paddingLeft: 32 }}
-                    />
-                </div>
-                {/* Search results dropdown */}
-                {(searchResults.length > 0 || searchLoading) && (
-                    <div style={{
-                        position: "absolute",
-                        top: "100%",
-                        left: 0,
-                        right: 0,
-                        marginTop: 4,
-                        background: "#1E1E2A",
-                        border: "1px solid rgba(255,255,255,0.1)",
-                        borderRadius: 8,
-                        zIndex: 10,
-                        maxHeight: 180,
-                        overflowY: "auto",
-                    }}>
-                        {searchLoading && (
-                            <div style={{ padding: "10px 12px", color: "#6B7280", fontSize: "12px" }}>
-                                Suche läuft…
-                            </div>
-                        )}
-                        {searchResults.map((r, i) => (
-                            <button
-                                key={i}
-                                type="button"
-                                onClick={() => selectResult(r)}
-                                style={{
-                                    display: "block",
-                                    width: "100%",
-                                    textAlign: "left",
-                                    background: "none",
-                                    border: "none",
-                                    borderBottom: i < searchResults.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none",
-                                    padding: "10px 12px",
-                                    color: "#fff",
-                                    fontSize: "13px",
-                                    cursor: "pointer",
-                                }}
-                            >
-                                {r.name || formatCoord(r.lat, r.lng)}
-                            </button>
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            {/* Lat / Lng inputs */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    <label style={{ color: "#6B7280", fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em" }}>
-                        BREITE
-                    </label>
-                    <input
-                        type="number"
-                        value={latStr}
-                        onChange={(e) => applyLatStr(e.target.value)}
-                        step="0.000001"
-                        style={inputStyle}
-                    />
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    <label style={{ color: "#6B7280", fontSize: "11px", fontWeight: 600, letterSpacing: "0.06em" }}>
-                        LÄNGE
-                    </label>
-                    <input
-                        type="number"
-                        value={lngStr}
-                        onChange={(e) => applyLngStr(e.target.value)}
-                        step="0.000001"
-                        style={inputStyle}
-                    />
-                </div>
-            </div>
-
-            {/* GPS + Clipboard links */}
-            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                <button
-                    type="button"
-                    onClick={fetchGps}
-                    disabled={gpsLoading}
-                    style={{
-                        background: "none",
-                        border: "none",
-                        cursor: gpsLoading ? "wait" : "pointer",
-                        color: "var(--color-primary)",
-                        fontSize: "12px",
-                        fontWeight: 600,
-                        padding: 0,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
-                    }}
-                >
-                    <MapPin size={12} />
-                    {gpsLoading ? "GPS…" : "GPS"}
-                </button>
-                <button
-                    type="button"
-                    onClick={pasteClipboard}
-                    style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        color: "var(--color-primary)",
-                        fontSize: "12px",
-                        fontWeight: 600,
-                        padding: 0,
-                    }}
-                >
-                    Aus Zwischenablage
-                </button>
-            </div>
-
-            {error && (
-                <span style={{ color: "#FCA5A5", fontSize: "12px" }}>{error}</span>
-            )}
-        </div>
-    );
 }
 
 // ── Main component ──────────────────────────────────────────────────────────────
@@ -798,23 +513,23 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
                 {/* ── Manual mode ───────────────────────────────────────────── */}
                 {mode === "manual" && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                        <ConfigCard accentColor="red" title="Start (A)">
-                            <CoordPicker
-                                lat={startLat}
-                                lng={startLng}
-                                onChange={(lat, lng) => { setStartLat(lat); setStartLng(lng); }}
-                                label="start"
-                            />
-                        </ConfigCard>
+                        <LocationCard
+                            accentColor="red"
+                            title="Start (A)"
+                            lat={startLat}
+                            lng={startLng}
+                            onChange={(lat, lng) => { setStartLat(lat); setStartLng(lng); }}
+                            autoFetchGps={false}
+                        />
 
-                        <ConfigCard accentColor="green" title="Ende (B)">
-                            <CoordPicker
-                                lat={endLat}
-                                lng={endLng}
-                                onChange={(lat, lng) => { setEndLat(lat); setEndLng(lng); }}
-                                label="end"
-                            />
-                        </ConfigCard>
+                        <LocationCard
+                            accentColor="green"
+                            title="Ende (B)"
+                            lat={endLat}
+                            lng={endLng}
+                            onChange={(lat, lng) => { setEndLat(lat); setEndLng(lng); }}
+                            autoFetchGps={false}
+                        />
 
                         {/* Direction preview — optional "what if" map preview, not required for submit */}
                         <ConfigCard accentColor="yellow" title="Was wäre wenn …">
