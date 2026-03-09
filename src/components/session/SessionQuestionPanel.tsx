@@ -389,13 +389,21 @@ function extractPreviewLabel(
             }
             break;
         case "tentacles": {
+            if (d.location === false) {
+                return {
+                    label: `❌ ${t("sqp.previewOutsideRadius" as TranslationKey, loc)}`,
+                    positive: false,
+                };
+            }
             const name =
                 (d.location as any)?.properties?.name ??
                 (d.location as any)?.properties?.display_name ??
                 null;
             return {
-                label: name ? `📍 ${t("sqp.previewNearestPlace", loc)}: ${name}` : `📍 ${t("sqp.previewPlaceFound", loc)}`,
-                positive: !!d.location,
+                label: name
+                    ? `📍 ${t("sqp.previewNearestPlace", loc)}: ${name}`
+                    : `📍 ${t("sqp.previewPlaceFound", loc)}`,
+                positive: true,
             };
         }
         case "measuring":

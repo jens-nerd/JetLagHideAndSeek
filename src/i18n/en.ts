@@ -386,6 +386,7 @@ export const en: Record<TranslationKey, string> = {
     "sqp.previewLocationFound": "Location found",
     "sqp.previewNearestPlace": "Nearest location",
     "sqp.previewPlaceFound": "Location found",
+    "sqp.previewOutsideRadius": "Outside the radius",
 
     // ── Location types (tentacles / measuring / matching) ─────────────────────
     "locType.theme_park": "Theme Park",
