@@ -19,6 +19,7 @@ import {
     leafletMapContext,
 } from "@/lib/context";
 import { addQuestion } from "@/lib/session-api";
+import { handleSubmitError } from "@/lib/handle-submit-error";
 import { sessionCode, sessionParticipant } from "@/lib/session-context";
 import { toast } from "react-toastify";
 import { LocationCard } from "./LocationCard";
@@ -127,8 +128,8 @@ export function RadiusConfig({ wsStatus, onBack, onSettings, onClose, onDone }: 
             onDone?.();
             pickerOpen.set(false);
             bottomSheetState.set("collapsed");
-        } catch {
-            toast.error("Server derzeit nicht erreichbar. Bitte probiere die Frage gleich nochmal zu senden.");
+        } catch (e) {
+            handleSubmitError(e);
             setSubmitting(false);
         }
     }

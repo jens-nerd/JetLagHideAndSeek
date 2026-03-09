@@ -20,6 +20,7 @@ import {
     leafletMapContext,
 } from "@/lib/context";
 import { addQuestion } from "@/lib/session-api";
+import { handleSubmitError } from "@/lib/handle-submit-error";
 import {
     gameSize,
     sessionCode,
@@ -478,8 +479,8 @@ export function MatchingConfig({
             onDone?.();
             pickerOpen.set(false);
             bottomSheetState.set("collapsed");
-        } catch {
-            toast.error("Server derzeit nicht erreichbar. Bitte probiere die Frage gleich nochmal zu senden.");
+        } catch (e) {
+            handleSubmitError(e);
             setSubmitting(false);
         }
     }
