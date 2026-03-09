@@ -520,6 +520,7 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
                             lng={startLng}
                             onChange={(lat, lng) => { setStartLat(lat); setStartLng(lng); }}
                             autoFetchGps={false}
+                            initialMode="manual"
                         />
 
                         <LocationCard
@@ -529,6 +530,7 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
                             lng={endLng}
                             onChange={(lat, lng) => { setEndLat(lat); setEndLng(lng); }}
                             autoFetchGps={false}
+                            initialMode="manual"
                         />
 
                         {/* Direction preview — optional "what if" map preview, not required for submit */}

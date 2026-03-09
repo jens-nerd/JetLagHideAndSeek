@@ -57,6 +57,8 @@ export interface LocationCardProps {
     onChange: (lat: number, lng: number) => void;
     /** Whether to auto-fetch GPS on mount. Default: true */
     autoFetchGps?: boolean;
+    /** Initial internal mode. Default: "gps" */
+    initialMode?: "gps" | "manual";
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -68,8 +70,9 @@ export function LocationCard({
     lng,
     onChange,
     autoFetchGps = true,
+    initialMode = "gps",
 }: LocationCardProps) {
-    const [mode, setMode] = useState<"gps" | "manual">("gps");
+    const [mode, setMode] = useState<"gps" | "manual">(initialMode);
 
     // GPS state
     const [gpsLoading, setGpsLoading] = useState(false);
