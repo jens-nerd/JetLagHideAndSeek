@@ -418,6 +418,20 @@ function extractPreviewLabel(
             break;
         case "matching":
             if (typeof d.same === "boolean") {
+                const hiderPlace = (d as any).matchedHiderPlace ?? null;
+                if (d.same && hiderPlace) {
+                    return {
+                        label: `✅ ${t("sqp.previewSamePlace" as TranslationKey, loc)}: ${hiderPlace}`,
+                        positive: true,
+                    };
+                }
+                if (!d.same && hiderPlace) {
+                    return {
+                        label: `❌ ${t("sqp.previewDifferentPlace" as TranslationKey, loc)}: ${hiderPlace}`,
+                        positive: false,
+                    };
+                }
+                // Fallback for types without place names (zone, full-variants)
                 return {
                     label: d.same ? `✅ ${t("sqp.previewSameZone", loc)}` : `❌ ${t("sqp.previewOtherZone", loc)}`,
                     positive: d.same,

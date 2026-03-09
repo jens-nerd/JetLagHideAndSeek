@@ -309,6 +309,10 @@ export const hiderifyMatching = async (question: MatchingQuestion) => {
         question.same =
             questionNearest.properties.name === hiderNearest.properties.name;
 
+        // Store resolved place names so the Hider preview can display them.
+        (question as any).matchedHiderPlace = hiderNearest.properties.name ?? null;
+        (question as any).matchedSeekerPlace = questionNearest.properties.name ?? null;
+
         return question;
     }
 
@@ -382,6 +386,10 @@ export const hiderifyMatching = async (question: MatchingQuestion) => {
                 question.lengthComparison = "longer";
             }
         }
+
+        // Store resolved station names so the Hider preview can display them.
+        (question as any).matchedHiderPlace = hiderEnglishName ?? null;
+        (question as any).matchedSeekerPlace = seekerEnglishName ?? null;
 
         return question;
     }
