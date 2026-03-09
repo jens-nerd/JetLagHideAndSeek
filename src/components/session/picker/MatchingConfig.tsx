@@ -509,6 +509,15 @@ export function MatchingConfig({
             }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
+                    {/* ── Dein Standort ────────────────────────────────────── */}
+                    <LocationCard
+                        accentColor="red"
+                        title="Dein Standort"
+                        lat={centerLat}
+                        lng={centerLng}
+                        onChange={(lat, lng) => { setCenterLat(lat); setCenterLng(lng); }}
+                    />
+
                     {/* ── Kategorie dropdown ──────────────────────────────── */}
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                         <span style={sectionLabel}>Kategorie</span>
@@ -572,15 +581,6 @@ export function MatchingConfig({
                             )}
                         </div>
                     )}
-
-                    {/* ── Dein Standort ────────────────────────────────────── */}
-                    <LocationCard
-                        accentColor="red"
-                        title="Dein Standort"
-                        lat={centerLat}
-                        lng={centerLng}
-                        onChange={(lat, lng) => { setCenterLat(lat); setCenterLng(lng); }}
-                    />
 
                     {/* ── Fragevorschau ────────────────────────────────────── */}
                     <ConfigCard accentColor="green" title="Fragevorschau">
