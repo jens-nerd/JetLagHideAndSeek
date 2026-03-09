@@ -481,6 +481,8 @@ export function SessionQuestionPanel() {
     const lateNotifiedIdRef = useRef<string | null>(null);
     /** Leaflet polygons showing the Voronoi half-planes while the hider answers a thermometer question */
     const answerColdPolygonRef = useRef<L.Polygon | null>(null);
+    /** Leaflet GeoJSON layer showing the Voronoi cell restriction while answering a tentacle question */
+    const answerTentacleLayerRef = useRef<L.GeoJSON | null>(null);
     const answerWarmPolygonRef = useRef<L.Polygon | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [loadingGPS, setLoadingGPS] = useState(false);
@@ -628,6 +630,47 @@ export function SessionQuestionPanel() {
             const m = leafletMapContext.get();
             if (answerColdPolygonRef.current) { m?.removeLayer(answerColdPolygonRef.current); answerColdPolygonRef.current = null; }
             if (answerWarmPolygonRef.current) { m?.removeLayer(answerWarmPolygonRef.current); answerWarmPolygonRef.current = null; }
+        };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pendingAnswerSq, $hiderMode, previewResult]);
+
+    // ── Map overlay: show Voronoi cell restriction while hider answers a tentacle question
+    // Renders the pre-computed GeoJSON (Voronoi cell ∩ radius ∩ map boundary) as a
+    // semi-transparent polygon so the hider can see how the map will be restricted.
+    useEffect(() => {
+        const currentMap = leafletMapContext.get();
+
+        // Clean up existing layer
+        if (answerTentacleLayerRef.current) {
+            currentMap?.removeLayer(answerTentacleLayerRef.current);
+            answerTentacleLayerRef.current = null;
+        }
+
+        if (!currentMap || !pendingAnswerSq || pendingAnswerSq.type !== "tentacles") return;
+
+        // Only show overlay when a location IS found (hider inside radius)
+        const answerData = latestAnswerDataRef.current as any;
+        if (!answerData?.computedGeoJSON || answerData?.location === false) return;
+
+        const geoJSON = answerData.computedGeoJSON;
+        const isPositive = previewResult?.positive ?? false;
+
+        answerTentacleLayerRef.current = L.geoJSON(geoJSON, {
+            style: {
+                color:       isPositive ? "#16A34A" : "#E8323A",
+                fillColor:   isPositive ? "#16A34A" : "#E8323A",
+                fillOpacity: 0.20,
+                weight:      2,
+                opacity:     0.6,
+            },
+        }).addTo(currentMap);
+
+        return () => {
+            const m = leafletMapContext.get();
+            if (answerTentacleLayerRef.current) {
+                m?.removeLayer(answerTentacleLayerRef.current);
+                answerTentacleLayerRef.current = null;
+            }
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pendingAnswerSq, $hiderMode, previewResult]);
