@@ -12,15 +12,14 @@ import { Hono } from "hono";
 
 const OVERPASS_ENDPOINTS = [
     "https://overpass-api.de/api/interpreter",
-    "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
     "https://overpass.kumi.systems/api/interpreter",
     "https://overpass.private.coffee/api/interpreter",
 ];
 
-const TIMEOUT_MS = 30_000;
+const TIMEOUT_MS = 60_000;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-const RETRY_DELAY_MS = 2_000;
-const RETRYABLE_STATUSES = new Set([429, 503]);
+const RETRY_DELAY_MS = 3_000;
+const RETRYABLE_STATUSES = new Set([429, 503, 504]);
 
 // ── In-memory cache ─────────────────────────────────────────────────────────
 

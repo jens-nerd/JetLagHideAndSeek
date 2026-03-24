@@ -73,7 +73,7 @@ async function fetchOverpassPois(
         `relation["${key}"="${value}"](around:${r},${lat},${lng}););out center;`;
 
     const { overpassFetch } = await import("@/maps/api/overpass-fetch");
-    const data = await overpassFetch(query, { timeoutMs: 25_000, signal });
+    const data = await overpassFetch(query, { timeoutMs: 90_000, signal });
 
     return (data.elements ?? [])
         .map((el: any) => ({

@@ -294,7 +294,7 @@ export function MeasuringConfig({
                 `relation["${key}"="${value}"]${filter}(around:${radiusM},${centerLat},${centerLng}););out center;`;
 
             const { overpassFetch } = await import("@/maps/api/overpass-fetch");
-            const data = await overpassFetch(query, { timeoutMs: 25_000 });
+            const data = await overpassFetch(query, { timeoutMs: 90_000 });
 
             const pois = (data.elements ?? [])
                 .map((el: any) => ({
@@ -351,7 +351,7 @@ export function MeasuringConfig({
                 `way["natural"="coastline"](around:100000,${centerLat},${centerLng});out geom;`;
 
             const { overpassFetch } = await import("@/maps/api/overpass-fetch");
-            const data = await overpassFetch(query, { timeoutMs: 25_000 });
+            const data = await overpassFetch(query, { timeoutMs: 90_000 });
 
             if (!data.elements?.length) {
                 toast.info("Keine Küste im Umkreis von 100 km gefunden.");

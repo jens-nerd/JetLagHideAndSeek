@@ -361,7 +361,7 @@ export function MatchingConfig({
                 `relation["${key}"="${value}"](around:${radiusM},${centerLat},${centerLng}););out center;`;
 
             const { overpassFetch } = await import("@/maps/api/overpass-fetch");
-            const data = await overpassFetch(query, { timeoutMs: 25_000 });
+            const data = await overpassFetch(query, { timeoutMs: 90_000 });
 
             const pois = (data.elements ?? [])
                 .map((el: any) => ({
