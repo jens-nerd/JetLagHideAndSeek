@@ -299,6 +299,28 @@ function QuestionDetails({
         rows.push({ icon: "📋", text: t(rulesKey, loc) ?? "" });
     }
 
+    // ── Measuring: Abstände + Ortsnamen (nur Hider) ─────────────────────────
+    if (sq.type === "measuring" && a) {
+        const hDist = a.measuredHiderDistance as number | undefined;
+        const sDist = a.measuredSeekerDistance as number | undefined;
+        const hPlace = a.measuredHiderPlace as string | null | undefined;
+        const sPlace = a.measuredSeekerPlace as string | null | undefined;
+        if (typeof hDist === "number" && typeof sDist === "number") {
+            rows.push({
+                icon: "📏",
+                text: hPlace
+                    ? `Dein Abstand zu ${hPlace}: ${hDist} km`
+                    : `Dein Abstand: ${hDist} km`,
+            });
+            rows.push({
+                icon: "📏",
+                text: sPlace
+                    ? `Seeker Abstand zu ${sPlace}: ${sDist} km`
+                    : `Seeker Abstand: ${sDist} km`,
+            });
+        }
+    }
+
     // ── Antwort des Hiders (answerData) ──────────────────────────────────────
     if (sq.status === "answered" && a) {
         if (sq.type === "tentacles") {
@@ -408,10 +430,27 @@ function extractPreviewLabel(
         }
         case "measuring":
             if (typeof d.hiderCloser === "boolean") {
+                const hiderDist = d.measuredHiderDistance as number | undefined;
+                const seekerDist = d.measuredSeekerDistance as number | undefined;
+                const hiderPlace = d.measuredHiderPlace as string | null | undefined;
+                const seekerPlace = d.measuredSeekerPlace as string | null | undefined;
+
+                let label = d.hiderCloser
+                    ? `📏 ${t("sqp.previewHiderCloser", loc)}`
+                    : `📏 ${t("sqp.previewSeekerCloser", loc)}`;
+
+                if (typeof hiderDist === "number" && typeof seekerDist === "number") {
+                    const hiderLabel = hiderPlace
+                        ? `Dein Abstand zu ${hiderPlace}: ${hiderDist} km`
+                        : `Dein Abstand: ${hiderDist} km`;
+                    const seekerLabel = seekerPlace
+                        ? `Seeker Abstand zu ${seekerPlace}: ${seekerDist} km`
+                        : `Seeker Abstand: ${seekerDist} km`;
+                    label += `\n${hiderLabel}\n${seekerLabel}`;
+                }
+
                 return {
-                    label: d.hiderCloser
-                        ? `📏 ${t("sqp.previewHiderCloser", loc)}`
-                        : `📏 ${t("sqp.previewSeekerCloser", loc)}`,
+                    label,
                     positive: d.hiderCloser,
                 };
             }
@@ -1442,6 +1481,7 @@ export function QuestionList({
                                             color: previewResult.positive ? "#22C55E" : "#E8323A",
                                             fontWeight: 700,
                                             fontSize: "13px",
+                                            whiteSpace: "pre-line",
                                         }}>
                                             {previewResult.label}
                                         </span>

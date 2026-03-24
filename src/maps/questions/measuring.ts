@@ -329,6 +329,14 @@ export const hiderifyMeasuring = async (question: MeasuringQuestion) => {
             questionNearest.properties.distanceToPoint >
             hiderNearest.properties.distanceToPoint;
 
+        // Store distances (km) and place names for the Hider preview
+        const seekerDist = questionNearest.properties.distanceToPoint;
+        const hiderDist = hiderNearest.properties.distanceToPoint;
+        (question as any).measuredSeekerDistance = Math.round(seekerDist * 10) / 10;
+        (question as any).measuredHiderDistance = Math.round(hiderDist * 10) / 10;
+        (question as any).measuredSeekerPlace = questionNearest.properties.name ?? null;
+        (question as any).measuredHiderPlace = hiderNearest.properties.name ?? null;
+
         return question;
     }
 
@@ -358,6 +366,14 @@ export const hiderifyMeasuring = async (question: MeasuringQuestion) => {
         const hiderDistance = turf.distance(hider, hiderNearest);
 
         question.hiderCloser = hiderDistance < distance;
+
+        // Store distances (km) and station names for the Hider preview
+        (question as any).measuredSeekerDistance = Math.round(distance * 10) / 10;
+        (question as any).measuredHiderDistance = Math.round(hiderDistance * 10) / 10;
+        const seekerStationIdx = nearestTrainStation.properties.featureIndex;
+        const hiderStationIdx = hiderNearest.properties.featureIndex;
+        (question as any).measuredSeekerPlace = stations[seekerStationIdx]?.properties?.name ?? null;
+        (question as any).measuredHiderPlace = stations[hiderStationIdx]?.properties?.name ?? null;
     }
 
     if (question.type === "mcdonalds" || question.type === "seven11") {
@@ -382,6 +398,14 @@ export const hiderifyMeasuring = async (question: MeasuringQuestion) => {
         });
 
         question.hiderCloser = hiderDistance < distance;
+
+        // Store distances (convert miles → km) for the Hider preview
+        (question as any).measuredSeekerDistance = Math.round(distance * 1.60934 * 10) / 10;
+        (question as any).measuredHiderDistance = Math.round(hiderDistance * 1.60934 * 10) / 10;
+        // Nearest POI points don't carry names for these types
+        (question as any).measuredSeekerPlace = null;
+        (question as any).measuredHiderPlace = null;
+
         return question;
     }
 
