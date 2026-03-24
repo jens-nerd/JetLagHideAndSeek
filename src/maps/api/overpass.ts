@@ -11,7 +11,7 @@ import {
 import { safeUnion } from "@/maps/geo-utils";
 
 import { cacheFetch } from "./cache";
-import { LOCATION_FIRST_TAG, OVERPASS_API, OVERPASS_ENDPOINTS } from "./constants";
+import { LOCATION_FIRST_TAG } from "./constants";
 import { overpassFetch } from "./overpass-fetch";
 import type {
     EncompassingTentacleQuestionSchema,
@@ -22,37 +22,17 @@ import type {
 import { CacheType } from "./types";
 
 /**
- * Fetch an Overpass query with caching.
+ * Fetch an Overpass query via the backend proxy.
  *
- * Tries each endpoint in OVERPASS_ENDPOINTS in order.  The first successful
- * response is cached so subsequent calls for the same query are instant.
- *
- * For non-cached fetch paths (e.g. TentaclesConfig live preview) use
- * `overpassFetch()` directly from `overpass-fetch.ts` instead.
+ * The backend handles endpoint fallback, retry, and server-side caching.
+ * Client-side we just forward the query and return the parsed JSON.
  */
 export const getOverpassData = async (
     query: string,
-    loadingText?: string,
-    cacheType: CacheType = CacheType.CACHE,
+    _loadingText?: string,
+    _cacheType?: unknown,
 ) => {
-    // Try the primary endpoint via the existing cache layer first
-    const primaryUrl = `${OVERPASS_API}?data=${encodeURIComponent(query)}`;
-
-    try {
-        const response = await cacheFetch(primaryUrl, loadingText, cacheType);
-        if (response.ok) {
-            return await response.json();
-        }
-        // Non-OK response — fall through to fallback
-    } catch {
-        // Primary failed — fall through to fallback
-    }
-
-    // Fallback: try remaining endpoints without cache (cache layer doesn't
-    // support switching URLs mid-flight).  The result is still returned so
-    // the caller gets data even if the primary server is down.
-    console.warn("[getOverpassData] Primary endpoint failed, trying fallbacks…");
-    return overpassFetch(query, { timeoutMs: 30_000 });
+    return overpassFetch(query);
 };
 
 export const determineGeoJSON = async (
