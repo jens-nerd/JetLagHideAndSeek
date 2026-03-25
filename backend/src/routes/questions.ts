@@ -4,7 +4,7 @@ import type {
     AnswerQuestionRequest,
     AnswerQuestionResponse,
 } from "@hideandseek/shared";
-import { QUESTION_DEADLINE_MS } from "@hideandseek/shared";
+import { PHOTO_DEADLINE_MS, QUESTION_DEADLINE_MS } from "@hideandseek/shared";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { nanoid } from "nanoid";
@@ -45,7 +45,8 @@ export function createQuestionsRouter(db: Db): Hono {
         }
 
         const questionId = nanoid();
-        const deadline = new Date(Date.now() + QUESTION_DEADLINE_MS).toISOString();
+        const deadlineMs = body.type === "photo" ? PHOTO_DEADLINE_MS : QUESTION_DEADLINE_MS;
+        const deadline = new Date(Date.now() + deadlineMs).toISOString();
 
         await db.insert(schema.questions).values({
             id: questionId,

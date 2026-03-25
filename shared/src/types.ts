@@ -58,6 +58,9 @@ export interface ParticipantWithToken extends Participant {
 /** Duration in milliseconds before an unanswered question expires (5 minutes). */
 export const QUESTION_DEADLINE_MS = 5 * 60 * 1000;
 
+/** Duration in milliseconds before a photo question expires (15 minutes). */
+export const PHOTO_DEADLINE_MS = 15 * 60 * 1000;
+
 export const questionStatusSchema = z.enum(["pending", "answered", "expired"]);
 export type QuestionStatus = z.infer<typeof questionStatusSchema>;
 

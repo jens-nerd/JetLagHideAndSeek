@@ -1,5 +1,5 @@
 import type { ClientToServerEvent } from "@hideandseek/shared";
-import { QUESTION_DEADLINE_MS } from "@hideandseek/shared";
+import { PHOTO_DEADLINE_MS, QUESTION_DEADLINE_MS } from "@hideandseek/shared";
 import { and, eq } from "drizzle-orm";
 import type { WSContext } from "hono/ws";
 import { nanoid } from "nanoid";
@@ -188,7 +188,8 @@ export async function handleWsMessage(
             if (!sessionRow || sessionRow.status === "finished") return;
 
             const questionId = nanoid();
-            const deadline = new Date(Date.now() + QUESTION_DEADLINE_MS).toISOString();
+            const deadlineMs = event.questionType === "photo" ? PHOTO_DEADLINE_MS : QUESTION_DEADLINE_MS;
+            const deadline = new Date(Date.now() + deadlineMs).toISOString();
 
             await db.insert(schema.questions).values({
                 id: questionId,
