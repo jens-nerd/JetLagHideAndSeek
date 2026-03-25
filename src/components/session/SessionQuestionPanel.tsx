@@ -598,9 +598,15 @@ export function SessionQuestionPanel() {
             .then(async (answered) => {
                 if (cancelled) return;
 
+                // Set preview + answer data immediately so the submit button
+                // becomes enabled without waiting for the GeoJSON computation.
+                setPreviewResult(
+                    extractPreviewLabel(pendingAnswerSq.type, answered.data),
+                );
+                latestAnswerDataRef.current = { ...answered.data };
+
                 // Pre-compute the resulting GeoJSON so the map restriction
                 // survives page reloads without re-querying Overpass.
-                let computedGeoJSON: unknown = undefined;
                 const currentMapData = mapGeoJSON.get();
                 if (currentMapData) {
                     try {
@@ -609,22 +615,18 @@ export function SessionQuestionPanel() {
                             currentMapData,
                         );
                         if (result && !cancelled) {
-                            computedGeoJSON = result;
+                            latestAnswerDataRef.current = {
+                                ...answered.data,
+                                computedGeoJSON: result,
+                            };
                         }
                     } catch { /* best-effort: regular Overpass path used as fallback */ }
                 }
-
-                if (cancelled) return;
-                latestAnswerDataRef.current = {
-                    ...answered.data,
-                    ...(computedGeoJSON !== undefined ? { computedGeoJSON } : {}),
-                };
-                setPreviewResult(
-                    extractPreviewLabel(pendingAnswerSq.type, answered.data),
-                );
             })
-            .catch(() => {
-                if (!cancelled) setPreviewResult(null);
+            .catch((err) => {
+                console.warn("[SessionQuestionPanel] hiderify error:", err);
+                // Don't clear previewResult — hiderifyQuestion may have
+                // succeeded but adjustMapGeoDataForQuestion failed.
             });
 
         return () => {
