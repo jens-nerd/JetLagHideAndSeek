@@ -436,8 +436,8 @@ function extractPreviewLabel(
                 const seekerPlace = d.measuredSeekerPlace as string | null | undefined;
 
                 let label = d.hiderCloser
-                    ? `📏 ${t("sqp.previewHiderCloser", loc)}`
-                    : `📏 ${t("sqp.previewSeekerCloser", loc)}`;
+                    ? t("sqp.previewHiderCloser", loc)
+                    : t("sqp.previewSeekerCloser", loc);
 
                 if (typeof hiderDist === "number" && typeof seekerDist === "number") {
                     const hiderLabel = hiderPlace
