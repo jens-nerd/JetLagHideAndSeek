@@ -297,29 +297,33 @@ export const hiderifyMeasuring = async (question: MeasuringQuestion) => {
         return question;
     }
 
-    if (
-        [
-            "aquarium",
-            "zoo",
-            "theme_park",
-            "peak",
-            "museum",
-            "hospital",
-            "cinema",
-            "library",
-            "golf_course",
-            "consulate",
-            "park",
-        ].includes(question.type)
-    ) {
-        const questionNearest = await nearestToQuestion(
-            question as HomeGameMeasuringQuestions,
-        );
+    const poiTypes = [
+        "aquarium",
+        "zoo",
+        "theme_park",
+        "peak",
+        "museum",
+        "hospital",
+        "cinema",
+        "library",
+        "golf_course",
+        "consulate",
+        "park",
+    ];
+    // Strip "-full" suffix so both "zoo" and "zoo-full" match
+    const baseType = question.type.replace(/-full$/, "");
+
+    if (poiTypes.includes(baseType)) {
+        const lookupType = baseType as HomeGameMeasuringQuestions["type"];
+        const questionNearest = await nearestToQuestion({
+            ...question,
+            type: lookupType,
+        } as HomeGameMeasuringQuestions);
         const hiderNearest = await nearestToQuestion({
             lat: $hiderMode.latitude,
             lng: $hiderMode.longitude,
             hiderCloser: true,
-            type: (question as HomeGameMeasuringQuestions).type,
+            type: lookupType,
             drag: false,
             color: "black",
             collapsed: false,
