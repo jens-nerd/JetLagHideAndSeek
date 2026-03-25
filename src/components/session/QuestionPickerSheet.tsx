@@ -20,6 +20,7 @@ import { History, PlusCircle } from "lucide-react";
 import { useState } from "react";
 
 import { useT } from "@/i18n";
+import { getCardCost } from "@/lib/card-costs";
 import { bottomSheetState, pendingPickerType, pickerOpen } from "@/lib/bottom-sheet-state";
 import {
     gameSize,
@@ -418,7 +419,25 @@ function CategoryCard({
             }}>
                 {desc}
             </div>
+            <CardCostIcons type={cat.type} />
         </button>
+    );
+}
+
+function CardCostIcons({ type }: { type: string }) {
+    const cost = getCardCost(type);
+    if (!cost) return null;
+
+    return (
+        <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
+            {Array.from({ length: cost.draw }, (_, i) => (
+                <span key={`d${i}`} style={{ fontSize: 14, opacity: 0.4 }}>🃏</span>
+            ))}
+            <span style={{ color: "#6B7280", fontSize: 12, fontWeight: 700, margin: "0 2px" }}>›</span>
+            {Array.from({ length: cost.keep }, (_, i) => (
+                <span key={`k${i}`} style={{ fontSize: 14 }}>🃏</span>
+            ))}
+        </div>
     );
 }
 

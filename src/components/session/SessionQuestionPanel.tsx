@@ -41,6 +41,7 @@ import {
 import { SidebarContext } from "@/components/ui/sidebar-l-context";
 import { adjustMapGeoDataForQuestion, hiderifyQuestion } from "@/maps";
 import { addQuestion, answerQuestion } from "@/lib/session-api";
+import { getCardCost } from "@/lib/card-costs";
 import { handleSubmitError } from "@/lib/handle-submit-error";
 import { LocationCard } from "./picker/LocationCard";
 import {
@@ -343,6 +344,17 @@ function QuestionDetails({
         }
     }
 
+    // ── Card costs (answered questions, hider only) ────────────────────────
+    if (sq.status === "answered" && currentRole === "hider") {
+        const cost = getCardCost(sq.type);
+        if (cost) {
+            rows.push({
+                icon: "🃏",
+                text: `Ziehe ${cost.draw}, behalte ${cost.keep}`,
+            });
+        }
+    }
+
     // Erwartete Antwort (nur bei noch offenen Fragen sinnvoll als Frage)
     if (sq.status !== "answered") {
         const expectation = (() => {
@@ -532,6 +544,7 @@ export function SessionQuestionPanel() {
     const answerWarmPolygonRef = useRef<L.Polygon | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [loadingGPS, setLoadingGPS] = useState(false);
+    const [cardDrawOverlay, setCardDrawOverlay] = useState<{ draw: number; keep: number } | null>(null);
     /** Show GPS-vs-manual dialog when the hider starts answering without a pin */
     const [showLocationDialog, setShowLocationDialog] = useState(false);
 
@@ -859,10 +872,14 @@ export function SessionQuestionPanel() {
         }
         setSubmitting(true);
         try {
+            const answeredType = pendingAnswerSq.type;
             await answerQuestion(pendingAnswerSq.id, participant.token, {
                 answerData: latestAnswerDataRef.current,
             });
             toast.success(t("sqp.answerSent", locale.get()));
+            // Show card draw overlay
+            const cost = getCardCost(answeredType);
+            if (cost) setCardDrawOverlay(cost);
             setPendingAnswerSq(null);
             setPreviewResult(null);
             latestAnswerDataRef.current = null;
@@ -915,6 +932,56 @@ export function SessionQuestionPanel() {
     }
 
     // ── Hider view ───────────────────────────────────────────────────────────
+
+    // Card draw overlay (shown after answering)
+    if (cardDrawOverlay) {
+        return (
+            <div style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 16,
+                padding: "32px 20px",
+                textAlign: "center",
+            }}>
+                <span style={{ fontSize: 28, fontWeight: 800, color: "#fff", fontFamily: "Poppins, sans-serif" }}>
+                    Du darfst Karten ziehen!
+                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {Array.from({ length: cardDrawOverlay.draw }, (_, i) => (
+                        <span key={`d${i}`} style={{ fontSize: 32, opacity: 0.4 }}>🃏</span>
+                    ))}
+                    <span style={{ color: "#6B7280", fontSize: 20, fontWeight: 700, margin: "0 4px" }}>›</span>
+                    {Array.from({ length: cardDrawOverlay.keep }, (_, i) => (
+                        <span key={`k${i}`} style={{ fontSize: 32 }}>🃏</span>
+                    ))}
+                </div>
+                <span style={{ color: "#99A1AF", fontSize: 14 }}>
+                    Ziehe {cardDrawOverlay.draw}, behalte {cardDrawOverlay.keep}
+                </span>
+                <button
+                    onClick={() => setCardDrawOverlay(null)}
+                    style={{
+                        marginTop: 8,
+                        background: "var(--color-primary)",
+                        borderRadius: "var(--radius-pill)",
+                        border: "none",
+                        cursor: "pointer",
+                        padding: "12px 32px",
+                        color: "#fff",
+                        fontWeight: 700,
+                        fontSize: "15px",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.06em",
+                    }}
+                >
+                    Weiter
+                </button>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col gap-3 mt-2">
             {/* GPS vs. manual pin selection dialog */}
