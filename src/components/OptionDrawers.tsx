@@ -216,6 +216,101 @@ export const OptionDrawers = ({
     );
 };
 
+/**
+ * Inline variant — renders settings content directly as BottomSheet tab
+ * content (no Drawer wrapper). Retains URL-param import + unit sync logic.
+ */
+export const OptionDrawersInline = () => {
+    const tr = useT();
+    const $defaultUnit = useStore(defaultUnit);
+    const lastDefaultUnit = useRef($defaultUnit);
+    const hasSyncedInitialUnit = useRef(false);
+    const [tab, setTab] = useState<SettingsTab>("general");
+
+    useEffect(() => {
+        const currentDefault = $defaultUnit;
+        if (!hasSyncedInitialUnit.current) {
+            hasSyncedInitialUnit.current = true;
+            if (hidingRadiusUnits.get() !== currentDefault) {
+                hidingRadiusUnits.set(currentDefault);
+            }
+        } else if (lastDefaultUnit.current !== currentDefault) {
+            hidingRadiusUnits.set(currentDefault);
+        }
+        lastDefaultUnit.current = currentDefault;
+    }, [$defaultUnit]);
+
+    useEffect(() => {
+        const params = new URL(window.location.toString()).searchParams;
+        const hidingZoneOld = params.get(HIDING_ZONE_URL_PARAM);
+        const hidingZoneCompressed = params.get(HIDING_ZONE_COMPRESSED_URL_PARAM);
+        const pastebinId = params.get(PASTEBIN_URL_PARAM);
+
+        if (hidingZoneOld !== null) {
+            try {
+                loadHidingZone(atob(hidingZoneOld));
+                window.history.replaceState({}, "", window.location.pathname);
+            } catch {
+                toast.error(t("toast.options.hidingZoneInvalid", locale.get()));
+            }
+        } else if (hidingZoneCompressed !== null) {
+            decompress(hidingZoneCompressed).then((data) => {
+                try {
+                    loadHidingZone(data);
+                    window.history.replaceState({}, "", window.location.pathname);
+                } catch {
+                    toast.error(t("toast.options.hidingZoneInvalid", locale.get()));
+                }
+            });
+        } else if (pastebinId !== null) {
+            fetchFromPastebin(pastebinId)
+                .then((data) => {
+                    try {
+                        loadHidingZone(data);
+                        window.history.replaceState({}, "", window.location.pathname);
+                        toast.success(t("toast.options.hidingZoneLoaded", locale.get()));
+                    } catch {
+                        toast.error(t("toast.options.hidingZoneInvalid", locale.get()));
+                    }
+                })
+                .catch((error) => {
+                    console.error("Failed to fetch from Pastebin:", error);
+                    toast.error(t("toast.options.hidingZoneInvalid", locale.get()));
+                });
+        }
+    }, []);
+
+    return (
+        <div className="px-2 py-1">
+            {/* Sub-tab bar */}
+            <div
+                style={{
+                    display: "flex",
+                    gap: 0,
+                    borderBottom: "1px solid rgba(245,245,240,0.08)",
+                    marginBottom: 8,
+                }}
+            >
+                <TabButton
+                    active={tab === "general"}
+                    onClick={() => setTab("general")}
+                    icon={<Settings size={15} />}
+                    label={tr("settings.tabGeneral")}
+                />
+                <TabButton
+                    active={tab === "advanced"}
+                    onClick={() => setTab("advanced")}
+                    icon={<SlidersHorizontal size={15} />}
+                    label={tr("settings.tabAdvanced")}
+                />
+            </div>
+
+            {tab === "general" && <GeneralSettings />}
+            {tab === "advanced" && <AdvancedSettings />}
+        </div>
+    );
+};
+
 // ── Tab button (same pattern as QuestionPickerSheet) ─────────────────────────
 
 function TabButton({

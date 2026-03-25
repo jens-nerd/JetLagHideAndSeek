@@ -13,7 +13,7 @@ import { useT } from "@/i18n";
 
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import type { BottomSheetTab } from "@/components/ui/BottomSheet";
-import { OptionDrawers } from "@/components/OptionDrawers";
+import { OptionDrawersInline } from "@/components/OptionDrawers";
 import { sessionCode, sessionParticipant } from "@/lib/session-context";
 import { bottomSheetState, pickerOpen } from "@/lib/bottom-sheet-state";
 import { useSessionMapSync } from "@/hooks/useSessionMapSync";
@@ -32,7 +32,6 @@ const TABS: BottomSheetTab[] = [
 ];
 
 export const BottomSheetPanel = () => {
-    const [optionsOpen, setOptionsOpen] = useState(false);
     const [activeTab, setActiveTab] = useState("fragen");
 
     const tr = useT();
@@ -71,7 +70,10 @@ export const BottomSheetPanel = () => {
                 tabs={TABS}
                 activeTab={activeTab}
                 onTabChange={handleTabChange}
-                onSettingsClick={() => setOptionsOpen(true)}
+                onSettingsClick={() => {
+                    setActiveTab("settings");
+                    if (bottomSheetState.get() === "collapsed") bottomSheetState.set("default");
+                }}
             >
                 {/* Both tabs stay mounted to preserve map layers & state */}
                 <div style={{ display: activeTab === "fragen" ? "block" : "none" }}>
@@ -82,9 +84,11 @@ export const BottomSheetPanel = () => {
                 <div style={{ display: activeTab === "zonen" ? "block" : "none" }}>
                     <ZoneSidebar />
                 </div>
+                <div style={{ display: activeTab === "settings" ? "block" : "none" }}>
+                    <OptionDrawersInline />
+                </div>
             </BottomSheet>
             <QuestionPickerSheet />
-            <OptionDrawers open={optionsOpen} onOpenChange={setOptionsOpen} showTrigger={false} />
         </>
     );
 };
