@@ -46,6 +46,8 @@ const NEXT_DOWN: Partial<Record<SheetState, SheetState>> = {
 export interface BottomSheetTab {
     id: string;
     label: string;
+    /** Render as small icon button (like settings gear) instead of full-width pill */
+    icon?: React.ReactNode;
 }
 
 interface BottomSheetProps {
@@ -162,6 +164,40 @@ export function BottomSheet({ children, title, tabs, activeTab, onTabChange, onS
                     {tabs && tabs.length > 0 ? (
                         tabs.map((tab) => {
                             const isActive = tab.id === activeTab;
+
+                            // Icon tabs: small square button (like settings gear)
+                            if (tab.icon) {
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onTabChange?.(tab.id);
+                                            if (state === "collapsed") bottomSheetState.set("default");
+                                        }}
+                                        aria-label={tab.label}
+                                        title={tab.label}
+                                        style={{
+                                            width: 40,
+                                            height: 40,
+                                            flexShrink: 0,
+                                            background: isActive ? "var(--color-primary)" : "var(--color-panel)",
+                                            borderRadius: "var(--radius-default)",
+                                            border: "none",
+                                            cursor: "pointer",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            opacity: isActive ? 1 : 0.6,
+                                            transition: "background 0.15s, opacity 0.15s",
+                                        }}
+                                    >
+                                        {tab.icon}
+                                    </button>
+                                );
+                            }
+
+                            // Full-width pill button
                             return (
                                 <button
                                     key={tab.id}
@@ -179,7 +215,7 @@ export function BottomSheet({ children, title, tabs, activeTab, onTabChange, onS
                                         padding: "10px 16px",
                                         color: "#fff",
                                         fontWeight: 800,
-                                        fontSize: "14px",
+                                        fontSize: "15px",
                                         textTransform: "uppercase",
                                         letterSpacing: "0.06em",
                                         textAlign: "center",

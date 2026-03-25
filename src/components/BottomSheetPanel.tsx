@@ -26,9 +26,16 @@ import { SessionManager } from "./session/SessionManager";
 import { QuestionPickerSheet } from "./session/QuestionPickerSheet";
 import { ZoneSidebar } from "./ZoneSidebar";
 
+const ZONE_ICON = (
+    <svg width="18" height="18" viewBox="0 0 18 18">
+        <circle cx="9" cy="9" r="7" fill="none" stroke="#22C55E" strokeWidth="2.5" />
+        <circle cx="9" cy="9" r="2.5" fill="#22C55E" />
+    </svg>
+);
+
 const TABS: BottomSheetTab[] = [
     { id: "fragen", label: "Fragen" },
-    { id: "zonen", label: "Versteckzonen" },
+    { id: "zonen", label: "Versteckzonen", icon: ZONE_ICON },
 ];
 
 export const BottomSheetPanel = () => {
