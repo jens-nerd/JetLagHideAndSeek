@@ -211,6 +211,7 @@ function describeQuestion(
 function QuestionDetails({
     sq,
     answered = false,
+    isHider = false,
 }: {
     sq: {
         type: string; data: unknown; status: string; answerData?: unknown;
@@ -220,6 +221,7 @@ function QuestionDetails({
         answeredByDisplayName?: string;
     };
     answered?: boolean;
+    isHider?: boolean;
 }) {
     const d = sq.data as any;
     const a = sq.answerData as any;
@@ -300,7 +302,7 @@ function QuestionDetails({
     }
 
     // ── Measuring: Abstände + Ortsnamen (nur Hider) ─────────────────────────
-    if (sq.type === "measuring" && a) {
+    if (sq.type === "measuring" && a && isHider) {
         const hDist = a.measuredHiderDistance as number | undefined;
         const sDist = a.measuredSeekerDistance as number | undefined;
         const hPlace = a.measuredHiderPlace as string | null | undefined;
@@ -1547,6 +1549,7 @@ export function QuestionList({
                                         answeredByDisplayName: sq.answeredByDisplayName,
                                     }}
                                     answered={isAnswered}
+                                    isHider={isHider}
                                 />
                             </div>
                         )}
