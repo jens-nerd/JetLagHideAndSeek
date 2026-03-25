@@ -1,32 +1,56 @@
 /**
- * SeekerMarkers — renders live seeker positions on the hider's map.
+ * SeekerMarkers — renders live seeker positions on the map.
  *
- * Shows a red circle marker with the seeker's display name for each
- * connected seeker. Only renders when the current user is a hider.
+ * - Hider: sees red circle markers with seeker names for all connected seekers
+ * - Seeker: sees a blue circle marker for their own GPS position
  */
 import { useStore } from "@nanostores/react";
 import { CircleMarker, Tooltip } from "react-leaflet";
 
-import { sessionParticipant, seekerPositions } from "@/lib/session-context";
+import { sessionParticipant, seekerPositions, ownGpsPosition } from "@/lib/session-context";
 
 export function SeekerMarkers() {
     const participant = useStore(sessionParticipant);
     const positions = useStore(seekerPositions);
+    const ownPos = useStore(ownGpsPosition);
 
-    // Only the hider sees seeker markers
-    if (!participant || participant.role !== "hider") return null;
-    if (positions.length === 0) return null;
+    if (!participant) return null;
 
     return (
         <>
-            {positions.map((seeker) => (
+            {/* Hider sees all seeker positions */}
+            {participant.role === "hider" &&
+                positions.map((seeker) => (
+                    <CircleMarker
+                        key={seeker.id}
+                        center={[seeker.lat, seeker.lng]}
+                        radius={8}
+                        pathOptions={{
+                            color: "#E8323A",
+                            fillColor: "#E8323A",
+                            fillOpacity: 0.85,
+                            weight: 2,
+                        }}
+                    >
+                        <Tooltip
+                            permanent
+                            direction="top"
+                            offset={[0, -10]}
+                            className="seeker-name-tooltip"
+                        >
+                            {seeker.displayName}
+                        </Tooltip>
+                    </CircleMarker>
+                ))}
+
+            {/* Seeker sees their own GPS position */}
+            {participant.role === "seeker" && ownPos && (
                 <CircleMarker
-                    key={seeker.id}
-                    center={[seeker.lat, seeker.lng]}
+                    center={[ownPos.lat, ownPos.lng]}
                     radius={8}
                     pathOptions={{
-                        color: "#E8323A",
-                        fillColor: "#E8323A",
+                        color: "#2A81CB",
+                        fillColor: "#2A81CB",
                         fillOpacity: 0.85,
                         weight: 2,
                     }}
@@ -37,10 +61,10 @@ export function SeekerMarkers() {
                         offset={[0, -10]}
                         className="seeker-name-tooltip"
                     >
-                        {seeker.displayName}
+                        Mein Standort
                     </Tooltip>
                 </CircleMarker>
-            ))}
+            )}
         </>
     );
 }

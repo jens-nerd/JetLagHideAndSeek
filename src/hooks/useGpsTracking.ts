@@ -12,6 +12,7 @@ import { useEffect, useRef } from "react";
 import { useStore } from "@nanostores/react";
 
 import {
+    ownGpsPosition,
     sessionParticipant,
     wsInstance,
 } from "@/lib/session-context";
@@ -57,10 +58,12 @@ export function useGpsTracking(): void {
         // Watch GPS position
         watchIdRef.current = navigator.geolocation.watchPosition(
             (position) => {
-                latestPosRef.current = {
+                const pos = {
                     lat: position.coords.latitude,
                     lng: position.coords.longitude,
                 };
+                latestPosRef.current = pos;
+                ownGpsPosition.set(pos);
                 sendPosition();
             },
             (err) => {
@@ -85,6 +88,7 @@ export function useGpsTracking(): void {
                 clearInterval(intervalRef.current);
                 intervalRef.current = null;
             }
+            ownGpsPosition.set(null);
         };
     }, [participant, ws]);
 }

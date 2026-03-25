@@ -88,6 +88,9 @@ export const sessionMembers = atom<
     Array<{ id: string; role: "hider" | "seeker"; displayName: string }>
 >([]);
 
+/** Own GPS position (seeker-only, updated by useGpsTracking) */
+export const ownGpsPosition = atom<{ lat: number; lng: number } | null>(null);
+
 /** Live seeker positions (hider-only, updated via WS) */
 export const seekerPositions = atom<
     Array<{ id: string; displayName: string; lat: number; lng: number }>
