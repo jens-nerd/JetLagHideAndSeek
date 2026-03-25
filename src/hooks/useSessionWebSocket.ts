@@ -144,11 +144,14 @@ export function useSessionWebSocket({ code, token, onSync }: Options): void {
                         } else if (event.role === "hider") {
                             hiderConnected.set(true);
                         }
-                        // Add to members list
-                        sessionMembers.set([
-                            ...sessionMembers.get(),
-                            { id: event.participantId, role: event.role, displayName: event.displayName },
-                        ]);
+                        // Add to members list (deduplicate by ID)
+                        const current = sessionMembers.get();
+                        if (!current.some((m) => m.id === event.participantId)) {
+                            sessionMembers.set([
+                                ...current,
+                                { id: event.participantId, role: event.role, displayName: event.displayName },
+                            ]);
+                        }
                         break;
 
                     case "participant_left":
