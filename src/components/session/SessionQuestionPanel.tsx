@@ -961,6 +961,14 @@ export function SessionQuestionPanel() {
                 onCancelAnswering={cancelAnswering}
                 pendingAnswerType={pendingAnswerSq?.type ?? null}
             />
+
+            {/* Answered questions (read-only) */}
+            {sqList.some((sq) => sq.status === "answered") && (
+                <QuestionList
+                    questions={sqList.filter((sq) => sq.status === "answered")}
+                    isHider={false}
+                />
+            )}
         </div>
     );
 }
