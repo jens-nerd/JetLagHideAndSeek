@@ -61,6 +61,10 @@ export const BottomSheetPanel = () => {
     }, [inSession]);
 
     function handleTabChange(tabId: string) {
+        // Seeker: tapping "Fragen" opens the question picker
+        if (tabId === "fragen" && inSession && $participant?.role === "seeker") {
+            pickerOpen.set(true);
+        }
         setActiveTab(tabId);
     }
 
