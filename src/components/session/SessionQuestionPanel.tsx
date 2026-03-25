@@ -99,7 +99,12 @@ function formatLateness(ms: number): string {
 
 /** Format an ISO8601 timestamp as "HH:MM" in the user's local timezone. */
 function formatTime(iso: string): string {
-    const d = new Date(iso);
+    // SQLite datetime('now') returns UTC without Z suffix (e.g. "2026-03-25 12:08:00").
+    // Append Z if missing so Date parses it as UTC, not local time.
+    const normalized = iso.endsWith("Z") || iso.includes("+") || iso.includes("T")
+        ? iso
+        : iso + "Z";
+    const d = new Date(normalized);
     return d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
 }
 
