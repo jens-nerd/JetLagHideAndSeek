@@ -291,7 +291,7 @@ export const de = {
     // ── Session-Fragen-Panel (SessionQuestionPanel) ───────────────────────────
     "sqp.askQuestion": "Frage stellen",
     "sqp.questions": "Fragen",
-    "sqp.noQuestionsYet": "Noch keine Fragen in dieser Session.",
+    "sqp.noQuestionsYet": "Die Seeker haben noch keine Fragen gestellt!",
     "sqp.configure": "konfigurieren",
     "sqp.configuring": "konfigurieren",
     "sqp.sendQuestion": "Frage senden",

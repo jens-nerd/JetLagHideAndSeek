@@ -112,36 +112,8 @@ export function SessionManager() {
             return <SessionQuestionPanel />;
         }
 
-        // Hider: session info — sheet is collapsed in BottomSheetPanel when in session,
-        // so this branch is only reached transiently. Full hider UI lives in
-        // QuestionPickerSheet (opened via the FRAGEN button).
-        return (
-            <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs text-muted-foreground">{tr("session.label")}</span>
-                    <button
-                        onClick={copyCode}
-                        className="font-mono font-bold tracking-widest text-sm bg-muted px-2 py-0.5 rounded hover:bg-muted/80 transition-colors"
-                        title={tr("session.clickToCopy")}
-                    >
-                        {code}
-                    </button>
-                    {copied && (
-                        <span className="text-xs text-green-600">{tr("session.copied")}</span>
-                    )}
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                            leaveSession();
-                            setView("idle");
-                        }}
-                    >
-                        {tr("session.leave")}
-                    </Button>
-                </div>
-            </div>
-        );
+        // Hider: show the question panel (same as seeker)
+        return <SessionQuestionPanel />;
     }
 
     // ── Idle ───────────────────────────────────────────────────────────────────
