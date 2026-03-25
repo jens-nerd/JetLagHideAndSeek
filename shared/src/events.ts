@@ -1,5 +1,12 @@
 import type { MapLocation, SessionQuestion, SessionStatus } from "./types.js";
 
+export interface SeekerPosition {
+    id: string;
+    displayName: string;
+    lat: number;
+    lng: number;
+}
+
 /**
  * WebSocket events sent from the SERVER to clients.
  */
@@ -43,6 +50,11 @@ export type ServerToClientEvent =
           status: SessionStatus;
           seekerCount: number;
           hiderConnected: boolean;
+      }
+    | {
+          /** Broadcast to hider only: current seeker positions */
+          type: "seeker_positions";
+          positions: SeekerPosition[];
       };
 
 /**
@@ -73,4 +85,10 @@ export type ClientToServerEvent =
           /** Seeker sets session to active (game starts) */
           type: "set_status";
           status: "active" | "finished";
+      }
+    | {
+          /** Seeker sends their GPS position */
+          type: "position_update";
+          lat: number;
+          lng: number;
       };

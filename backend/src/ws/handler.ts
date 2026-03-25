@@ -106,6 +106,7 @@ export async function handleWsOpen(
         sessionCode: code,
         sessionId: sessionRow.id,
         participantId: participant.id,
+        displayName: participant.displayName,
         role: participant.role as "hider" | "seeker",
     };
 
@@ -283,6 +284,21 @@ export async function handleWsMessage(
             };
             wsManager.broadcast(code, statusEvent);
             void wsManager.persistEvent(db, client.sessionId, client.participantId, statusEvent);
+            break;
+        }
+
+        case "position_update": {
+            // Only seekers may report their position
+            if (client.role !== "seeker") return;
+            client.lat = event.lat;
+            client.lng = event.lng;
+
+            // Send all seeker positions to the hider(s)
+            const positions = wsManager.getSeekerPositions(code);
+            wsManager.sendToRole(code, "hider", {
+                type: "seeker_positions",
+                positions,
+            });
             break;
         }
     }

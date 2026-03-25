@@ -20,6 +20,7 @@ import { useSessionMapSync } from "@/hooks/useSessionMapSync";
 import { useSessionInit } from "@/hooks/useSessionInit";
 import { useMapLocationSync } from "@/hooks/useMapLocationSync";
 import { useSessionWebSocket } from "@/hooks/useSessionWebSocket";
+import { useGpsTracking } from "@/hooks/useGpsTracking";
 
 import { SessionManager } from "./session/SessionManager";
 import { QuestionPickerSheet } from "./session/QuestionPickerSheet";
@@ -39,6 +40,7 @@ export const BottomSheetPanel = () => {
     useSessionMapSync();
     useSessionInit();
     useMapLocationSync();
+    useGpsTracking();
 
     const $participant = useStore(sessionParticipant);
     const $code = useStore(sessionCode);

@@ -33,6 +33,7 @@ import { clearCache, determineMapBoundaries } from "@/maps/api";
 
 import { bottomSheetState } from "@/lib/bottom-sheet-state";
 import { DraggableMarkers } from "./DraggableMarkers";
+import { SeekerMarkers } from "./SeekerMarkers";
 import { LeafletFullScreenButton } from "./LeafletFullScreenButton";
 import { MapPrint } from "./MapPrint";
 import { PolygonDraw } from "./PolygonDraw";
@@ -239,6 +240,7 @@ export const Map = ({ className }: { className?: string }) => {
                 )}
                 <MapClickHandler />
                 <DraggableMarkers />
+                <SeekerMarkers />
                 <ThermometerGpsLayer />
                 <div className="leaflet-top leaflet-right">
                     <div className="leaflet-control flex-col flex gap-2">

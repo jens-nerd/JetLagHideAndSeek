@@ -7,8 +7,10 @@ import {
     getRole,
     hiderConnected,
     seekerCount,
+    seekerPositions,
     sessionQuestions,
     upsertSessionQuestion,
+    wsInstance,
     wsStatus,
 } from "@/lib/session-context";
 
@@ -52,6 +54,7 @@ export function useSessionWebSocket({ code, token, onSync }: Options): void {
                 `${BASE_WS_URL}/ws/${code}?token=${encodeURIComponent(token)}`,
             );
             wsRef.current = ws;
+            wsInstance.set(ws);
 
             ws.onopen = () => {
                 reconnectDelay.current = 1000;
@@ -143,12 +146,17 @@ export function useSessionWebSocket({ code, token, onSync }: Options): void {
                         // Re-fetch counts from the next sync; we don't track
                         // individual roles on leave in this simplified model.
                         break;
+
+                    case "seeker_positions":
+                        seekerPositions.set(event.positions);
+                        break;
                 }
             };
 
             ws.onclose = (evt) => {
                 wsStatus.set("disconnected");
                 wsRef.current = null;
+                wsInstance.set(null);
 
                 // Don't reconnect if closed intentionally (code 1000) or
                 // by the server for auth reasons (4401 / 4403 / 4404)

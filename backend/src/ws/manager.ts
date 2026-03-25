@@ -1,4 +1,4 @@
-import type { ServerToClientEvent } from "@hideandseek/shared";
+import type { SeekerPosition, ServerToClientEvent } from "@hideandseek/shared";
 import type { WSContext } from "hono/ws";
 import { nanoid } from "nanoid";
 
@@ -11,7 +11,11 @@ interface ConnectedClient {
     /** DB primary key of the session — used for event logging. */
     sessionId: string;
     participantId: string;
+    displayName: string;
     role: "hider" | "seeker";
+    /** Latest known GPS position (seekers only). */
+    lat?: number;
+    lng?: number;
 }
 
 /**
@@ -126,6 +130,24 @@ class WebSocketManager {
         } catch (err) {
             console.error("[ws] Failed to persist event:", (err as Error).message);
         }
+    }
+
+    /** Collect current positions of all seekers that have reported a location. */
+    getSeekerPositions(sessionCode: string): SeekerPosition[] {
+        const room = this.rooms.get(sessionCode);
+        if (!room) return [];
+        const positions: SeekerPosition[] = [];
+        for (const c of room) {
+            if (c.role === "seeker" && c.lat != null && c.lng != null) {
+                positions.push({
+                    id: c.participantId,
+                    displayName: c.displayName,
+                    lat: c.lat,
+                    lng: c.lng,
+                });
+            }
+        }
+        return positions;
     }
 
     seekerCount(sessionCode: string): number {
