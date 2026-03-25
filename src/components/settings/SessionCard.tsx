@@ -1,8 +1,10 @@
 import { useStore } from "@nanostores/react";
+import { toast } from "react-toastify";
 import { useT } from "@/i18n";
 import {
     sessionCode,
     sessionParticipant,
+    sessionMembers,
     leaveSession,
 } from "@/lib/session-context";
 
@@ -10,12 +12,23 @@ export function SessionCard() {
     const tr = useT();
     const $code = useStore(sessionCode);
     const $participant = useStore(sessionParticipant);
+    const $members = useStore(sessionMembers);
 
     if (!$participant || !$code) return null;
 
     const roleName = $participant.role === "hider"
         ? tr("session.hider")
         : tr("session.seeker");
+
+    function copyCode() {
+        navigator.clipboard.writeText($code!).then(
+            () => toast.success("Code kopiert!", { autoClose: 1000 }),
+            () => toast.error("Kopieren fehlgeschlagen"),
+        );
+    }
+
+    // Other members (exclude self)
+    const others = $members.filter((m) => m.id !== $participant!.id);
 
     return (
         <div
@@ -39,12 +52,16 @@ export function SessionCard() {
                         {tr("session.label")}
                     </span>
                     <span
+                        onClick={copyCode}
+                        title="Klicken zum Kopieren"
                         style={{
                             color: "#fff",
                             fontSize: 22,
                             fontWeight: 800,
                             fontFamily: "'Poppins', sans-serif",
                             letterSpacing: "0.04em",
+                            cursor: "pointer",
+                            borderBottom: "2px dashed rgba(255,255,255,0.3)",
                         }}
                     >
                         {$code}
@@ -76,6 +93,32 @@ export function SessionCard() {
                     </>
                 )}
             </div>
+
+            {/* Other participants */}
+            {others.length > 0 && (
+                <div style={{ marginTop: 10, borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 8 }}>
+                    <span style={{ color: "#99A1AF", fontSize: 12, fontWeight: 600 }}>
+                        Mitspieler:
+                    </span>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                        {others.map((m) => (
+                            <span
+                                key={m.id}
+                                style={{
+                                    background: m.role === "hider" ? "rgba(232,50,58,0.2)" : "rgba(34,197,94,0.2)",
+                                    color: m.role === "hider" ? "#E8323A" : "#22C55E",
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    padding: "3px 8px",
+                                    borderRadius: 6,
+                                }}
+                            >
+                                {m.displayName || (m.role === "hider" ? "Hider" : "Seeker")}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

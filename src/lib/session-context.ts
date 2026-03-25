@@ -83,6 +83,11 @@ export const wsStatus = atom<"disconnected" | "connecting" | "connected">(
 /** Active WS instance — set by useSessionWebSocket, read by useGpsTracking */
 export const wsInstance = atom<WebSocket | null>(null);
 
+/** All participants in the session (synced via WS) */
+export const sessionMembers = atom<
+    Array<{ id: string; role: "hider" | "seeker"; displayName: string }>
+>([]);
+
 /** Live seeker positions (hider-only, updated via WS) */
 export const seekerPositions = atom<
     Array<{ id: string; displayName: string; lat: number; lng: number }>

@@ -50,6 +50,8 @@ export type ServerToClientEvent =
           status: SessionStatus;
           seekerCount: number;
           hiderConnected: boolean;
+          /** All participants in the session (id, role, displayName) */
+          participants: Array<{ id: string; role: "hider" | "seeker"; displayName: string }>;
       }
     | {
           /** Broadcast to hider only: current seeker positions */

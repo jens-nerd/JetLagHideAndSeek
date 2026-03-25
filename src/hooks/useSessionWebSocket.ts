@@ -8,6 +8,7 @@ import {
     hiderConnected,
     seekerCount,
     seekerPositions,
+    sessionMembers,
     sessionQuestions,
     upsertSessionQuestion,
     wsInstance,
@@ -88,6 +89,9 @@ export function useSessionWebSocket({ code, token, onSync }: Options): void {
                         sessionQuestions.set(patchedQuestions);
                         seekerCount.set(event.seekerCount);
                         hiderConnected.set(event.hiderConnected);
+                        if (event.participants) {
+                            sessionMembers.set(event.participants);
+                        }
                         if (event.mapLocation) {
                             applyServerMapLocation(event.mapLocation);
                         }
@@ -140,11 +144,17 @@ export function useSessionWebSocket({ code, token, onSync }: Options): void {
                         } else if (event.role === "hider") {
                             hiderConnected.set(true);
                         }
+                        // Add to members list
+                        sessionMembers.set([
+                            ...sessionMembers.get(),
+                            { id: event.participantId, role: event.role, displayName: event.displayName },
+                        ]);
                         break;
 
                     case "participant_left":
-                        // Re-fetch counts from the next sync; we don't track
-                        // individual roles on leave in this simplified model.
+                        sessionMembers.set(
+                            sessionMembers.get().filter((m) => m.id !== event.participantId),
+                        );
                         break;
 
                     case "seeker_positions":

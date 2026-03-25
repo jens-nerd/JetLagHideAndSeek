@@ -130,6 +130,11 @@ export async function handleWsOpen(
 
     const pMap = await buildParticipantsMap(db, sessionRow.id);
 
+    // Fetch full participant list for the sync event
+    const participantRows = await db.query.participants.findMany({
+        where: eq(schema.participants.sessionId, sessionRow.id),
+    });
+
     ws.send(
         JSON.stringify({
             type: "sync",
@@ -140,6 +145,11 @@ export async function handleWsOpen(
             status: sessionRow.status,
             seekerCount: wsManager.seekerCount(code),
             hiderConnected: wsManager.hiderConnected(code),
+            participants: participantRows.map((p) => ({
+                id: p.id,
+                role: p.role as "hider" | "seeker",
+                displayName: p.displayName,
+            })),
         }),
     );
 
