@@ -19,6 +19,7 @@ import { useEffect } from "react";
 import {
     isLoading,
     mapGeoJSON,
+    polyGeoJSON,
     questions as localQuestions,
 } from "@/lib/context";
 import { pendingDraftKey, sessionParticipant, sessionQuestions } from "@/lib/session-context";
@@ -132,12 +133,14 @@ export function useSessionMapSync() {
                 const unsub = isLoading.subscribe((loading) => {
                     if (!loading) {
                         unsub();
-                        mapGeoJSON.set(null);
+                        // Reset to the raw base boundary (polyGeoJSON) instead of
+                        // null to avoid a slow Overpass re-fetch of map boundaries.
+                        mapGeoJSON.set(polyGeoJSON.get());
                         localQuestions.set(finalMerged);
                     }
                 });
             } else {
-                mapGeoJSON.set(null);
+                mapGeoJSON.set(polyGeoJSON.get());
                 localQuestions.set(finalMerged);
             }
         };
