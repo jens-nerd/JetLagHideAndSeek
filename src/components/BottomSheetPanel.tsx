@@ -1,5 +1,7 @@
 /**
- * BottomSheetPanel — renders the bottom sheet with session questions.
+ * BottomSheetPanel — renders the bottom sheet with two tabs:
+ *   1. "Fragen" — session questions (SessionManager)
+ *   2. "Versteckzonen" — hiding zone configuration (ZoneSidebar)
  *
  * Onboarding flow (role selection, area search) is now handled by
  * CreateSessionOverlay. This component only shows the SessionManager once
@@ -10,6 +12,7 @@ import { useEffect, useState } from "react";
 import { useT } from "@/i18n";
 
 import { BottomSheet } from "@/components/ui/BottomSheet";
+import type { BottomSheetTab } from "@/components/ui/BottomSheet";
 import { OptionDrawers } from "@/components/OptionDrawers";
 import { sessionCode, sessionParticipant } from "@/lib/session-context";
 import { bottomSheetState, pickerOpen } from "@/lib/bottom-sheet-state";
@@ -20,9 +23,16 @@ import { useSessionWebSocket } from "@/hooks/useSessionWebSocket";
 
 import { SessionManager } from "./session/SessionManager";
 import { QuestionPickerSheet } from "./session/QuestionPickerSheet";
+import { ZoneSidebar } from "./ZoneSidebar";
+
+const TABS: BottomSheetTab[] = [
+    { id: "fragen", label: "Fragen" },
+    { id: "zonen", label: "Versteckzonen" },
+];
 
 export const BottomSheetPanel = () => {
     const [optionsOpen, setOptionsOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState("fragen");
 
     const tr = useT();
 
@@ -49,15 +59,29 @@ export const BottomSheetPanel = () => {
         if (inSession) bottomSheetState.set("collapsed");
     }, [inSession]);
 
+    function handleTabChange(tabId: string) {
+        setActiveTab(tabId);
+        if (tabId === "fragen" && inSession) {
+            pickerOpen.set(true);
+        }
+    }
+
     return (
         <>
             <BottomSheet
-                title={tr("sidebar.questions")}
+                tabs={TABS}
+                activeTab={activeTab}
+                onTabChange={handleTabChange}
                 onSettingsClick={() => setOptionsOpen(true)}
-                onTitleClick={inSession ? () => pickerOpen.set(true) : undefined}
             >
-                <div className="px-3 py-2">
-                    {$participant ? <SessionManager /> : null}
+                {/* Both tabs stay mounted to preserve map layers & state */}
+                <div style={{ display: activeTab === "fragen" ? "block" : "none" }}>
+                    <div className="px-3 py-2">
+                        {$participant ? <SessionManager /> : null}
+                    </div>
+                </div>
+                <div style={{ display: activeTab === "zonen" ? "block" : "none" }}>
+                    <ZoneSidebar />
                 </div>
             </BottomSheet>
             <QuestionPickerSheet />

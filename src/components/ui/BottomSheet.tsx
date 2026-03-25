@@ -43,14 +43,23 @@ const NEXT_DOWN: Partial<Record<SheetState, SheetState>> = {
 
 // ── Component ─────────────────────────────────────────────────────────────
 
+export interface BottomSheetTab {
+    id: string;
+    label: string;
+}
+
 interface BottomSheetProps {
     children: React.ReactNode;
+    /** Single title (legacy) or tabs. If tabs are provided, title is ignored. */
     title?: string;
+    tabs?: BottomSheetTab[];
+    activeTab?: string;
+    onTabChange?: (tabId: string) => void;
     onSettingsClick?: () => void;
     onTitleClick?: () => void;
 }
 
-export function BottomSheet({ children, title, onSettingsClick, onTitleClick }: BottomSheetProps) {
+export function BottomSheet({ children, title, tabs, activeTab, onTabChange, onSettingsClick, onTitleClick }: BottomSheetProps) {
     const state = useStore(bottomSheetState);
     const dragStartY = useRef<number | null>(null);
     const isDragging = useRef(false);
@@ -148,9 +157,42 @@ export function BottomSheet({ children, title, onSettingsClick, onTitleClick }: 
                         margin: "0 auto 8px",
                     }}
                 />
-                {/* Action row — Figma node 1:29 + 1:31 */}
+                {/* Action row — tabs or single title */}
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    {title && (
+                    {tabs && tabs.length > 0 ? (
+                        tabs.map((tab) => {
+                            const isActive = tab.id === activeTab;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onTabChange?.(tab.id);
+                                        if (state === "collapsed") bottomSheetState.set("default");
+                                    }}
+                                    style={{
+                                        flex: 1,
+                                        background: isActive ? "var(--color-primary)" : "var(--color-panel)",
+                                        borderRadius: "var(--radius-pill)",
+                                        border: "none",
+                                        cursor: "pointer",
+                                        padding: "10px 16px",
+                                        color: "#fff",
+                                        fontWeight: 800,
+                                        fontSize: "14px",
+                                        textTransform: "uppercase",
+                                        letterSpacing: "0.06em",
+                                        textAlign: "center",
+                                        lineHeight: 1.2,
+                                        opacity: isActive ? 1 : 0.6,
+                                        transition: "background 0.15s, opacity 0.15s",
+                                    }}
+                                >
+                                    {tab.label}
+                                </button>
+                            );
+                        })
+                    ) : title ? (
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
@@ -178,7 +220,7 @@ export function BottomSheet({ children, title, onSettingsClick, onTitleClick }: 
                         >
                             {title}
                         </button>
-                    )}
+                    ) : null}
                     {onSettingsClick && (
                         <button
                             onClick={(e) => {

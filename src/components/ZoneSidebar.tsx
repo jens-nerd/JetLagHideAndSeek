@@ -2,20 +2,10 @@ import { useStore } from "@nanostores/react";
 import * as turf from "@turf/turf";
 import * as L from "leaflet";
 import _ from "lodash";
-import { SidebarCloseIcon } from "lucide-react";
 import osmtogeojson from "osmtogeojson";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 
-import {
-    Sidebar,
-    SidebarContent,
-    SidebarContext,
-    SidebarGroup,
-    SidebarGroupContent,
-    SidebarMenu,
-    SidebarMenuItem,
-} from "@/components/ui/sidebar-r";
 import {
     animateMapMovements,
     autoZoom,
@@ -69,7 +59,6 @@ import {
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { MultiSelect } from "./ui/multi-select";
-import { ScrollToTop } from "./ui/scroll-to-top";
 import { MENU_ITEM_CLASSNAME } from "./ui/sidebar-l";
 import { UnitSelect } from "./UnitSelect";
 
@@ -489,22 +478,9 @@ export const ZoneSidebar = () => {
     ]);
 
     return (
-        <Sidebar side="right">
-            <div className="flex items-center justify-between">
-                <h2 className="ml-4 mt-4 font-poppins text-2xl">{tr("zone.title")}</h2>
-                <SidebarCloseIcon
-                    className="mr-2 visible md:hidden scale-x-[-1]"
-                    onClick={() => {
-                        SidebarContext.get().setOpenMobile(false);
-                    }}
-                />
-            </div>
-            <SidebarContent ref={sidebarRef}>
-                <ScrollToTop element={sidebarRef} minHeight={500} />
-                <SidebarGroup>
-                    <SidebarGroupContent>
-                        <SidebarMenu>
-                            <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
+        <div ref={sidebarRef} className="flex flex-col gap-1 px-2 py-1">
+            <div className="flex flex-col gap-2">
+                            <div className={MENU_ITEM_CLASSNAME}>
                                 <Label className="font-semibold font-poppins">
                                     {tr("zone.displayHidingZones")}
                                 </Label>
@@ -514,16 +490,16 @@ export const ZoneSidebar = () => {
                                     onCheckedChange={displayHidingZones.set}
                                     disabled={$isLoading}
                                 />
-                            </SidebarMenuItem>
-                            <SidebarMenuItem
+                            </div>
+                            <div
                                 className={cn(
                                     MENU_ITEM_CLASSNAME,
                                     "text-orange-500",
                                 )}
                             >
                                 {tr("zone.warning")}
-                            </SidebarMenuItem>
-                            <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
+                            </div>
+                            <div className={MENU_ITEM_CLASSNAME}>
                                 <div className="flex flex-row items-center justify-between w-full">
                                     <Label className="font-semibold font-poppins">
                                         {tr("zone.useCustomStationList")}
@@ -536,8 +512,8 @@ export const ZoneSidebar = () => {
                                         disabled={$isLoading}
                                     />
                                 </div>
-                            </SidebarMenuItem>
-                            <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
+                            </div>
+                            <div className={MENU_ITEM_CLASSNAME}>
                                 <div className="flex flex-row items-center justify-between w-full">
                                     <Label className="font-semibold font-poppins">
                                         {tr("zone.mergeDuplicatedStations")}
@@ -550,10 +526,10 @@ export const ZoneSidebar = () => {
                                         disabled={$isLoading}
                                     />
                                 </div>
-                            </SidebarMenuItem>
+                            </div>
                             {useCustomStations && (
                                 <>
-                                    <SidebarMenuItem
+                                    <div
                                         className={MENU_ITEM_CLASSNAME}
                                     >
                                         <div className="flex flex-col gap-2 w-full">
@@ -736,10 +712,10 @@ export const ZoneSidebar = () => {
                                                 </div>
                                             )}
                                         </div>
-                                    </SidebarMenuItem>
+                                    </div>
                                 </>
                             )}
-                            <SidebarMenuItem className={MENU_ITEM_CLASSNAME}>
+                            <div className={MENU_ITEM_CLASSNAME}>
                                 <MultiSelect
                                     options={[
                                         {
@@ -810,8 +786,8 @@ export const ZoneSidebar = () => {
                                             !includeDefaultStations)
                                     }
                                 />
-                            </SidebarMenuItem>
-                            <SidebarMenuItem>
+                            </div>
+                            <div>
                                 <Label className="font-semibold font-poppins ml-2">
                                     {tr("zone.hidingZoneRadius")}
                                 </Label>
@@ -840,18 +816,18 @@ export const ZoneSidebar = () => {
                                         }}
                                     />
                                 </div>
-                            </SidebarMenuItem>
+                            </div>
                             {$displayHidingZones && stations.length > 0 && (
-                                <SidebarMenuItem
+                                <div
                                     className="bg-popover hover:bg-accent relative flex cursor-pointer gap-2 select-none items-center rounded-sm px-2 py-2.5 text-sm outline-none data-[disabled=true]:pointer-events-none data-[selected='true']:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0"
                                     onClick={removeHidingZones}
-                                    disabled={$isLoading}
+                                    data-disabled={$isLoading}
                                 >
                                     {tr("zone.noDisplay")}
-                                </SidebarMenuItem>
+                                </div>
                             )}
                             {$displayHidingZones && stations.length > 0 && (
-                                <SidebarMenuItem
+                                <div
                                     className="bg-popover hover:bg-accent relative flex cursor-pointer gap-2 select-none items-center rounded-sm px-2 py-2.5 text-sm outline-none data-[disabled=true]:pointer-events-none data-[selected='true']:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0"
                                     onClick={() => {
                                         setCommandValue("");
@@ -870,13 +846,13 @@ export const ZoneSidebar = () => {
                                             false,
                                         );
                                     }}
-                                    disabled={$isLoading}
+                                    data-disabled={$isLoading}
                                 >
                                     {tr("zone.allStations")}
-                                </SidebarMenuItem>
+                                </div>
                             )}
                             {$displayHidingZones && stations.length > 0 && (
-                                <SidebarMenuItem
+                                <div
                                     className="bg-popover hover:bg-accent relative flex cursor-pointer gap-2 select-none items-center rounded-sm px-2 py-2.5 text-sm outline-none data-[disabled=true]:pointer-events-none data-[selected='true']:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0"
                                     onClick={() => {
                                         setCommandValue("");
@@ -893,13 +869,13 @@ export const ZoneSidebar = () => {
                                             true,
                                         );
                                     }}
-                                    disabled={$isLoading}
+                                    data-disabled={$isLoading}
                                 >
                                     {tr("zone.allZones")}
-                                </SidebarMenuItem>
+                                </div>
                             )}
                             {$displayHidingZones && stations.length > 0 && (
-                                <SidebarMenuItem
+                                <div
                                     className="bg-popover hover:bg-accent relative flex cursor-pointer gap-2 select-none items-center rounded-sm px-2 py-2.5 text-sm outline-none data-[disabled=true]:pointer-events-none data-[selected='true']:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0"
                                     onClick={() => {
                                         setCommandValue("");
@@ -918,18 +894,18 @@ export const ZoneSidebar = () => {
                                             ),
                                         );
                                     }}
-                                    disabled={$isLoading}
+                                    data-disabled={$isLoading}
                                 >
                                     {tr("zone.noOverlap")}
-                                </SidebarMenuItem>
+                                </div>
                             )}
                             {$displayHidingZones && commandValue && (
-                                <SidebarMenuItem
+                                <div
                                     className={cn(
                                         MENU_ITEM_CLASSNAME,
                                         "bg-popover hover:bg-accent",
                                     )}
-                                    disabled={$isLoading}
+                                    data-disabled={$isLoading}
                                 >
                                     {tr("zone.current")}:{" "}
                                     {(() => {
@@ -969,11 +945,11 @@ export const ZoneSidebar = () => {
                                             </a>
                                         );
                                     })()}
-                                </SidebarMenuItem>
+                                </div>
                             )}
                             {$displayHidingZones &&
                                 $disabledStations.length > 0 && (
-                                    <SidebarMenuItem
+                                    <div
                                         className="bg-popover hover:bg-accent relative flex cursor-pointer gap-2 select-none items-center rounded-sm px-2 py-2.5 text-sm outline-none data-[disabled=true]:pointer-events-none data-[selected='true']:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0"
                                         onClick={() => {
                                             disabledStations.set([]);
@@ -985,13 +961,13 @@ export const ZoneSidebar = () => {
                                                 true,
                                             );
                                         }}
-                                        disabled={$isLoading}
+                                        data-disabled={$isLoading}
                                     >
                                         {tr("zone.clearDisabled")}
-                                    </SidebarMenuItem>
+                                    </div>
                                 )}
                             {$displayHidingZones && (
-                                <SidebarMenuItem
+                                <div
                                     className="bg-popover hover:bg-accent relative flex cursor-pointer gap-2 select-none items-center rounded-sm px-2 py-2.5 text-sm outline-none data-[disabled=true]:pointer-events-none data-[selected='true']:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0"
                                     onClick={() => {
                                         disabledStations.set(
@@ -1002,10 +978,10 @@ export const ZoneSidebar = () => {
                                         );
                                         removeHidingZones();
                                     }}
-                                    disabled={$isLoading}
+                                    data-disabled={$isLoading}
                                 >
                                     {tr("zone.disableAll")}
-                                </SidebarMenuItem>
+                                </div>
                             )}
                             {$displayHidingZones && (
                                 <Command>
@@ -1164,11 +1140,8 @@ export const ZoneSidebar = () => {
                                     </CommandList>
                                 </Command>
                             )}
-                        </SidebarMenu>
-                    </SidebarGroupContent>
-                </SidebarGroup>
-            </SidebarContent>
-        </Sidebar>
+            </div>
+        </div>
     );
 };
 

@@ -1,42 +1,28 @@
 ---
 import Layout from "@/layouts/Layout.astro";
 import { Map } from "@/components/Map";
-import {
-    SidebarProvider as SidebarProviderR,
-    SidebarTrigger as SidebarTriggerR,
-} from "@/components/ui/sidebar-r";
-import { ZoneSidebar } from "@/components/ZoneSidebar";
 import { TutorialDialog } from "@/components/TutorialDialog";
 import { BottomSheetPanel } from "@/components/BottomSheetPanel";
 import { CreateSessionOverlay } from "@/components/session/CreateSessionOverlay";
 ---
 
 <Layout className="bg-jetlag">
-    <SidebarProviderR client:load defaultOpen={false}>
-        <main class="flex flex-col flex-grow group">
-            <div
-                class="flex justify-center"
-                id="map-modal-dialog-container-leaflet"
-            >
-                <div class="w-full h-full relative">
-                    <!-- Options trigger (right side) -->
-                    <div
-                        class="absolute top-2 right-2 z-[1030] group-[.fullscreen]:hidden"
-                    >
-                        <SidebarTriggerR client:load />
-                    </div>
-                    <!-- Map: full viewport width + height -->
-                    <Map
-                        className="w-full group-[.fullscreen]:w-full group-[.fullscreen]:h-full"
-                        client:only
-                    />
-                </div>
+    <main class="flex flex-col flex-grow group">
+        <div
+            class="flex justify-center"
+            id="map-modal-dialog-container-leaflet"
+        >
+            <div class="w-full h-full relative">
+                <!-- Map: full viewport width + height -->
+                <Map
+                    className="w-full group-[.fullscreen]:w-full group-[.fullscreen]:h-full"
+                    client:only
+                />
             </div>
-        </main>
-        <ZoneSidebar client:only />
-        <TutorialDialog client:only />
-    </SidebarProviderR>
-    <!-- Bottom sheet: rendered outside SidebarProviderR so it stacks independently -->
+        </div>
+    </main>
+    <TutorialDialog client:only />
+    <!-- Bottom sheet: contains Fragen + Versteckzonen tabs -->
     <BottomSheetPanel client:only />
     <!-- Session creation overlay: shown on first load, above bottom sheet -->
     <CreateSessionOverlay client:only />
