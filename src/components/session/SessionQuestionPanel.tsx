@@ -41,7 +41,15 @@ import {
 import { SidebarContext } from "@/components/ui/sidebar-l-context";
 import { adjustMapGeoDataForQuestion, hiderifyQuestion } from "@/maps";
 import { addQuestion, answerQuestion } from "@/lib/session-api";
+import { atom } from "nanostores";
 import { getCardCost } from "@/lib/card-costs";
+
+/** Temporary store for photo answer data — set by PhotoAnswerUI, read by submitAnswer */
+const photoAnswerData = atom<unknown>(null);
+
+const BACKEND_URL_DETAIL =
+    (typeof import.meta !== "undefined" && (import.meta as any).env?.PUBLIC_BACKEND_URL) ||
+    "http://localhost:3001";
 import { handleSubmitError } from "@/lib/handle-submit-error";
 import { LocationCard } from "./picker/LocationCard";
 import {
@@ -329,6 +337,15 @@ function QuestionDetails({
         }
     }
 
+    // ── Photo answer (Foto oder "Nicht möglich") ─────────────────────────────
+    if (sq.status === "answered" && a && sq.type === "photo") {
+        if (a.completed === false) {
+            rows.push({ icon: "❌", text: "Foto nicht möglich" });
+        } else if (a.photoUrl) {
+            rows.push({ icon: "📸", text: "Foto aufgenommen" });
+        }
+    }
+
     // ── Antwort des Hiders (answerData) ──────────────────────────────────────
     if (sq.status === "answered" && a) {
         if (sq.type === "tentacles") {
@@ -384,6 +401,9 @@ function QuestionDetails({
         if (expectation) rows.push({ icon: "", text: expectation });
     }
 
+    // Photo image (if answered with a photo)
+    const photoUrl = sq.status === "answered" && a?.photoUrl ? a.photoUrl as string : null;
+
     return (
         <div className="flex flex-col gap-0.5">
             {rows.map((row, i) => (
@@ -391,6 +411,20 @@ function QuestionDetails({
                     {row.icon ? `${row.icon} ${row.text}` : row.text}
                 </p>
             ))}
+            {photoUrl && (
+                <a
+                    href={`${BACKEND_URL_DETAIL}${photoUrl}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ marginTop: 4, borderRadius: 6, overflow: "hidden", display: "block" }}
+                >
+                    <img
+                        src={`${BACKEND_URL_DETAIL}${photoUrl}`}
+                        alt="Fotobeweis"
+                        style={{ width: "100%", maxHeight: 150, objectFit: "cover", borderRadius: 6 }}
+                    />
+                </a>
+            )}
         </div>
     );
 }
@@ -801,13 +835,10 @@ export function SessionQuestionPanel() {
     // ── Hider: enter preview mode for a question ────────────────────────────
     function startAnswering(sq: SessionQuestion) {
         if (sq.type === "photo") {
-            // Photo questions skip GPS entirely — go straight to confirmation
+            // Photo questions skip GPS — the PhotoAnswerUI handles the answer data
             setPendingAnswerSq(sq);
-            setPreviewResult({
-                label: `📸 ${t("photo.confirmed" as TranslationKey, locale.get())}`,
-                positive: true,
-            });
-            latestAnswerDataRef.current = { confirmed: true };
+            setPreviewResult(null);
+            latestAnswerDataRef.current = null;
             return;
         }
         setPendingAnswerSq(sq);
@@ -868,7 +899,11 @@ export function SessionQuestionPanel() {
     // ── Hider: submit the computed answer ───────────────────────────────────
     async function submitAnswer() {
         if (!pendingAnswerSq || !code || !participant) return;
-        if (!latestAnswerDataRef.current) {
+        // Photo questions use a separate store for answer data
+        const answerPayload = pendingAnswerSq.type === "photo"
+            ? photoAnswerData.get()
+            : latestAnswerDataRef.current;
+        if (!answerPayload) {
             toast.error(t("sqp.noAnswerYet", locale.get()));
             return;
         }
@@ -876,7 +911,7 @@ export function SessionQuestionPanel() {
         try {
             const answeredType = pendingAnswerSq.type;
             await answerQuestion(pendingAnswerSq.id, participant.token, {
-                answerData: latestAnswerDataRef.current,
+                answerData: answerPayload,
             });
             toast.success(t("sqp.answerSent", locale.get()));
             // Show card draw overlay
@@ -1459,61 +1494,12 @@ export function QuestionList({
                             ── INLINE ANSWER UI (Hider, when answering this question)
                             ══════════════════════════════════════════════════════════ */}
                         {isBeingAnswered && sq.type === "photo" && (
-                            <>
-                                {/* Photo: sub-card with challenge info */}
-                                <div style={{
-                                    background: "#1E1E2A",
-                                    borderRadius: 8,
-                                    padding: "10px 12px",
-                                    border: "1px solid rgba(255,255,255,0.08)",
-                                }}>
-                                    <p style={{ margin: 0, fontWeight: 700, color: "#fff", fontSize: "14px" }}>
-                                        📸 {t(`photoType.${qData?.photoType}` as TranslationKey, locale.get())}
-                                    </p>
-                                    <p style={{ margin: "4px 0 0", color: "#99A1AF", fontSize: "12px", lineHeight: 1.4 }}>
-                                        {t(`photoRules.${qData?.photoType}` as TranslationKey, locale.get())}
-                                    </p>
-                                </div>
-
-                                {/* Confirm button */}
-                                <button
-                                    type="button"
-                                    disabled={submitting}
-                                    onClick={onSubmitAnswer}
-                                    style={{
-                                        background: "#22C55E",
-                                        color: "#fff",
-                                        border: "none",
-                                        borderRadius: 10,
-                                        padding: "14px",
-                                        fontWeight: 800,
-                                        fontSize: "15px",
-                                        fontFamily: "Poppins, sans-serif",
-                                        width: "100%",
-                                        cursor: submitting ? "not-allowed" : "pointer",
-                                        opacity: submitting ? 0.4 : 1,
-                                    }}
-                                >
-                                    {submitting
-                                        ? tr("sqp.sending")
-                                        : `📸 ${t("photo.confirm" as TranslationKey, locale.get())}`}
-                                </button>
-
-                                {/* Cancel */}
-                                <button
-                                    type="button"
-                                    onClick={onCancelAnswering}
-                                    disabled={submitting}
-                                    style={{
-                                        ...actionLinkStyle,
-                                        color: "#99A1AF",
-                                        textDecoration: "underline",
-                                        opacity: submitting ? 0.4 : 1,
-                                    }}
-                                >
-                                    {tr("sqp.cancel")}
-                                </button>
-                            </>
+                            <PhotoAnswerUI
+                                qData={qData}
+                                submitting={submitting ?? false}
+                                onSubmit={onSubmitAnswer!}
+                                onCancel={onCancelAnswering!}
+                            />
                         )}
 
                         {isBeingAnswered && sq.type !== "photo" && (
@@ -1645,5 +1631,206 @@ export function QuestionList({
                 );
             })}
         </div>
+    );
+}
+
+// ── Photo answer UI (hider) ─────────────────────────────────────────────────
+
+const BACKEND_URL =
+    (typeof import.meta !== "undefined" && (import.meta as any).env?.PUBLIC_BACKEND_URL) ||
+    "http://localhost:3001";
+
+function PhotoAnswerUI({
+    qData,
+    submitting,
+    onSubmit,
+    onCancel,
+}: {
+    qData: any;
+    submitting: boolean;
+    onSubmit: () => void;
+    onCancel: () => void;
+}) {
+    const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+    const [uploading, setUploading] = useState(false);
+    const fileRef = useRef<HTMLInputElement>(null);
+
+    const loc = locale.get();
+
+    async function handleFile(file: File) {
+        // Show local preview
+        const reader = new FileReader();
+        reader.onload = () => setPhotoPreview(reader.result as string);
+        reader.readAsDataURL(file);
+
+        // Upload to server
+        setUploading(true);
+        try {
+            const form = new FormData();
+            form.append("image", file);
+            const resp = await fetch(`${BACKEND_URL}/api/upload`, {
+                method: "POST",
+                body: form,
+            });
+            if (!resp.ok) throw new Error("Upload failed");
+            const { url } = await resp.json();
+
+            // Set answer data — the parent's latestAnswerDataRef is updated
+            // via the previewResult flow, but for photo we set it directly
+            // on the ref that submitAnswer reads.
+            photoAnswerData.set({ photoUrl: url, completed: true });
+        } catch {
+            toast.error("Foto-Upload fehlgeschlagen");
+            setPhotoPreview(null);
+        } finally {
+            setUploading(false);
+        }
+    }
+
+    function handleNotPossible() {
+        photoAnswerData.set({ completed: false });
+        setPhotoPreview("NOT_POSSIBLE");
+    }
+
+    const ready = photoPreview !== null && !uploading;
+
+    return (
+        <>
+            {/* Challenge info */}
+            <div style={{
+                background: "#1E1E2A",
+                borderRadius: 8,
+                padding: "10px 12px",
+                border: "1px solid rgba(255,255,255,0.08)",
+            }}>
+                <p style={{ margin: 0, fontWeight: 700, color: "#fff", fontSize: "14px" }}>
+                    📸 {t(`photoType.${qData?.photoType}` as TranslationKey, loc)}
+                </p>
+                <p style={{ margin: "4px 0 0", color: "#99A1AF", fontSize: "12px", lineHeight: 1.4 }}>
+                    {t(`photoRules.${qData?.photoType}` as TranslationKey, loc)}
+                </p>
+            </div>
+
+            {/* Photo preview */}
+            {photoPreview && photoPreview !== "NOT_POSSIBLE" && (
+                <div style={{ borderRadius: 8, overflow: "hidden", maxHeight: 200 }}>
+                    <img
+                        src={photoPreview}
+                        alt="Foto-Vorschau"
+                        style={{ width: "100%", height: "auto", objectFit: "cover", maxHeight: 200 }}
+                    />
+                </div>
+            )}
+
+            {photoPreview === "NOT_POSSIBLE" && (
+                <div style={{
+                    background: "rgba(232,50,58,0.15)",
+                    border: "1px solid #E8323A",
+                    borderRadius: 8,
+                    padding: "10px 12px",
+                    color: "#E8323A",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    textAlign: "center",
+                }}>
+                    ❌ Foto nicht möglich
+                </div>
+            )}
+
+            {/* Action buttons */}
+            {!photoPreview && (
+                <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                        ref={fileRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        style={{ display: "none" }}
+                        onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleFile(file);
+                        }}
+                    />
+                    <button
+                        type="button"
+                        onClick={() => fileRef.current?.click()}
+                        disabled={uploading}
+                        style={{
+                            flex: 1,
+                            background: "#067BC2",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: 10,
+                            padding: "12px",
+                            fontWeight: 700,
+                            fontSize: "14px",
+                            cursor: "pointer",
+                        }}
+                    >
+                        📷 Foto aufnehmen
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleNotPossible}
+                        style={{
+                            background: "transparent",
+                            color: "#E8323A",
+                            border: "2px solid #E8323A",
+                            borderRadius: 10,
+                            padding: "12px",
+                            fontWeight: 700,
+                            fontSize: "14px",
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                        }}
+                    >
+                        ❌ Nicht möglich
+                    </button>
+                </div>
+            )}
+
+            {/* Submit */}
+            {ready && (
+                <button
+                    type="button"
+                    disabled={submitting}
+                    onClick={onSubmit}
+                    style={{
+                        background: "#22C55E",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: 10,
+                        padding: "14px",
+                        fontWeight: 800,
+                        fontSize: "15px",
+                        width: "100%",
+                        cursor: submitting ? "not-allowed" : "pointer",
+                        opacity: submitting ? 0.4 : 1,
+                    }}
+                >
+                    {submitting ? "Senden..." : "📸 Antwort senden"}
+                </button>
+            )}
+
+            {/* Cancel */}
+            <button
+                type="button"
+                onClick={onCancel}
+                disabled={submitting}
+                style={{
+                    background: "none",
+                    border: "none",
+                    color: "#99A1AF",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                    padding: 0,
+                    opacity: submitting ? 0.4 : 1,
+                }}
+            >
+                Abbrechen
+            </button>
+        </>
     );
 }
