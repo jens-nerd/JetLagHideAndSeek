@@ -22,7 +22,7 @@ import { useGpsTracking } from "@/hooks/useGpsTracking";
 import { SessionManager } from "./session/SessionManager";
 import { QuestionPickerSheet } from "./session/QuestionPickerSheet";
 import { ZoneSidebar } from "./ZoneSidebar";
-import { AnswerOverlay, answerOverlayTapped } from "./AnswerOverlay";
+import { AnswerOverlay, overlayTapped } from "./AnswerOverlay";
 
 // ── Category icons for the Fragen tab countdown ─────────────────────────────
 const QUESTION_ICONS: Record<string, string> = {
@@ -82,7 +82,7 @@ export const BottomSheetPanel = () => {
 
     // Register callback so AnswerOverlay can switch to the Fragen tab
     useEffect(() => {
-        answerOverlayTapped.onTap(() => setActiveTab("fragen"));
+        overlayTapped.onTap(() => setActiveTab("fragen"));
     }, []);
 
     // Track if a new pending question just arrived (for vibration)

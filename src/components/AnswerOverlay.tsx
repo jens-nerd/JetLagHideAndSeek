@@ -1,19 +1,40 @@
 /**
- * AnswerOverlay — full-screen overlay shown to seekers when the hider answers.
+ * NotificationOverlay — full-screen overlay for:
+ *   - Seeker: when the hider answers a question
+ *   - Hider: when a new question arrives from a seeker
  *
- * Tap to dismiss → opens the Fragen tab with the answered question expanded.
+ * Tap to dismiss → opens the Fragen tab with the relevant question expanded.
  */
 import { useStore } from "@nanostores/react";
 
 import {
     autoExpandQuestionId,
+    newQuestionReceived,
     recentlyAnswered,
     sessionParticipant,
 } from "@/lib/session-context";
 import { bottomSheetState } from "@/lib/bottom-sheet-state";
 
+const QUESTION_ICONS: Record<string, string> = {
+    radius: "⭕",
+    thermometer: "🌡️",
+    tentacles: "🐙",
+    matching: "🔀",
+    measuring: "📏",
+    photo: "📸",
+};
+
+const QUESTION_LABELS: Record<string, string> = {
+    radius: "Radius",
+    thermometer: "Thermometer",
+    tentacles: "Tentakel",
+    matching: "Matching",
+    measuring: "Messen",
+    photo: "Foto",
+};
+
 /** Exposed so BottomSheetPanel can switch to the Fragen tab */
-export const answerOverlayTapped = {
+export const overlayTapped = {
     _cb: null as (() => void) | null,
     onTap(cb: () => void) { this._cb = cb; },
     fire() { this._cb?.(); },
@@ -21,27 +42,69 @@ export const answerOverlayTapped = {
 
 export function AnswerOverlay() {
     const $answered = useStore(recentlyAnswered);
+    const $newQuestion = useStore(newQuestionReceived);
     const $participant = useStore(sessionParticipant);
 
-    if (!$answered || $participant?.role !== "seeker") return null;
+    const isSeeker = $participant?.role === "seeker";
+    const isHider = $participant?.role === "hider";
 
-    function handleTap() {
-        if (!$answered) return;
-        // Tell QuestionListInner to expand this question
-        autoExpandQuestionId.set($answered.id);
-        // Open the bottom sheet
-        bottomSheetState.set("expanded");
-        // Tell BottomSheetPanel to switch to Fragen tab
-        answerOverlayTapped.fire();
-        // Clear the overlay
-        recentlyAnswered.set(null);
+    // Seeker overlay: hider answered
+    if ($answered && isSeeker) {
+        return (
+            <OverlayCard
+                icon={$answered.positive ? "✅" : "❌"}
+                title="Neue Antwort!"
+                subtitle="Tippe um Details zu sehen"
+                color={$answered.positive ? "#22C55E" : "#E8323A"}
+                onTap={() => {
+                    autoExpandQuestionId.set($answered.id);
+                    bottomSheetState.set("expanded");
+                    overlayTapped.fire();
+                    recentlyAnswered.set(null);
+                }}
+            />
+        );
     }
 
-    const positive = $answered.positive;
+    // Hider overlay: new question from seeker
+    if ($newQuestion && isHider) {
+        const icon = QUESTION_ICONS[$newQuestion.type] ?? "❓";
+        const label = QUESTION_LABELS[$newQuestion.type] ?? "Frage";
+        return (
+            <OverlayCard
+                icon={icon}
+                title="Neue Frage!"
+                subtitle={`${label} — Tippe um zu antworten`}
+                color="#F59E0B"
+                onTap={() => {
+                    autoExpandQuestionId.set($newQuestion.id);
+                    bottomSheetState.set("expanded");
+                    overlayTapped.fire();
+                    newQuestionReceived.set(null);
+                }}
+            />
+        );
+    }
 
+    return null;
+}
+
+function OverlayCard({
+    icon,
+    title,
+    subtitle,
+    color,
+    onTap,
+}: {
+    icon: string;
+    title: string;
+    subtitle: string;
+    color: string;
+    onTap: () => void;
+}) {
     return (
         <div
-            onClick={handleTap}
+            onClick={onTap}
             style={{
                 position: "fixed",
                 top: 0,
@@ -59,16 +122,16 @@ export function AnswerOverlay() {
         >
             <div
                 style={{
-                    background: positive ? "rgba(34,197,94,0.15)" : "rgba(232,50,58,0.15)",
-                    border: `3px solid ${positive ? "#22C55E" : "#E8323A"}`,
+                    background: `${color}18`,
+                    border: `3px solid ${color}`,
                     borderRadius: 16,
                     padding: "32px 40px",
                     textAlign: "center",
-                    boxShadow: `0 0 40px ${positive ? "rgba(34,197,94,0.3)" : "rgba(232,50,58,0.3)"}`,
+                    boxShadow: `0 0 40px ${color}4D`,
                 }}
             >
                 <div style={{ fontSize: 40, marginBottom: 8 }}>
-                    {positive ? "✅" : "❌"}
+                    {icon}
                 </div>
                 <div style={{
                     color: "#fff",
@@ -76,14 +139,14 @@ export function AnswerOverlay() {
                     fontWeight: 800,
                     fontFamily: "Poppins, sans-serif",
                 }}>
-                    Neue Antwort!
+                    {title}
                 </div>
                 <div style={{
                     color: "#99A1AF",
                     fontSize: 14,
                     marginTop: 8,
                 }}>
-                    Tippe um Details zu sehen
+                    {subtitle}
                 </div>
             </div>
         </div>

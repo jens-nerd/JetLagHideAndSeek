@@ -6,6 +6,7 @@ import {
     currentSession,
     getRole,
     hiderConnected,
+    newQuestionReceived,
     recentlyAnswered,
     seekerCount,
     seekerPositions,
@@ -102,6 +103,13 @@ export function useSessionWebSocket({ code, token, onSync }: Options): void {
 
                     case "question_added":
                         upsertSessionQuestion(event.question);
+                        // Overlay for hider
+                        if (getRole() === "hider") {
+                            newQuestionReceived.set({
+                                id: event.question.id,
+                                type: event.question.type,
+                            });
+                        }
                         break;
 
                     case "question_answered": {

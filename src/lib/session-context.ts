@@ -91,8 +91,11 @@ export const sessionMembers = atom<
 /** Recently answered question ID + result (overlay + flash, cleared on user interaction) */
 export const recentlyAnswered = atom<{ id: string; positive: boolean } | null>(null);
 
-/** Question ID to auto-expand in the question list (set when seeker taps answer overlay) */
+/** Question ID to auto-expand in the question list (set when overlay is tapped) */
 export const autoExpandQuestionId = atom<string | null>(null);
+
+/** New question received by hider (overlay, cleared on user interaction) */
+export const newQuestionReceived = atom<{ id: string; type: string } | null>(null);
 
 /** Own GPS position (seeker-only, updated by useGpsTracking) */
 export const ownGpsPosition = atom<{ lat: number; lng: number } | null>(null);
