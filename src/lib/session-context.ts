@@ -88,8 +88,11 @@ export const sessionMembers = atom<
     Array<{ id: string; role: "hider" | "seeker"; displayName: string }>
 >([]);
 
-/** Recently answered question ID + result (for flash animation, auto-clears after 2s) */
+/** Recently answered question ID + result (overlay + flash, cleared on user interaction) */
 export const recentlyAnswered = atom<{ id: string; positive: boolean } | null>(null);
+
+/** Question ID to auto-expand in the question list (set when seeker taps answer overlay) */
+export const autoExpandQuestionId = atom<string | null>(null);
 
 /** Own GPS position (seeker-only, updated by useGpsTracking) */
 export const ownGpsPosition = atom<{ lat: number; lng: number } | null>(null);

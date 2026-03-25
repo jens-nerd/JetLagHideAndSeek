@@ -116,7 +116,6 @@ export function useSessionWebSocket({ code, token, onSync }: Options): void {
                                 ad?.same === true ||
                                 ad?.location !== false;
                             recentlyAnswered.set({ id: event.question.id, positive });
-                            setTimeout(() => recentlyAnswered.set(null), 2000);
                         }
                         break;
                     }

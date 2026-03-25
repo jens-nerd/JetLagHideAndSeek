@@ -53,6 +53,7 @@ const BACKEND_URL_DETAIL =
 import { handleSubmitError } from "@/lib/handle-submit-error";
 import { LocationCard } from "./picker/LocationCard";
 import {
+    autoExpandQuestionId,
     pendingDraftKey,
     recentlyAnswered,
     sessionCode,
@@ -1239,6 +1240,15 @@ export function QuestionList({
     const tr = useT();
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const $flash = useStore(recentlyAnswered);
+    const $autoExpand = useStore(autoExpandQuestionId);
+
+    // Auto-expand a question when triggered by AnswerOverlay
+    useEffect(() => {
+        if ($autoExpand) {
+            setExpandedId($autoExpand);
+            autoExpandQuestionId.set(null);
+        }
+    }, [$autoExpand]);
 
     const hasAnyQuestion = questions.length > 0 || !!pendingLocalQuestion;
 

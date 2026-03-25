@@ -215,6 +215,12 @@ div.leaflet-control-attribution.leaflet-control {
     animation: hs-flash-red 1.5s ease-out;
 }
 
+/* ── Answer overlay fade-in ───────────────────────────────────────────────── */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
 /* Tutorial overlay animations */
 @keyframes breathe {
     0%,
