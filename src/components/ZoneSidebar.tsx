@@ -467,6 +467,7 @@ export const ZoneSidebar = () => {
             });
         }
     }, [
+        map,
         $questionFinishedMapData,
         $displayHidingZones,
         $displayHidingZonesOptions,
