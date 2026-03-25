@@ -6,6 +6,7 @@ import {
     currentSession,
     getRole,
     hiderConnected,
+    recentlyAnswered,
     seekerCount,
     seekerPositions,
     sessionMembers,
@@ -100,9 +101,25 @@ export function useSessionWebSocket({ code, token, onSync }: Options): void {
                     }
 
                     case "question_added":
-                    case "question_answered":
                         upsertSessionQuestion(event.question);
                         break;
+
+                    case "question_answered": {
+                        upsertSessionQuestion(event.question);
+                        // Flash animation for seeker
+                        if (getRole() === "seeker") {
+                            const ad = event.question.answerData as any;
+                            const positive =
+                                ad?.within === true ||
+                                ad?.warmer === true ||
+                                ad?.hiderCloser === true ||
+                                ad?.same === true ||
+                                ad?.location !== false;
+                            recentlyAnswered.set({ id: event.question.id, positive });
+                            setTimeout(() => recentlyAnswered.set(null), 2000);
+                        }
+                        break;
+                    }
 
                     case "question_expired": {
                         // Mark the question as expired in local state.

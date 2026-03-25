@@ -45,6 +45,7 @@ import { handleSubmitError } from "@/lib/handle-submit-error";
 import { LocationCard } from "./picker/LocationCard";
 import {
     pendingDraftKey,
+    recentlyAnswered,
     sessionCode,
     sessionParticipant,
     sessionQuestions,
@@ -1133,6 +1134,7 @@ export function QuestionList({
 }) {
     const tr = useT();
     const [expandedId, setExpandedId] = useState<string | null>(null);
+    const $flash = useStore(recentlyAnswered);
 
     const hasAnyQuestion = questions.length > 0 || !!pendingLocalQuestion;
 
@@ -1278,9 +1280,15 @@ export function QuestionList({
 
                 const qData = sq.data as any;
 
+                const flashClass =
+                    $flash?.id === sq.id
+                        ? $flash.positive ? "hs-flash-positive" : "hs-flash-negative"
+                        : "";
+
                 return (
                     <div
                         key={sq.id}
+                        className={flashClass}
                         style={{
                             background: "#2A2A3A",
                             borderRadius: 12,

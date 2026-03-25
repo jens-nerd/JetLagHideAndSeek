@@ -48,6 +48,8 @@ export interface BottomSheetTab {
     label: string;
     /** Render as small icon button (like settings gear) instead of full-width pill */
     icon?: React.ReactNode;
+    /** Pulsing red animation (e.g. when hider has a pending question) */
+    pulse?: boolean;
 }
 
 interface BottomSheetProps {
@@ -206,6 +208,7 @@ export function BottomSheet({ children, title, tabs, activeTab, onTabChange, onS
                                         onTabChange?.(tab.id);
                                         if (state === "collapsed") bottomSheetState.set("default");
                                     }}
+                                    className={tab.pulse ? "hs-pulse" : ""}
                                     style={{
                                         flex: 1,
                                         background: isActive ? "var(--color-primary)" : "var(--color-panel)",
