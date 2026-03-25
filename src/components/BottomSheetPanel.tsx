@@ -61,9 +61,6 @@ export const BottomSheetPanel = () => {
 
     function handleTabChange(tabId: string) {
         setActiveTab(tabId);
-        if (tabId === "fragen" && inSession) {
-            pickerOpen.set(true);
-        }
     }
 
     return (
