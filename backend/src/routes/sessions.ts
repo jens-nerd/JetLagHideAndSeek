@@ -319,6 +319,40 @@ export function createSessionsRouter(db: Db): Hono {
         return c.json({ ok: true });
     });
 
+    // ── POST /sessions/:code/participants/:participantId/push-token ───────────
+
+    router.post("/:code/participants/:participantId/push-token", async (c) => {
+        const code = c.req.param("code").toUpperCase();
+        const participantId = c.req.param("participantId");
+        const token = c.req.header("x-participant-token");
+
+        if (!token) return c.json({ error: "Missing token" }, 401);
+
+        const sessionRow = await db.query.sessions.findFirst({
+            where: eq(schema.sessions.code, code),
+        });
+        if (!sessionRow) return c.json({ error: "Session not found" }, 404);
+
+        const participant = await db.query.participants.findFirst({
+            where: (p, { and, eq: eq_ }) =>
+                and(
+                    eq_(p.id, participantId),
+                    eq_(p.token, token),
+                    eq_(p.sessionId, sessionRow.id),
+                ),
+        });
+        if (!participant) return c.json({ error: "Invalid token" }, 403);
+
+        const { pushToken } = await c.req.json<{ pushToken: string }>();
+
+        await db
+            .update(schema.participants)
+            .set({ pushToken })
+            .where(eq(schema.participants.id, participantId));
+
+        return c.json({ ok: true });
+    });
+
     return router;
 }
 

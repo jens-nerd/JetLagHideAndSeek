@@ -122,5 +122,19 @@ if (!cols.includes("answered_by_participant_id")) {
     console.log("Migration v3 applied.");
 }
 
+// ── Migration v4: push_token column on participants ─────────────────────────
+
+const participantCols = (sqlite.pragma("table_info(participants)") as { name: string }[]).map(
+    (r) => r.name,
+);
+
+if (!participantCols.includes("push_token")) {
+    console.log("Applying migration v4: participants push_token…");
+    sqlite.exec(`
+        ALTER TABLE participants ADD COLUMN push_token TEXT;
+    `);
+    console.log("Migration v4 applied.");
+}
+
 console.log("Database migrated successfully:", DB_PATH);
 sqlite.close();

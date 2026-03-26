@@ -25,6 +25,8 @@ export const participants = sqliteTable("participants", {
     joinedAt: text("joined_at")
         .notNull()
         .default(sql`(datetime('now'))`),
+    /** Expo Push Token for push notifications (set from mobile app) */
+    pushToken: text("push_token"),
 });
 
 export const questions = sqliteTable("questions", {

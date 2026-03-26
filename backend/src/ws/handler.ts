@@ -5,6 +5,7 @@ import type { WSContext } from "hono/ws";
 import { nanoid } from "nanoid";
 
 import { db, schema } from "../db/index.js";
+import { sendPushNotifications } from "../lib/push.js";
 import { buildParticipantsMap, toSessionQuestion } from "../routes/sessions.js";
 import { type ConnectedClient, wsManager } from "./manager.js";
 
@@ -213,6 +214,17 @@ export async function handleWsMessage(
             wsManager.broadcast(code, questionAddedEvent);
             void wsManager.persistEvent(db, client.sessionId, client.participantId, questionAddedEvent);
 
+            // Push notification to hider(s)
+            const hiders = await db.query.participants.findMany({
+                where: (p, { and, eq: eq_ }) =>
+                    and(eq_(p.sessionId, sessionRow.id), eq_(p.role, "hider")),
+            });
+            void sendPushNotifications(
+                hiders.map((h) => h.pushToken),
+                "Neue Frage!",
+                `${client.displayName} hat eine Frage gestellt.`,
+            );
+
             scheduleExpiry(questionId, code, client.sessionId, new Date(deadline).getTime());
             break;
         }
@@ -252,6 +264,18 @@ export async function handleWsMessage(
             };
             wsManager.broadcast(code, questionAnsweredEvent);
             void wsManager.persistEvent(db, client.sessionId, client.participantId, questionAnsweredEvent);
+
+            // Push notification to question creator
+            const creator = await db.query.participants.findFirst({
+                where: eq(schema.participants.id, questionRow.createdByParticipantId),
+            });
+            if (creator?.pushToken) {
+                void sendPushNotifications(
+                    [creator.pushToken],
+                    "Frage beantwortet!",
+                    "Deine Frage wurde beantwortet.",
+                );
+            }
             break;
         }
 
