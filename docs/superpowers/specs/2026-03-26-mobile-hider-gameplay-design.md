@@ -4,7 +4,7 @@
 
 **Repo:** `/Users/jensvielhaben-nl001/hideandseek-mobile/`
 
-**Vorbedingung:** Spec A (Session-Setup) muss umgesetzt sein.
+**Vorbedingung:** Spielgebiet wird in der Web-App definiert. Die Mobile App liest `session.mapLocation` aus dem Backend (`GET /api/sessions/:code`) und baut daraus das Basis-Polygon für die Visualisierungspipeline. Spec A (eigene Gebietsdefinition in der Mobile App) wird nachgelagert umgesetzt.
 
 ---
 
