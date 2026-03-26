@@ -59,7 +59,7 @@ const PORT = Number(process.env.PORT ?? 3001);
 
 // Start Hono's HTTP server and get the underlying Node.js server back
 const server = serve(
-    { fetch: app.fetch, port: PORT },
+    { fetch: app.fetch, port: PORT, hostname: "0.0.0.0" },
     (info) => {
         console.log(
             `Backend (HTTP + WebSocket) running on http://localhost:${info.port}`,
