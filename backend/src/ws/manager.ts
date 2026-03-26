@@ -161,6 +161,45 @@ class WebSocketManager {
         if (!room) return false;
         return [...room].some((c) => c.role === "hider");
     }
+
+    /**
+     * Called from the REST GPS endpoint (background mode).
+     * Merges the REST-reported position with positions from connected WS seekers
+     * and broadcasts the combined list to all hiders in the session.
+     */
+    broadcastSeekerPositionFromRest(
+        sessionCode: string,
+        participantId: string,
+        displayName: string,
+        lat: number,
+        lng: number,
+    ): void {
+        // Update position on the WS client if one exists for this participant
+        const room = this.rooms.get(sessionCode);
+        if (room) {
+            for (const c of room) {
+                if (c.participantId === participantId && c.role === "seeker") {
+                    c.lat = lat;
+                    c.lng = lng;
+                }
+            }
+        }
+
+        // Build combined positions from all WS seekers
+        const positions = this.getSeekerPositions(sessionCode);
+
+        // If this participant wasn't among the WS clients, add their position
+        const alreadyIncluded = positions.some((p) => p.id === participantId);
+        if (!alreadyIncluded) {
+            positions.push({ id: participantId, displayName, lat, lng });
+        }
+
+        // Broadcast to hiders
+        this.sendToRole(sessionCode, "hider", {
+            type: "seeker_positions",
+            positions,
+        });
+    }
 }
 
 export const wsManager = new WebSocketManager();

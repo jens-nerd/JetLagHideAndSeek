@@ -232,6 +232,58 @@ export function createSessionsRouter(db: Db): Hono {
         return c.json(response, 201);
     });
 
+    // ── POST /sessions/:code/gps ──────────────────────────────────────────────
+
+    /** In-memory rate limit: participantId → last accepted timestamp (ms) */
+    const gpsRateLimit = new Map<string, number>();
+
+    router.post("/:code/gps", async (c) => {
+        const code = c.req.param("code").toUpperCase();
+        const token = c.req.header("x-participant-token");
+
+        if (!token) return c.json({ error: "Missing token" }, 401);
+
+        const body = await c.req.json<{ lat: number; lng: number; timestamp?: string }>();
+
+        if (typeof body.lat !== "number" || typeof body.lng !== "number") {
+            return c.json({ error: "lat and lng are required numbers" }, 400);
+        }
+
+        const sessionRow = await db.query.sessions.findFirst({
+            where: eq(schema.sessions.code, code),
+        });
+        if (!sessionRow) return c.json({ error: "Session not found" }, 404);
+
+        const participant = await db.query.participants.findFirst({
+            where: (p, { and, eq: eq_ }) =>
+                and(eq_(p.token, token), eq_(p.sessionId, sessionRow.id)),
+        });
+        if (!participant) return c.json({ error: "Invalid token" }, 403);
+
+        if (participant.role !== "seeker") {
+            return c.json({ error: "Only seekers can send GPS updates" }, 403);
+        }
+
+        // Rate limit: max 1 update per 10 seconds per participant
+        const now = Date.now();
+        const lastUpdate = gpsRateLimit.get(participant.id);
+        if (lastUpdate && now - lastUpdate < 10_000) {
+            return c.json({ error: "Too frequent, max 1 update per 10s" }, 429);
+        }
+        gpsRateLimit.set(participant.id, now);
+
+        // Broadcast combined seeker positions to hiders
+        wsManager.broadcastSeekerPositionFromRest(
+            code,
+            participant.id,
+            participant.displayName,
+            body.lat,
+            body.lng,
+        );
+
+        return c.json({ ok: true });
+    });
+
     // ── PATCH /sessions/:code/map ─────────────────────────────────────────────
 
     router.patch("/:code/map", async (c) => {
