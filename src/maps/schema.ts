@@ -103,6 +103,10 @@ const ordinaryBaseQuestionSchema = z.object({
      *  reliable fallback so the map restriction survives page reloads
      *  without re-querying the Overpass API. */
     computedGeoJSON: z.any().optional(),
+    /** Cumulative remaining-area GeoJSON sent by the mobile hider.
+     *  Contains the full map state after ALL answered questions, so the
+     *  web seeker can use it directly instead of re-computing. */
+    cumulativeGeoJSON: z.any().optional(),
 });
 
 const getDefaultUnit = () => {

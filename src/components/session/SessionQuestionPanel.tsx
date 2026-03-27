@@ -197,7 +197,8 @@ function describeQuestion(
             return `${t("sqp.descNearest", loc)} ${locLabel} (${data.radius} ${unit})`;
         }
         case "matching": {
-            const dir = data.same === false ? t("sqp.descOther", loc) : t("sqp.descSame", loc);
+            const matchSame = typeof answerData?.same === "boolean" ? answerData.same : data.same;
+            const dir = matchSame === false ? t("sqp.descOther", loc) : t("sqp.descSame", loc);
             const typeLabel = getMatchTypeLabel(data.type ?? "");
             // For zone types, append the zone name and admin level
             if ((data.type === "zone" || data.type === "letter-zone") && data.cat?.zoneName) {
@@ -206,8 +207,9 @@ function describeQuestion(
             return `${dir} ${typeLabel}`;
         }
         case "measuring": {
+            const measCloser = typeof answerData?.hiderCloser === "boolean" ? answerData.hiderCloser : data.hiderCloser;
             const dir =
-                data.hiderCloser === false
+                measCloser === false
                     ? t("sqp.descSeekerCloser", loc)
                     : t("sqp.descHiderCloser", loc);
             const typeLabel = getMeasTypeLabel(data.type ?? "");
@@ -360,6 +362,17 @@ function QuestionDetails({
                 rows.push({ icon: "❌", text: t("sqp.detailKeinStandort", loc) });
             }
         }
+        if (sq.type === "matching" || sq.type === "measuring") {
+            const hiderPlace = a.matchedHiderPlace ?? null;
+            const seekerPlace = a.matchedSeekerPlace ?? null;
+            // Only the hider sees their own resolved place name
+            if (hiderPlace && currentRole === "hider") {
+                rows.push({ icon: "📍", text: `Dein Ort: ${hiderPlace}` });
+            }
+            if (seekerPlace) {
+                rows.push({ icon: "📍", text: `Seeker: ${seekerPlace}` });
+            }
+        }
     }
 
     // ── Card costs (answered questions, hider only) ────────────────────────
@@ -387,14 +400,19 @@ function QuestionDetails({
                         : t("sqp.expectWarmer", loc);
                 case "tentacles":
                     return t("sqp.expectNearestStation", loc);
-                case "matching":
-                    return d.same === false
+                case "matching": {
+                    // For answered questions, use the hider's answer; otherwise the seeker's original setting
+                    const matchingSame = sq.status === "answered" && typeof a?.same === "boolean" ? a.same : d.same;
+                    return matchingSame === false
                         ? t("sqp.expectOtherZone", loc)
                         : t("sqp.expectSameZone", loc);
-                case "measuring":
-                    return d.hiderCloser === false
+                }
+                case "measuring": {
+                    const measCloser = sq.status === "answered" && typeof a?.hiderCloser === "boolean" ? a.hiderCloser : d.hiderCloser;
+                    return measCloser === false
                         ? t("sqp.expectSeekerCloser", loc)
                         : t("sqp.expectHiderCloser", loc);
+                }
                 default:
                     return null;
             }

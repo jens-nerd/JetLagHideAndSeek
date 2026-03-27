@@ -145,6 +145,34 @@ export async function applyQuestionsToMapGeoData(
         question: any,
     ) => void,
 ): Promise<any> {
+    // ── Shortcut: if the last question carries a cumulative GeoJSON from
+    // the mobile hider, use it directly as the final map state.  This
+    // avoids algorithm divergence (ArcGIS vs Turf) between web and mobile.
+    const lastWithCumulative = [...questions]
+        .reverse()
+        .find((q) => !q.data.drag && (q.data as any).cumulativeGeoJSON);
+    if (lastWithCumulative) {
+        const cumulative = (lastWithCumulative.data as any).cumulativeGeoJSON;
+        const result =
+            cumulative.type === "FeatureCollection"
+                ? cumulative
+                : { type: "FeatureCollection", features: [cumulative] };
+
+        // Still emit planning polygons for pending questions
+        if (planningModeCallback) {
+            for (const question of questions) {
+                const planningPolygon = await determinePlanningPolygon(
+                    question,
+                    planningModeEnabled,
+                );
+                if (planningPolygon) {
+                    planningModeCallback(planningPolygon, question);
+                }
+            }
+        }
+        return result;
+    }
+
     for (const question of questions) {
         if (planningModeCallback) {
             const planningPolygon = await determinePlanningPolygon(
