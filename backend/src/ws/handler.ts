@@ -136,6 +136,15 @@ export async function handleWsOpen(
         where: eq(schema.participants.sessionId, sessionRow.id),
     });
 
+    // Role-filtered hiding zone: hiders always see it; seekers only if revealed.
+    let hidingZone = null;
+    if (sessionRow.hidingZone) {
+        const parsed = JSON.parse(sessionRow.hidingZone);
+        if (client.role === "hider" || parsed.revealed === true) {
+            hidingZone = parsed;
+        }
+    }
+
     ws.send(
         JSON.stringify({
             type: "sync",
@@ -151,6 +160,7 @@ export async function handleWsOpen(
                 role: p.role as "hider" | "seeker",
                 displayName: p.displayName,
             })),
+            hidingZone,
         }),
     );
 
@@ -333,6 +343,85 @@ export async function handleWsMessage(
             wsManager.sendToRole(code, "hider", {
                 type: "seeker_positions",
                 positions,
+            });
+            break;
+        }
+
+        case "set_hiding_zone": {
+            if (client.role !== "hider") return;
+
+            const sessionRow = await db.query.sessions.findFirst({
+                where: eq(schema.sessions.code, code),
+            });
+            if (!sessionRow) return;
+
+            const hidingZone = {
+                stationName: event.stationName,
+                lat: event.lat,
+                lng: event.lng,
+                radius: event.radius,
+                radiusUnit: event.radiusUnit,
+                revealed: false,
+            };
+
+            // Preserve revealed state if already revealed
+            if (sessionRow.hidingZone) {
+                const existing = JSON.parse(sessionRow.hidingZone);
+                if (existing.revealed) {
+                    hidingZone.revealed = true;
+                }
+            }
+
+            await db
+                .update(schema.sessions)
+                .set({ hidingZone: JSON.stringify(hidingZone) })
+                .where(eq(schema.sessions.id, sessionRow.id));
+
+            const updatedEvent = {
+                type: "hiding_zone_updated" as const,
+                hidingZone,
+            };
+            wsManager.sendToRole(code, "hider", updatedEvent);
+            void wsManager.persistEvent(db, client.sessionId, client.participantId, updatedEvent);
+
+            // If already revealed, also notify seekers of the change
+            if (hidingZone.revealed) {
+                const revealEvent = {
+                    type: "hiding_zone_revealed" as const,
+                    hidingZone,
+                };
+                wsManager.sendToRole(code, "seeker", revealEvent);
+            }
+            break;
+        }
+
+        case "reveal_hiding_zone": {
+            if (client.role !== "hider") return;
+
+            const sessionRow = await db.query.sessions.findFirst({
+                where: eq(schema.sessions.code, code),
+            });
+            if (!sessionRow || !sessionRow.hidingZone) return;
+
+            const hidingZone = JSON.parse(sessionRow.hidingZone);
+            hidingZone.revealed = true;
+
+            await db
+                .update(schema.sessions)
+                .set({ hidingZone: JSON.stringify(hidingZone) })
+                .where(eq(schema.sessions.id, sessionRow.id));
+
+            const revealEvent = {
+                type: "hiding_zone_revealed" as const,
+                hidingZone,
+            };
+            wsManager.sendToRole(code, "seeker", revealEvent);
+            void wsManager.persistEvent(db, client.sessionId, client.participantId, revealEvent);
+
+            // Also confirm to hider
+            wsManager.sendToRole(code, "hider", {
+                type: "hiding_zone_updated" as const,
+                hidingZone,
             });
             break;
         }
