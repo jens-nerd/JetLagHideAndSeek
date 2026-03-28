@@ -1,4 +1,4 @@
-import type { MapLocation, SessionQuestion, SessionStatus } from "./types.js";
+import type { HidingZone, MapLocation, SessionQuestion, SessionStatus } from "./types.js";
 
 export interface SeekerPosition {
     id: string;
@@ -52,11 +52,23 @@ export type ServerToClientEvent =
           hiderConnected: boolean;
           /** All participants in the session (id, role, displayName) */
           participants: Array<{ id: string; role: "hider" | "seeker"; displayName: string }>;
+          /** Hider's hiding zone — null for seekers unless revealed */
+          hidingZone: HidingZone | null;
       }
     | {
           /** Broadcast to hider only: current seeker positions */
           type: "seeker_positions";
           positions: SeekerPosition[];
+      }
+    | {
+          /** Sent to hider after they set or change their hiding zone */
+          type: "hiding_zone_updated";
+          hidingZone: HidingZone;
+      }
+    | {
+          /** Broadcast to all seekers when hider reveals their zone (endgame) */
+          type: "hiding_zone_revealed";
+          hidingZone: HidingZone;
       };
 
 /**
@@ -93,4 +105,17 @@ export type ClientToServerEvent =
           type: "position_update";
           lat: number;
           lng: number;
+      }
+    | {
+          /** Hider sets or changes their hiding zone */
+          type: "set_hiding_zone";
+          stationName: string;
+          lat: number;
+          lng: number;
+          radius: number;
+          radiusUnit: "kilometers" | "miles";
+      }
+    | {
+          /** Hider reveals their hiding zone to all seekers */
+          type: "reveal_hiding_zone";
       };
