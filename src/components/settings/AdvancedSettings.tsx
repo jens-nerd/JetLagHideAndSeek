@@ -1,5 +1,6 @@
 import { useStore } from "@nanostores/react";
-import { useT } from "@/i18n";
+import { toast } from "react-toastify";
+import { locale, t, useT } from "@/i18n";
 import {
     alwaysUsePastebin,
     animateMapMovements,
@@ -7,8 +8,10 @@ import {
     customInitPreference,
     followMe,
     hiderMode,
+    hidingZone,
     highlightTrainLines,
     leafletMapContext,
+    offlineMapsEnabled,
     pastebinApiKey,
     planningModeEnabled,
     questions,
@@ -16,7 +19,9 @@ import {
     thunderforestApiKey,
     triggerLocalRefresh,
 } from "@/lib/context";
+import { loadHidingZone } from "@/lib/hiding-zone-loader";
 import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { LatitudeLongitude } from "@/components/LatLngPicker";
@@ -44,6 +49,8 @@ export function AdvancedSettings({ onSelectOpen }: AdvancedSettingsProps) {
     const $customInitPref = useStore(customInitPreference);
     const $followMe = useStore(followMe);
     const $hiderMode = useStore(hiderMode);
+    const $hidingZone = useStore(hidingZone);
+    const $offlineMapsEnabled = useStore(offlineMapsEnabled);
     useStore(triggerLocalRefresh);
 
     return (
@@ -108,6 +115,49 @@ export function AdvancedSettings({ onSelectOpen }: AdvancedSettingsProps) {
                 <Switch
                     checked={$followMe}
                     onCheckedChange={() => followMe.set(!$followMe)}
+                />
+            </SettingsRow>
+
+            {/* ── Versteckzone kopieren ── */}
+            <SettingsRow title={tr("settings.copyZone")}>
+                <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                        if (!navigator?.clipboard) {
+                            return toast.error(t("toast.options.clipboardNotSupported", locale.get()));
+                        }
+                        navigator.clipboard.writeText(JSON.stringify($hidingZone));
+                        toast.success(t("toast.options.hidingZoneCopied", locale.get()), {
+                            autoClose: 2000,
+                        });
+                    }}
+                >
+                    {tr("settings.copyButton")}
+                </Button>
+            </SettingsRow>
+
+            {/* ── Versteckzone einfügen ── */}
+            <SettingsRow title={tr("settings.pasteZone")}>
+                <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                        if (!navigator?.clipboard) {
+                            return toast.error(t("toast.options.clipboardNotSupported", locale.get()));
+                        }
+                        navigator.clipboard.readText().then(loadHidingZone);
+                    }}
+                >
+                    {tr("settings.pasteButton")}
+                </Button>
+            </SettingsRow>
+
+            {/* ── Offline-Karten ── */}
+            <SettingsRow title={tr("settings.offlineMaps")}>
+                <Switch
+                    checked={$offlineMapsEnabled}
+                    onCheckedChange={(v) => offlineMapsEnabled.set(v)}
                 />
             </SettingsRow>
 

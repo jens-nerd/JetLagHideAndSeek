@@ -60,47 +60,6 @@ export function GeneralSettings({ onSelectOpen }: GeneralSettingsProps) {
                 </div>
             </SettingsRow>
 
-            {/* ── Versteckzone kopieren ── */}
-            <SettingsRow
-                title={tr("settings.copyZone")}
-                description={tr("settings.copyZoneDesc")}
-            >
-                <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                        if (!navigator?.clipboard) {
-                            return toast.error(t("toast.options.clipboardNotSupported", locale.get()));
-                        }
-                        navigator.clipboard.writeText(JSON.stringify($hidingZone));
-                        toast.success(t("toast.options.hidingZoneCopied", locale.get()), {
-                            autoClose: 2000,
-                        });
-                    }}
-                >
-                    {tr("settings.copyButton")}
-                </Button>
-            </SettingsRow>
-
-            {/* ── Versteckzone einfügen ── */}
-            <SettingsRow
-                title={tr("settings.pasteZone")}
-                description={tr("settings.pasteZoneDesc")}
-            >
-                <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                        if (!navigator?.clipboard) {
-                            return toast.error(t("toast.options.clipboardNotSupported", locale.get()));
-                        }
-                        navigator.clipboard.readText().then(loadHidingZone);
-                    }}
-                >
-                    {tr("settings.pasteButton")}
-                </Button>
-            </SettingsRow>
-
             {/* ── Standardeinheit ── */}
             <SettingsRow
                 title={tr("settings.defaultUnit")}
@@ -157,16 +116,6 @@ export function GeneralSettings({ onSelectOpen }: GeneralSettingsProps) {
                 />
             </SettingsRow>
 
-            {/* ── Offline-Karten (UI placeholder) ── */}
-            <SettingsRow
-                title={tr("settings.offlineMaps")}
-                description={tr("settings.offlineMapsDesc")}
-            >
-                <Switch
-                    checked={$offlineMapsEnabled}
-                    onCheckedChange={(v) => offlineMapsEnabled.set(v)}
-                />
-            </SettingsRow>
         </div>
     );
 }
