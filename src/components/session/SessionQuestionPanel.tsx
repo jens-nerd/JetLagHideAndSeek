@@ -204,6 +204,19 @@ function describeQuestion(
             if ((data.type === "zone" || data.type === "letter-zone") && data.cat?.zoneName) {
                 return `${dir} ${typeLabel}: ${data.cat.zoneName} (Stufe ${data.cat.adminLevel})`;
             }
+            // Station types: show seeker input + hider answer if available
+            if (data.type === "same-first-letter-station" && data.seekerLetter) {
+                const ans = typeof answerData?.same === "boolean" ? (answerData.same ? " — Gleich" : " — Ungleich") : "";
+                return `${typeLabel}: Buchstabe "${data.seekerLetter}"${ans}`;
+            }
+            if (data.type === "same-length-station" && data.seekerLength) {
+                const ans = typeof answerData?.same === "boolean" ? (answerData.same ? " — Gleich" : " — Ungleich") : "";
+                return `${typeLabel}: ${data.seekerLength} Buchstaben${ans}`;
+            }
+            if (data.type === "same-train-line" && data.seekerTrainLine) {
+                const ans = typeof answerData?.same === "boolean" ? (answerData.same ? " — Gleich" : " — Ungleich") : "";
+                return `${typeLabel}: "${data.seekerTrainLine}"${ans}`;
+            }
             return `${dir} ${typeLabel}`;
         }
         case "measuring": {
@@ -307,6 +320,16 @@ function QuestionDetails({
                 text: zoneText,
             });
         }
+        // Station matching: show seeker's input
+        if (d.type === "same-first-letter-station" && d.seekerLetter) {
+            rows.push({ icon: "🔤", text: `Buchstabe: ${d.seekerLetter}` });
+        }
+        if (d.type === "same-length-station" && d.seekerLength) {
+            rows.push({ icon: "🔢", text: `Namenslänge: ${d.seekerLength} Buchstaben` });
+        }
+        if (d.type === "same-train-line" && d.seekerTrainLine) {
+            rows.push({ icon: "🚆", text: `Bahnlinie: ${d.seekerTrainLine}` });
+        }
     }
 
     // Photo: Titel + Regeln
@@ -363,14 +386,26 @@ function QuestionDetails({
             }
         }
         if (sq.type === "matching" || sq.type === "measuring") {
-            const hiderPlace = a.matchedHiderPlace ?? null;
-            const seekerPlace = a.matchedSeekerPlace ?? null;
-            // Only the hider sees their own resolved place name
-            if (hiderPlace && currentRole === "hider") {
-                rows.push({ icon: "📍", text: `Dein Ort: ${hiderPlace}` });
-            }
-            if (seekerPlace) {
-                rows.push({ icon: "📍", text: `Seeker: ${seekerPlace}` });
+            // Station matching: show gleich/ungleich answer
+            const stationTypes = ["same-first-letter-station", "same-length-station", "same-train-line"];
+            if (sq.type === "matching" && stationTypes.includes(d?.type)) {
+                const sameAnswer = typeof a.same === "boolean" ? a.same : null;
+                if (sameAnswer !== null) {
+                    rows.push({
+                        icon: sameAnswer ? "✅" : "❌",
+                        text: sameAnswer ? "Gleich" : "Ungleich",
+                    });
+                }
+            } else {
+                const hiderPlace = a.matchedHiderPlace ?? null;
+                const seekerPlace = a.matchedSeekerPlace ?? null;
+                // Only the hider sees their own resolved place name
+                if (hiderPlace && currentRole === "hider") {
+                    rows.push({ icon: "📍", text: `Dein Ort: ${hiderPlace}` });
+                }
+                if (seekerPlace) {
+                    rows.push({ icon: "📍", text: `Seeker: ${seekerPlace}` });
+                }
             }
         }
     }
@@ -556,6 +591,153 @@ function extractPreviewLabel(
             };
     }
     return null;
+}
+
+// ── Station matching: Hider answers gleich/ungleich (no GPS needed) ──────────
+
+function StationMatchAnswer({
+    qData,
+    submitting,
+    onSubmit,
+    onCancel,
+}: {
+    qData: any;
+    submitting: boolean;
+    onSubmit: () => void;
+    onCancel: () => void;
+}) {
+    const [answer, setAnswer] = useState<boolean | null>(null);
+
+    // Show what the seeker asked
+    const seekerInfo = (() => {
+        if (qData.type === "same-first-letter-station") {
+            return `Beginnt der Name deines nächsten Bahnhofs mit dem Buchstaben "${qData.seekerLetter}"?`;
+        }
+        if (qData.type === "same-length-station") {
+            return `Hat der Name deines nächsten Bahnhofs eine Länge von ${qData.seekerLength} Buchstaben?`;
+        }
+        if (qData.type === "same-train-line") {
+            return `Liegt dein nächster Bahnhof an der Bahnlinie "${qData.seekerTrainLine}"?`;
+        }
+        return "";
+    })();
+
+    function handleAnswer(same: boolean) {
+        setAnswer(same);
+    }
+
+    function handleSubmit() {
+        if (answer === null) return;
+        onSubmit();
+    }
+
+    // Write answer to the shared atom so the parent's submitAnswer can read it
+    useEffect(() => {
+        if (answer !== null) {
+            photoAnswerData.set({ same: answer });
+        }
+    }, [answer]);
+
+    const pillBase: React.CSSProperties = {
+        flex: 1,
+        padding: "14px 8px",
+        borderRadius: 10,
+        border: "2px solid",
+        cursor: "pointer",
+        fontSize: "15px",
+        fontWeight: 800,
+        fontFamily: "Poppins, sans-serif",
+        transition: "all 0.15s",
+    };
+
+    return (
+        <>
+            {/* Seeker's question displayed to hider */}
+            <div style={{
+                background: "rgba(34,197,94,0.08)",
+                border: "1px solid rgba(34,197,94,0.25)",
+                borderRadius: 8,
+                padding: "10px 12px",
+            }}>
+                <p style={{ margin: 0, color: "#E5E7EB", fontSize: "13px", lineHeight: 1.5 }}>
+                    {seekerInfo}
+                </p>
+            </div>
+
+            {/* Gleich / Ungleich buttons */}
+            <div style={{ display: "flex", gap: 10 }}>
+                <button
+                    type="button"
+                    onClick={() => handleAnswer(true)}
+                    style={{
+                        ...pillBase,
+                        borderColor: answer === true ? "#22C55E" : "rgba(255,255,255,0.15)",
+                        background: answer === true ? "rgba(34,197,94,0.2)" : "transparent",
+                        color: answer === true ? "#22C55E" : "#99A1AF",
+                    }}
+                >
+                    Gleich
+                </button>
+                <button
+                    type="button"
+                    onClick={() => handleAnswer(false)}
+                    style={{
+                        ...pillBase,
+                        borderColor: answer === false ? "#E8323A" : "rgba(255,255,255,0.15)",
+                        background: answer === false ? "rgba(232,50,58,0.2)" : "transparent",
+                        color: answer === false ? "#E8323A" : "#99A1AF",
+                    }}
+                >
+                    Ungleich
+                </button>
+            </div>
+
+            {/* Submit */}
+            <button
+                type="button"
+                disabled={submitting || answer === null}
+                onClick={handleSubmit}
+                style={{
+                    background: "#E8323A",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 10,
+                    padding: "14px",
+                    fontWeight: 800,
+                    fontSize: "15px",
+                    fontFamily: "Poppins, sans-serif",
+                    width: "100%",
+                    cursor: answer === null || submitting ? "not-allowed" : "pointer",
+                    opacity: answer === null || submitting ? 0.4 : 1,
+                }}
+            >
+                {submitting ? "Wird gesendet…" : "Antwort senden"}
+            </button>
+
+            {/* Cancel */}
+            <button
+                type="button"
+                onClick={onCancel}
+                disabled={submitting}
+                style={{
+                    color: "#99A1AF",
+                    textDecoration: "underline",
+                    background: "none",
+                    border: "none",
+                    cursor: submitting ? "not-allowed" : "pointer",
+                    opacity: submitting ? 0.4 : 1,
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    textAlign: "center" as const,
+                    width: "100%",
+                    fontFamily: "inherit",
+                    padding: 0,
+                }}
+            >
+                Abbrechen
+            </button>
+        </>
+    );
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -851,10 +1033,19 @@ export function SessionQuestionPanel() {
         pendingDraftKey.set(null);
     }
 
+    // ── Helper: station matching types where hider answers gleich/ungleich ──
+    const isStationMatching = (sq: SessionQuestion | null) => {
+        if (!sq || sq.type !== "matching") return false;
+        const d = sq.data as any;
+        return d?.type === "same-first-letter-station"
+            || d?.type === "same-length-station"
+            || d?.type === "same-train-line";
+    };
+
     // ── Hider: enter preview mode for a question ────────────────────────────
     function startAnswering(sq: SessionQuestion) {
-        if (sq.type === "photo") {
-            // Photo questions skip GPS — the PhotoAnswerUI handles the answer data
+        if (sq.type === "photo" || isStationMatching(sq)) {
+            // Photo and station-matching questions skip GPS — handled by their own UI
             setPendingAnswerSq(sq);
             setPreviewResult(null);
             latestAnswerDataRef.current = null;
@@ -918,8 +1109,8 @@ export function SessionQuestionPanel() {
     // ── Hider: submit the computed answer ───────────────────────────────────
     async function submitAnswer() {
         if (!pendingAnswerSq || !code || !participant) return;
-        // Photo questions use a separate store for answer data
-        const answerPayload = pendingAnswerSq.type === "photo"
+        // Photo and station-matching questions use the photoAnswerData atom
+        const answerPayload = (pendingAnswerSq.type === "photo" || isStationMatching(pendingAnswerSq))
             ? photoAnswerData.get()
             : latestAnswerDataRef.current;
         if (!answerPayload) {
@@ -1558,6 +1749,20 @@ export function QuestionList({
                                     </p>
                                 </div>
 
+                                {/* ── Station matching: Hider just answers gleich/ungleich ── */}
+                                {sq.type === "matching" && (
+                                    qData?.type === "same-first-letter-station" ||
+                                    qData?.type === "same-length-station" ||
+                                    qData?.type === "same-train-line"
+                                ) ? (
+                                    <StationMatchAnswer
+                                        qData={qData}
+                                        submitting={submitting ?? false}
+                                        onSubmit={onSubmitAnswer!}
+                                        onCancel={onCancelAnswering!}
+                                    />
+                                ) : (
+                                <>
                                 {/* Hider location — GPS + manual input via shared LocationCard */}
                                 <LocationCard
                                     accentColor="green"
@@ -1631,6 +1836,8 @@ export function QuestionList({
                                 >
                                     {tr("sqp.cancel")}
                                 </button>
+                                </>
+                                )}
                             </>
                         )}
 

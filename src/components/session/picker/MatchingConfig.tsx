@@ -133,11 +133,19 @@ function Hl({ children }: { children: React.ReactNode }) {
     return <span style={{ color: "#22C55E", fontWeight: 700 }}>{children}</span>;
 }
 
+/** Station types where the seeker provides a value and the hider answers gleich/ungleich */
+const STATION_TYPES = ["same-first-letter-station", "same-length-station", "same-train-line"] as const;
+type StationType = (typeof STATION_TYPES)[number];
+function isStationType(t: string): t is StationType { return (STATION_TYPES as readonly string[]).includes(t); }
+
 function renderPreview(
     matchType: string,
     same: boolean,
     adminLevel: number,
     zoneName: string | null,
+    seekerLetter?: string,
+    seekerLength?: number,
+    seekerTrainLine?: string,
 ): React.ReactNode {
     const label = getMatchLabel(matchType);
 
@@ -152,16 +160,14 @@ function renderPreview(
         return <>Beginnt der Name deiner <Hl>{zoneLabel}</Hl> mit einem anderen Buchstaben als meiner?</>;
     }
     if (matchType === "same-first-letter-station") {
-        if (same) return <>Beginnt der Name deines nächsten <Hl>Bahnhofs</Hl> mit demselben Buchstaben wie meiner?</>;
-        return <>Beginnt der Name deines nächsten <Hl>Bahnhofs</Hl> mit einem anderen Buchstaben als meiner?</>;
+        return <>Beginnt der Name deines nächsten <Hl>Bahnhofs</Hl> mit dem Buchstaben <Hl>{seekerLetter ?? "?"}</Hl>?</>;
     }
     if (matchType === "same-length-station") {
-        if (same) return <>Hat der Name deines nächsten <Hl>Bahnhofs</Hl> die gleiche Länge wie meiner?</>;
-        return <>Hat der Name deines nächsten <Hl>Bahnhofs</Hl> eine andere Länge als meiner?</>;
+        return <>Hat der Name deines nächsten <Hl>Bahnhofs</Hl> eine Länge von <Hl>{seekerLength ?? "?"}</Hl> Buchstaben?</>;
     }
     if (matchType === "same-train-line") {
-        if (same) return <>Liegt dein nächster <Hl>Bahnhof</Hl> an derselben Zugstrecke wie meiner?</>;
-        return <>Liegt dein nächster <Hl>Bahnhof</Hl> an einer anderen Zugstrecke als meiner?</>;
+        const line = seekerTrainLine?.trim() || "…";
+        return <>Liegt dein nächster <Hl>Bahnhof</Hl> an der Bahnlinie <Hl>{line}</Hl>?</>;
     }
     // Default: nearest X
     if (same) {
@@ -235,6 +241,11 @@ export function MatchingConfig({
     const [adminLevels, setAdminLevels] = useState<{ level: number; name: string }[]>([]);
     const [adminLevelsLoading, setAdminLevelsLoading] = useState(false);
 
+    // ── Station-type seeker inputs ──────────────────────────────────────────
+    const [seekerLetter, setSeekerLetter] = useState("A");
+    const [seekerLength, setSeekerLength] = useState(8);
+    const [seekerTrainLine, setSeekerTrainLine] = useState("");
+
     // ── Center coordinate ────────────────────────────────────────────────────
     const mapInst = leafletMapContext.get();
     const rawCenter = mapInst?.getCenter() ?? { lat: 51.1, lng: 10.4 };
@@ -270,11 +281,12 @@ export function MatchingConfig({
     const ungrouped = filteredTypes.filter((mt) => !mt.group);
     const groups = [...new Set(filteredTypes.filter((mt) => mt.group).map((mt) => mt.group!))];
 
-    // ── Draw seeker marker on map ────────────────────────────────────────────
+    // ── Draw seeker marker on map (skip for station types — no location) ────
     useEffect(() => {
         const m = leafletMapContext.get();
         if (!m) return;
-        if (markerRef.current) m.removeLayer(markerRef.current);
+        if (markerRef.current) { m.removeLayer(markerRef.current); markerRef.current = null; }
+        if (isStationType(matchType)) return;
         markerRef.current = L.circleMarker([centerLat, centerLng], {
             radius: 8,
             color: "#22C55E",
@@ -283,7 +295,7 @@ export function MatchingConfig({
             weight: 2,
         }).addTo(m);
         m.setView([centerLat, centerLng], m.getZoom(), { animate: true });
-    }, [centerLat, centerLng]);
+    }, [centerLat, centerLng, matchType]);
 
     // ── Clean up all markers on unmount ───────────────────────────────────────
     useEffect(() => () => {
@@ -455,21 +467,34 @@ export function MatchingConfig({
         const participant = sessionParticipant.get();
         if (!code || !participant) return;
 
+        // Validate station-type inputs
+        if (matchType === "same-train-line" && !seekerTrainLine.trim()) {
+            toast.error("Bitte gib den Namen der Bahnlinie ein.");
+            return;
+        }
+
         const data: Record<string, unknown> = {
-            lat: centerLat,
-            lng: centerLng,
             type: matchType,
             same,
         };
 
+        // Station types don't need lat/lng — the seeker provides a value instead
+        if (isStationType(matchType)) {
+            if (matchType === "same-first-letter-station") {
+                data.seekerLetter = seekerLetter.toUpperCase();
+            } else if (matchType === "same-length-station") {
+                data.seekerLength = seekerLength;
+            } else if (matchType === "same-train-line") {
+                data.seekerTrainLine = seekerTrainLine.trim();
+            }
+        } else {
+            data.lat = centerLat;
+            data.lng = centerLng;
+        }
+
         // Add admin level + zone name for zone types
         if (matchType === "zone" || matchType === "letter-zone") {
             data.cat = { adminLevel, zoneName: selectedZoneName };
-        }
-
-        // Add length comparison for station length type
-        if (matchType === "same-length-station") {
-            data.lengthComparison = "same";
         }
 
         setSubmitting(true);
@@ -486,7 +511,8 @@ export function MatchingConfig({
     }
 
     // ── Derived ──────────────────────────────────────────────────────────────
-    const canFindNearest = matchType in TYPE_TO_OSM;
+    const isStation = isStationType(matchType);
+    const canFindNearest = !isStation && matchType in TYPE_TO_OSM;
     const selectedZoneName = adminLevels.find((al) => al.level === adminLevel)?.name ?? null;
 
     // ── Render ───────────────────────────────────────────────────────────────
@@ -510,14 +536,16 @@ export function MatchingConfig({
             }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-                    {/* ── Dein Standort ────────────────────────────────────── */}
-                    <LocationCard
-                        accentColor="red"
-                        title="Dein Standort"
-                        lat={centerLat}
-                        lng={centerLng}
-                        onChange={(lat, lng) => { setCenterLat(lat); setCenterLng(lng); }}
-                    />
+                    {/* ── Dein Standort (only for non-station types) ─────── */}
+                    {!isStation && (
+                        <LocationCard
+                            accentColor="red"
+                            title="Dein Standort"
+                            lat={centerLat}
+                            lng={centerLng}
+                            onChange={(lat, lng) => { setCenterLat(lat); setCenterLng(lng); }}
+                        />
+                    )}
 
                     {/* ── Kategorie dropdown ──────────────────────────────── */}
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -583,13 +611,61 @@ export function MatchingConfig({
                         </div>
                     )}
 
+                    {/* ── Station-type seeker inputs ────────────────────── */}
+                    {matchType === "same-first-letter-station" && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <span style={sectionLabel}>Buchstabe</span>
+                            <select
+                                value={seekerLetter}
+                                onChange={(e) => setSeekerLetter(e.target.value)}
+                                style={selectStyle}
+                            >
+                                {"ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((ch) => (
+                                    <option key={ch} value={ch}>{ch}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                    {matchType === "same-length-station" && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <span style={sectionLabel}>Namenslänge (Buchstaben)</span>
+                            <select
+                                value={seekerLength}
+                                onChange={(e) => setSeekerLength(parseInt(e.target.value))}
+                                style={selectStyle}
+                            >
+                                {Array.from({ length: 30 }, (_, i) => i + 3).map((n) => (
+                                    <option key={n} value={n}>{n}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                    {matchType === "same-train-line" && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <span style={sectionLabel}>Name der Bahnlinie</span>
+                            <input
+                                type="text"
+                                value={seekerTrainLine}
+                                onChange={(e) => setSeekerTrainLine(e.target.value.slice(0, 64))}
+                                maxLength={64}
+                                placeholder="z.B. S1, U6, RE5…"
+                                style={{
+                                    ...selectStyle,
+                                    backgroundImage: "none",
+                                    padding: "12px 14px",
+                                }}
+                            />
+                        </div>
+                    )}
+
                     {/* ── Fragevorschau ────────────────────────────────────── */}
                     <ConfigCard accentColor="green" title="Fragevorschau">
                         <p style={{ margin: 0, color: "#E5E7EB", fontSize: "14px", lineHeight: 1.55 }}>
-                            {renderPreview(matchType, same, adminLevel, selectedZoneName)}
+                            {renderPreview(matchType, same, adminLevel, selectedZoneName, seekerLetter, seekerLength, seekerTrainLine)}
                         </p>
 
-                        {/* Compact same/different pills */}
+                        {/* Compact same/different pills — hidden for station types (hider decides) */}
+                        {!isStation && (
                         <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
                             <button
                                 type="button"
@@ -608,7 +684,7 @@ export function MatchingConfig({
                                     transition: "all 0.15s",
                                 }}
                             >
-                                ✅ Gleich
+                                Gleich
                             </button>
                             <button
                                 type="button"
@@ -627,9 +703,10 @@ export function MatchingConfig({
                                     transition: "all 0.15s",
                                 }}
                             >
-                                ❌ Anders
+                                Anders
                             </button>
                         </div>
+                        )}
 
                         {/* Zone map preview button (only for zone/letter-zone) */}
                         {(matchType === "zone" || matchType === "letter-zone") && (

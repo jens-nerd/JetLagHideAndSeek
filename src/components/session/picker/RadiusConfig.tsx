@@ -53,6 +53,9 @@ export function RadiusConfig({ wsStatus, onBack, onSettings, onClose, onDone }: 
 
     const [submitting, setSubmitting] = useState(false);
     const [selectedChip, setSelectedChip] = useState<Chip | null>(null);
+    const [customMode, setCustomMode] = useState(false);
+    const [customValue, setCustomValue] = useState("");
+    const [customUnit, setCustomUnit] = useState<"kilometers" | "miles">(isMetric ? "kilometers" : "miles");
 
     // Center coordinate — driven by LocationCard
     const map = leafletMapContext.get();
@@ -79,6 +82,13 @@ export function RadiusConfig({ wsStatus, onBack, onSettings, onClose, onDone }: 
             { label: "50 mi", value: 50,   unit: "miles" },
           ];
 
+    // ── Derived: effective radius for preview + submit ─────────────────────────
+    const effectiveChip: Chip | null = customMode
+        ? (customValue && parseFloat(customValue) > 0
+            ? { label: "custom", value: parseFloat(customValue), unit: customUnit }
+            : null)
+        : selectedChip;
+
     // ── Live preview circle ────────────────────────────────────────────────────
 
     useEffect(() => {
@@ -90,8 +100,8 @@ export function RadiusConfig({ wsStatus, onBack, onSettings, onClose, onDone }: 
             circleRef.current = null;
         }
 
-        if (selectedChip) {
-            const radiusM = toMeters(selectedChip.value, selectedChip.unit);
+        if (effectiveChip) {
+            const radiusM = toMeters(effectiveChip.value, effectiveChip.unit);
             const circle = L.circle([lat, lng], {
                 radius: radiusM,
                 color: "#E8323A",
@@ -111,16 +121,16 @@ export function RadiusConfig({ wsStatus, onBack, onSettings, onClose, onDone }: 
                 circleRef.current = null;
             }
         };
-    }, [lat, lng, selectedChip]);
+    }, [lat, lng, effectiveChip?.value, effectiveChip?.unit]);
 
     // ── Submit ─────────────────────────────────────────────────────────────────
 
     async function handleSubmit() {
         const code = sessionCode.get();
         const participant = sessionParticipant.get();
-        if (!selectedChip || !code || !participant) return;
+        if (!effectiveChip || !code || !participant) return;
 
-        const data = { lat, lng, radius: selectedChip.value, unit: selectedChip.unit, within: true };
+        const data = { lat, lng, radius: effectiveChip.value, unit: effectiveChip.unit, within: true };
         setSubmitting(true);
         try {
             await addQuestion(code, participant.token, { type: "radius", data });
@@ -181,7 +191,7 @@ export function RadiusConfig({ wsStatus, onBack, onSettings, onClose, onDone }: 
                                 <button
                                     key={chip.label}
                                     type="button"
-                                    onClick={() => setSelectedChip(chip)}
+                                    onClick={() => { setSelectedChip(chip); setCustomMode(false); }}
                                     style={{
                                         padding: "8px 18px",
                                         borderRadius: 999,
@@ -191,16 +201,81 @@ export function RadiusConfig({ wsStatus, onBack, onSettings, onClose, onDone }: 
                                         fontWeight: 700,
                                         fontFamily: "Poppins, sans-serif",
                                         transition: "background 0.15s, color 0.15s",
-                                        background: selectedChip?.label === chip.label
+                                        background: !customMode && selectedChip?.label === chip.label
                                             ? "var(--color-primary)"
                                             : "#2A2A3A",
-                                        color: selectedChip?.label === chip.label ? "#fff" : "#99A1AF",
+                                        color: !customMode && selectedChip?.label === chip.label ? "#fff" : "#99A1AF",
                                     }}
                                 >
                                     {chip.label}
                                 </button>
                             ))}
+                            {/* Custom chip */}
+                            <button
+                                type="button"
+                                onClick={() => { setCustomMode(true); setSelectedChip(null); }}
+                                style={{
+                                    padding: "8px 18px",
+                                    borderRadius: 999,
+                                    border: customMode ? "none" : "1px dashed #6B7280",
+                                    cursor: "pointer",
+                                    fontSize: "14px",
+                                    fontWeight: 700,
+                                    fontFamily: "Poppins, sans-serif",
+                                    transition: "background 0.15s, color 0.15s",
+                                    background: customMode ? "var(--color-primary)" : "transparent",
+                                    color: customMode ? "#fff" : "#99A1AF",
+                                }}
+                            >
+                                Custom
+                            </button>
                         </div>
+
+                        {/* ── Custom radius input ────────────────────────── */}
+                        {customMode && (
+                            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                <input
+                                    type="number"
+                                    inputMode="decimal"
+                                    min="0.1"
+                                    step="0.1"
+                                    value={customValue}
+                                    onChange={(e) => setCustomValue(e.target.value)}
+                                    placeholder="z.B. 12.5"
+                                    style={{
+                                        flex: 1,
+                                        background: "#1E1E2A",
+                                        border: "1px solid rgba(255,255,255,0.12)",
+                                        borderRadius: 10,
+                                        color: "#fff",
+                                        fontSize: "15px",
+                                        fontWeight: 600,
+                                        padding: "12px 14px",
+                                        outline: "none",
+                                        fontFamily: "inherit",
+                                    }}
+                                />
+                                <select
+                                    value={customUnit}
+                                    onChange={(e) => setCustomUnit(e.target.value as "kilometers" | "miles")}
+                                    style={{
+                                        background: "#1E1E2A",
+                                        border: "1px solid rgba(255,255,255,0.12)",
+                                        borderRadius: 10,
+                                        color: "#fff",
+                                        fontSize: "15px",
+                                        fontWeight: 600,
+                                        padding: "12px 14px",
+                                        outline: "none",
+                                        fontFamily: "inherit",
+                                        cursor: "pointer",
+                                    }}
+                                >
+                                    <option value="kilometers">km</option>
+                                    <option value="miles">mi</option>
+                                </select>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -208,7 +283,7 @@ export function RadiusConfig({ wsStatus, onBack, onSettings, onClose, onDone }: 
             {/* ── Footer ─────────────────────────────────────────────────── */}
             <PickerFooter
                 primaryLabel={submitting ? "Wird gesendet…" : "🎯 Radar starten"}
-                primaryDisabled={!selectedChip || submitting}
+                primaryDisabled={!effectiveChip || submitting}
                 onPrimary={handleSubmit}
                 onCancel={onBack}
                 cancelDisabled={submitting}
