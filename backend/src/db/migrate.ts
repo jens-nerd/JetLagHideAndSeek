@@ -136,5 +136,19 @@ if (!participantCols.includes("push_token")) {
     console.log("Migration v4 applied.");
 }
 
+// ── Migration v5: hiding_zone column on sessions ──────────────────────────
+
+const sessionCols = (sqlite.pragma("table_info(sessions)") as { name: string }[]).map(
+    (r) => r.name,
+);
+
+if (!sessionCols.includes("hiding_zone")) {
+    console.log("Applying migration v5: sessions hiding_zone…");
+    sqlite.exec(`
+        ALTER TABLE sessions ADD COLUMN hiding_zone TEXT;
+    `);
+    console.log("Migration v5 applied.");
+}
+
 console.log("Database migrated successfully:", DB_PATH);
 sqlite.close();

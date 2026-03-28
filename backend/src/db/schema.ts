@@ -8,6 +8,7 @@ export const sessions = sqliteTable("sessions", {
         .notNull()
         .default("waiting"),
     mapLocation: text("map_location"), // JSON
+    hidingZone: text("hiding_zone"), // JSON: HidingZone | null
     createdAt: text("created_at")
         .notNull()
         .default(sql`(datetime('now'))`),
