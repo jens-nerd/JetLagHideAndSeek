@@ -1,5 +1,6 @@
 import type { ServerToClientEvent } from "@hideandseek/shared";
 import { useEffect, useRef } from "react";
+import { toast } from "react-toastify";
 
 import {
     activeHidingZone,
@@ -209,6 +210,7 @@ export function useSessionWebSocket({ code, token, onSync }: Options): void {
 
                     case "hiding_zone_revealed":
                         revealedHidingZone.set(event.hidingZone);
+                        toast.info("Der Hider hat seine Versteckzone freigegeben!");
                         break;
                 }
             };

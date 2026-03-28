@@ -205,6 +205,14 @@ export function leaveSession(): void {
     // Clear additional zones selected by the hider
     additionalMapGeoLocations.set([]);
 
+    // Remove hiding zone circle from map
+    const currentMap = leafletMapContext.get();
+    if (currentMap) {
+        currentMap.eachLayer((layer: any) => {
+            if (layer.hidingZoneActive) currentMap.removeLayer(layer);
+        });
+    }
+
     // Deactivate hider GPS mode
     hiderMode.set(false);
 

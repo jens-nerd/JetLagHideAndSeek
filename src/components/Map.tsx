@@ -31,6 +31,7 @@ import { applyQuestionsToMapGeoData, holedMask } from "@/maps";
 import { hiderifyQuestion } from "@/maps";
 import { clearCache, determineMapBoundaries } from "@/maps/api";
 
+import { activeHidingZone, revealedHidingZone, sessionParticipant } from "@/lib/session-context";
 import { bottomSheetState } from "@/lib/bottom-sheet-state";
 import { DraggableMarkers } from "./DraggableMarkers";
 import { SeekerMarkers } from "./SeekerMarkers";
@@ -364,6 +365,53 @@ export const Map = ({ className }: { className?: string }) => {
             }
         };
     }, [$followMe, map]);
+
+    // ── Persistent hiding zone circle ────────────────────────────────────────
+    useEffect(() => {
+        const map = leafletMapContext.get();
+        if (!map) return;
+
+        function drawZoneCircle() {
+            map!.eachLayer((layer: any) => {
+                if (layer.hidingZoneActive) map!.removeLayer(layer);
+            });
+
+            const role = sessionParticipant.get()?.role;
+            const zone = role === "hider"
+                ? activeHidingZone.get()
+                : revealedHidingZone.get();
+
+            if (!zone) return;
+
+            const radiusM = zone.radiusUnit === "miles"
+                ? zone.radius * 1609.34
+                : zone.radius * 1000;
+
+            const circle = L.circle([zone.lat, zone.lng], {
+                radius: radiusM,
+                color: "#22C55E",
+                fillColor: "#22C55E",
+                fillOpacity: 0.15,
+                weight: 2,
+            }) as any;
+            circle.hidingZoneActive = true;
+            circle.addTo(map!);
+            circle.bindPopup(`<b>${zone.stationName}</b>`);
+        }
+
+        drawZoneCircle();
+
+        const unsub1 = activeHidingZone.subscribe(drawZoneCircle);
+        const unsub2 = revealedHidingZone.subscribe(drawZoneCircle);
+
+        return () => {
+            unsub1();
+            unsub2();
+            map.eachLayer((layer: any) => {
+                if (layer.hidingZoneActive) map.removeLayer(layer);
+            });
+        };
+    }, []);
 
     return displayMap;
 };
