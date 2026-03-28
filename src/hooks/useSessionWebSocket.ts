@@ -2,12 +2,14 @@ import type { ServerToClientEvent } from "@hideandseek/shared";
 import { useEffect, useRef } from "react";
 
 import {
+    activeHidingZone,
     applyServerMapLocation,
     currentSession,
     getRole,
     hiderConnected,
     newQuestionReceived,
     recentlyAnswered,
+    revealedHidingZone,
     seekerCount,
     seekerPositions,
     sessionMembers,
@@ -98,6 +100,19 @@ export function useSessionWebSocket({ code, token, onSync }: Options): void {
                             applyServerMapLocation(event.mapLocation);
                         }
                         onSync?.();
+                        // Hiding zone: set appropriate atom based on role
+                        if (event.hidingZone) {
+                            if (getRole() === "hider") {
+                                activeHidingZone.set(event.hidingZone);
+                            } else {
+                                revealedHidingZone.set(event.hidingZone);
+                            }
+                        } else {
+                            // No zone set (or not revealed for seeker)
+                            if (getRole() === "hider") {
+                                activeHidingZone.set(null);
+                            }
+                        }
                         break;
                     }
 
@@ -186,6 +201,14 @@ export function useSessionWebSocket({ code, token, onSync }: Options): void {
 
                     case "seeker_positions":
                         seekerPositions.set(event.positions);
+                        break;
+
+                    case "hiding_zone_updated":
+                        activeHidingZone.set(event.hidingZone);
+                        break;
+
+                    case "hiding_zone_revealed":
+                        revealedHidingZone.set(event.hidingZone);
                         break;
                 }
             };
