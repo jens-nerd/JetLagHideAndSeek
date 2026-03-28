@@ -4,6 +4,7 @@
  */
 import { persistentAtom } from "@nanostores/persistent";
 import type {
+    HidingZone,
     MapLocation,
     ParticipantWithToken,
     Role,
@@ -111,6 +112,12 @@ export const seekerCount = atom<number>(0);
 /** Whether the hider is connected */
 export const hiderConnected = atom<boolean>(false);
 
+/** Hider's active hiding zone (set via WS sync/hiding_zone_updated) */
+export const activeHidingZone = atom<HidingZone | null>(null);
+
+/** Seeker: revealed hiding zone (set via WS sync/hiding_zone_revealed) */
+export const revealedHidingZone = atom<HidingZone | null>(null);
+
 /**
  * Key of the locally-staged (draft) question that the seeker has configured
  * but not yet sent to the hider.  Stored as an atom (not React state) so that
@@ -174,6 +181,8 @@ export function leaveSession(): void {
     hiderAreaConfirmed.set(false);
     pendingDraftKey.set(null);
     thermometerGpsTracking.set(null);
+    activeHidingZone.set(null);
+    revealedHidingZone.set(null);
     gameSize.set(null);
 
     // ── Map cache – fully clear all session-specific cached data ──────────
