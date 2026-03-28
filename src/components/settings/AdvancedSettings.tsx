@@ -110,14 +110,6 @@ export function AdvancedSettings({ onSelectOpen }: AdvancedSettingsProps) {
                 />
             </SettingsRow>
 
-            {/* ── Mir folgen (GPS) ── */}
-            <SettingsRow title={tr("options.followMe")}>
-                <Switch
-                    checked={$followMe}
-                    onCheckedChange={() => followMe.set(!$followMe)}
-                />
-            </SettingsRow>
-
             {/* ── Versteckzone kopieren ── */}
             <SettingsRow title={tr("settings.copyZone")}>
                 <Button
