@@ -92,6 +92,17 @@ export interface SessionQuestion {
     answeredByDisplayName?: string;
 }
 
+// ── Hiding Zone ─────────────────────────────────────────────────────────────
+
+export interface HidingZone {
+    stationName: string;
+    lat: number;
+    lng: number;
+    radius: number;
+    radiusUnit: "kilometers" | "miles";
+    revealed: boolean;
+}
+
 // ── HTTP request / response bodies ───────────────────────────────────────────
 
 export interface CreateSessionRequest {
