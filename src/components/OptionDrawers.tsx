@@ -15,17 +15,18 @@ import { cn, decompress, fetchFromPastebin } from "@/lib/utils";
 import { loadHidingZone } from "@/lib/hiding-zone-loader";
 import { locale, t, useT } from "@/i18n";
 
-import { HelpCircle, Settings, SlidersHorizontal } from "lucide-react";
+import { HelpCircle, Settings, SlidersHorizontal, Timer } from "lucide-react";
 
 import { GeneralSettings } from "./settings/GeneralSettings";
 import { AdvancedSettings } from "./settings/AdvancedSettings";
+import { TimerSettings } from "./settings/TimerSettings";
 import { Button } from "./ui/button";
 
 const HIDING_ZONE_URL_PARAM = "hz";
 const HIDING_ZONE_COMPRESSED_URL_PARAM = "hzc";
 const PASTEBIN_URL_PARAM = "pb";
 
-type SettingsTab = "general" | "advanced";
+type SettingsTab = "general" | "advanced" | "timer";
 
 interface OptionDrawersProps {
     className?: string;
@@ -191,6 +192,12 @@ export const OptionDrawers = ({
                             icon={<SlidersHorizontal size={15} />}
                             label={tr("settings.tabAdvanced")}
                         />
+                        <TabButton
+                            active={tab === "timer"}
+                            onClick={() => setTab("timer")}
+                            icon={<Timer size={15} />}
+                            label="Timer"
+                        />
                     </div>
 
                     {/* ── Scrollable content ── */}
@@ -209,6 +216,7 @@ export const OptionDrawers = ({
                         {tab === "advanced" && (
                             <AdvancedSettings onSelectOpen={setHasOpenSelect} />
                         )}
+                        {tab === "timer" && <TimerSettings />}
                     </div>
                 </DrawerContent>
             </Drawer>
@@ -303,10 +311,17 @@ export const OptionDrawersInline = () => {
                     icon={<SlidersHorizontal size={15} />}
                     label={tr("settings.tabAdvanced")}
                 />
+                <TabButton
+                    active={tab === "timer"}
+                    onClick={() => setTab("timer")}
+                    icon={<Timer size={15} />}
+                    label="Timer"
+                />
             </div>
 
             {tab === "general" && <GeneralSettings />}
             {tab === "advanced" && <AdvancedSettings />}
+            {tab === "timer" && <TimerSettings />}
         </div>
     );
 };

@@ -39,6 +39,7 @@ import { LeafletFullScreenButton } from "./LeafletFullScreenButton";
 import { MapPrint } from "./MapPrint";
 import { PolygonDraw } from "./PolygonDraw";
 import { ThermometerGpsLayer } from "./ThermometerGpsLayer";
+import { HidingTimerOverlay } from "./HidingTimerOverlay";
 
 /**
  * Collapses the bottom sheet when the user left-clicks on the map.
@@ -243,6 +244,7 @@ export const Map = ({ className }: { className?: string }) => {
                 <DraggableMarkers />
                 <SeekerMarkers />
                 <ThermometerGpsLayer />
+                <HidingTimerOverlay />
                 <div className="leaflet-top leaflet-right">
                     <div className="leaflet-control flex-col flex gap-2">
                         <LeafletFullScreenButton />
