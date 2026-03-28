@@ -5,6 +5,7 @@
  *   3. "Settings" — opened via gear icon
  */
 import { useStore } from "@nanostores/react";
+import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useT } from "@/i18n";
 
@@ -20,8 +21,10 @@ import { useSessionWebSocket } from "@/hooks/useSessionWebSocket";
 import { useGpsTracking } from "@/hooks/useGpsTracking";
 
 import { SessionManager } from "./session/SessionManager";
+import { MyZonePanel } from "./session/MyZonePanel";
 import { QuestionPickerSheet } from "./session/QuestionPickerSheet";
 import { ZoneSidebar } from "./ZoneSidebar";
+import { zoneSidebarStations } from "./ZoneSidebar";
 import { AnswerOverlay, overlayTapped } from "./AnswerOverlay";
 
 // ── Category icons for the Fragen tab countdown ─────────────────────────────
@@ -154,7 +157,11 @@ export const BottomSheetPanel = () => {
                     </div>
                 </div>
                 <div style={{ display: activeTab === "zonen" ? "block" : "none" }}>
-                    <ZoneSidebar />
+                    {isHider && inSession ? (
+                        <ZoneSubTabs />
+                    ) : (
+                        <ZoneSidebar />
+                    )}
                 </div>
                 <div style={{ display: activeTab === "settings" ? "block" : "none" }}>
                     <OptionDrawersInline />
@@ -165,3 +172,40 @@ export const BottomSheetPanel = () => {
         </>
     );
 };
+
+function ZoneSubTabs() {
+    const [subTab, setSubTab] = useState<"meine" | "alle">("meine");
+    const $stations = useStore(zoneSidebarStations);
+
+    const tabStyle = (active: boolean): React.CSSProperties => ({
+        flex: 1,
+        padding: "8px 0",
+        background: "none",
+        border: "none",
+        borderBottom: active ? "2px solid #22C55E" : "2px solid transparent",
+        color: active ? "#fff" : "#6B7280",
+        fontSize: "13px",
+        fontWeight: active ? 700 : 500,
+        cursor: "pointer",
+        fontFamily: "inherit",
+    });
+
+    return (
+        <div>
+            <div style={{ display: "flex", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                <button type="button" onClick={() => setSubTab("meine")} style={tabStyle(subTab === "meine")}>
+                    Meine Zone
+                </button>
+                <button type="button" onClick={() => setSubTab("alle")} style={tabStyle(subTab === "alle")}>
+                    Alle Zonen
+                </button>
+            </div>
+            <div style={{ display: subTab === "meine" ? "block" : "none", padding: "0 8px" }}>
+                <MyZonePanel stations={$stations} />
+            </div>
+            <div style={{ display: subTab === "alle" ? "block" : "none" }}>
+                <ZoneSidebar />
+            </div>
+        </div>
+    );
+}

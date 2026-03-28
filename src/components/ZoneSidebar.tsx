@@ -2,6 +2,7 @@ import { useStore } from "@nanostores/react";
 import * as turf from "@turf/turf";
 import * as L from "leaflet";
 import _ from "lodash";
+import { atom } from "nanostores";
 import osmtogeojson from "osmtogeojson";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
@@ -68,6 +69,9 @@ function _previewText(count: number) {
 }
 
 let buttonJustClicked = false;
+
+/** Shared station list — set by ZoneSidebar, read by MyZonePanel */
+export const zoneSidebarStations = atom<any[]>([]);
 
 export const ZoneSidebar = () => {
     const tr = useT();
@@ -442,6 +446,7 @@ export const ZoneSidebar = () => {
             );
 
             setStations(circles);
+            zoneSidebarStations.set(circles);
             isLoading.set(false);
         };
 
@@ -1058,6 +1063,9 @@ export const ZoneSidebar = () => {
                                                             }
 
                                                             setStations([
+                                                                ...stations,
+                                                            ]);
+                                                            zoneSidebarStations.set([
                                                                 ...stations,
                                                             ]);
 
