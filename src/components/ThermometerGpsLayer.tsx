@@ -222,110 +222,101 @@ export function ThermometerGpsLayer() {
                 </>
             )}
 
-            {/* Tracking overlay — portalled into map container, top-right */}
+            {/* Tracking pill — fixed above the BottomSheet */}
             {createPortal(
                 <div
+                    className="hs-bottom-sheet"
                     style={{
-                        position: "absolute",
-                        top: 8,
-                        right: 8,
-                        zIndex: 1000,
+                        position: "fixed",
+                        bottom: 84,
+                        left: 0,
+                        right: 0,
+                        zIndex: 1002,
                         pointerEvents: "auto",
-                        minWidth: 180,
+                        padding: "0 8px",
                     }}
                 >
                     <div
-                        className="rounded-xl shadow-lg text-white text-sm"
-                        style={{ backgroundColor: "rgba(6,123,194,0.93)", padding: "10px 14px" }}
+                        style={{
+                            background: "rgba(6,123,194,0.93)",
+                            borderRadius: 12,
+                            padding: "8px 14px",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 4,
+                            backdropFilter: "blur(8px)",
+                            boxShadow: "0 -2px 12px rgba(0,0,0,0.3)",
+                            borderColor: signalLost || isStillstanding || hasAccuracyWarning
+                                ? "#FBBF24"
+                                : "transparent",
+                            borderWidth: 2,
+                            borderStyle: "solid",
+                        }}
                     >
-                        {/* Header */}
-                        <div className="flex items-center gap-1.5 mb-1">
-                            <span className="text-base">🌡️</span>
-                            <span className="font-bold tracking-wide">GPS-Thermometer</span>
-                        </div>
-
-                        {/* Status */}
-                        <div className="text-xs mb-2" style={{ color: "#84BCDA" }}>
-                            {signalLost ? (
-                                <span className="text-yellow-300">⚠️ GPS-Signal verloren…</span>
-                            ) : (
-                                <span>🛰️ Tracking aktiv</span>
-                            )}
-                        </div>
-
-                        {/* Cold → Warm point labels */}
-                        <div className="flex justify-between text-xs mb-2">
-                            <span
-                                className="font-semibold px-1.5 py-0.5 rounded"
-                                style={{ backgroundColor: "#2A81CB", color: "#fff" }}
-                            >
-                                ❄️ Kalt (Start)
-                            </span>
-                            <span
-                                className="font-semibold px-1.5 py-0.5 rounded"
-                                style={{ backgroundColor: "#CB2B3E", color: "#fff" }}
-                            >
-                                🔥 Warm (Ziel)
-                            </span>
-                        </div>
-
-                        {/* Distance progress */}
-                        <div className="flex flex-col gap-0.5 mb-2">
-                            <div className="flex justify-between">
-                                <span style={{ color: "#84BCDA" }}>Zieldistanz</span>
-                                <span className="font-semibold">{fmtKm(targetKm)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span style={{ color: "#84BCDA" }}>Zurückgelegt</span>
-                                <span className="font-semibold">{fmtKm(traveled)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span style={{ color: "#84BCDA" }}>Verbleibend</span>
-                                <span className="font-bold" style={{ color: "#ECC30B" }}>
-                                    {fmtKm(remaining)}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Progress bar: blue → red gradient */}
-                        <div
-                            className="rounded-full mb-2 overflow-hidden"
-                            style={{ height: 6, backgroundColor: "rgba(255,255,255,0.2)" }}
-                        >
-                            <div
-                                className="rounded-full h-full"
-                                style={{
+                        {/* Row 1: Cold gradient bar Warm + distance */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <span style={{ fontSize: 12 }}>❄️</span>
+                            <div style={{
+                                flex: 1,
+                                height: 8,
+                                borderRadius: 4,
+                                backgroundColor: "rgba(255,255,255,0.15)",
+                                overflow: "hidden",
+                            }}>
+                                <div style={{
+                                    height: "100%",
+                                    borderRadius: 4,
                                     width: `${Math.min(100, (traveled / targetKm) * 100).toFixed(1)}%`,
                                     background: "linear-gradient(to right, #2A81CB, #CB2B3E)",
                                     transition: "width 0.5s ease",
-                                }}
-                            />
+                                }} />
+                            </div>
+                            <span style={{ fontSize: 12 }}>🔥</span>
+                            <span style={{
+                                color: "#ECC30B",
+                                fontSize: 13,
+                                fontWeight: 800,
+                                fontFamily: "Poppins, monospace",
+                                whiteSpace: "nowrap",
+                                minWidth: 72,
+                                textAlign: "right",
+                            }}>
+                                {fmtKm(remaining)} übrig
+                            </span>
                         </div>
 
-                        {/* Warnings */}
-                        {isStillstanding && !signalLost && (
-                            <div className="text-xs mb-1 text-yellow-300">
-                                ⏸️ Kein Fortschritt seit 30 s
-                            </div>
-                        )}
-                        {hasAccuracyWarning && (
-                            <div className="text-xs mb-1 text-yellow-300">
-                                📡 GPS-Genauigkeit: ±{Math.round(accuracy!)} m
-                            </div>
-                        )}
-
-                        {/* Cancel */}
-                        <button
-                            type="button"
-                            onClick={handleCancel}
-                            className="text-xs underline font-medium mt-1"
-                            style={{ color: "#84BCDA" }}
-                        >
-                            Abbrechen
-                        </button>
+                        {/* Row 2: Status + cancel */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            <span style={{ color: "#84BCDA", fontSize: 11 }}>
+                                {signalLost
+                                    ? "⚠️ GPS-Signal verloren"
+                                    : isStillstanding
+                                        ? "⏸️ Kein Fortschritt"
+                                        : hasAccuracyWarning
+                                            ? `📡 ±${Math.round(accuracy!)} m`
+                                            : `🛰️ ${fmtKm(traveled)} / ${fmtKm(targetKm)}`}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={handleCancel}
+                                style={{
+                                    color: "#84BCDA",
+                                    fontSize: 11,
+                                    fontWeight: 600,
+                                    textDecoration: "underline",
+                                    background: "none",
+                                    border: "none",
+                                    cursor: "pointer",
+                                    fontFamily: "inherit",
+                                    padding: 0,
+                                }}
+                            >
+                                Abbrechen
+                            </button>
+                        </div>
                     </div>
                 </div>,
-                map.getContainer(),
+                document.body,
             )}
         </>
     );
