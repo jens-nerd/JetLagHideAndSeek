@@ -24,7 +24,6 @@ import { SessionManager } from "./session/SessionManager";
 import { MyZonePanel } from "./session/MyZonePanel";
 import { QuestionPickerSheet } from "./session/QuestionPickerSheet";
 import { ZoneSidebar } from "./ZoneSidebar";
-import { zoneSidebarStations } from "./ZoneSidebar";
 import { AnswerOverlay, overlayTapped } from "./AnswerOverlay";
 
 // ── Category icons for the Fragen tab countdown ─────────────────────────────
@@ -175,7 +174,6 @@ export const BottomSheetPanel = () => {
 
 function ZoneSubTabs() {
     const [subTab, setSubTab] = useState<"meine" | "alle">("meine");
-    const $stations = useStore(zoneSidebarStations);
 
     const tabStyle = (active: boolean): React.CSSProperties => ({
         flex: 1,
@@ -201,7 +199,7 @@ function ZoneSubTabs() {
                 </button>
             </div>
             <div style={{ display: subTab === "meine" ? "block" : "none", padding: "0 8px" }}>
-                <MyZonePanel stations={$stations} />
+                <MyZonePanel />
             </div>
             <div style={{ display: subTab === "alle" ? "block" : "none" }}>
                 <ZoneSidebar />
