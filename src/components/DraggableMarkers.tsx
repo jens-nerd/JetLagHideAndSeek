@@ -31,15 +31,15 @@ import { SidebarMenu } from "./ui/sidebar-l";
 
 let isDragging = false;
 
-// ── Hider marker — red circle with glow ring (Figma node 1:8) ────────────────
+// ── Hider marker — green circle with glow ring (Figma node 1:8) ────────────────
 const HIDER_ICON = divIcon({
     className: "",
     html: `<div style="
         width:20px;height:20px;
-        background:#E8323A;
+        background:#22C55E;
         border-radius:50%;
         border:3px solid #fff;
-        box-shadow:0 0 0 4px rgba(232,50,58,0.35),0 2px 8px rgba(0,0,0,0.5);
+        box-shadow:0 0 0 4px rgba(34,197,94,0.35),0 2px 8px rgba(0,0,0,0.5);
         box-sizing:border-box;
     "></div>`,
     iconSize: [20, 20],

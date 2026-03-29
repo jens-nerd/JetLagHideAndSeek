@@ -11,7 +11,6 @@ import {
     additionalMapGeoLocations,
     animateMapMovements,
     autoZoom,
-    followMe,
     hiderMode,
     highlightTrainLines,
     isLoading,
@@ -34,7 +33,7 @@ import { clearCache, determineMapBoundaries } from "@/maps/api";
 import { activeHidingZone, revealedHidingZone, sessionParticipant } from "@/lib/session-context";
 import { bottomSheetState } from "@/lib/bottom-sheet-state";
 import { DraggableMarkers } from "./DraggableMarkers";
-import { SeekerMarkers } from "./SeekerMarkers";
+import { PlayerMarkers } from "./PlayerMarkers";
 import { LeafletFullScreenButton } from "./LeafletFullScreenButton";
 import { MapPrint } from "./MapPrint";
 import { PolygonDraw } from "./PolygonDraw";
@@ -64,17 +63,7 @@ export const Map = ({ className }: { className?: string }) => {
     const $thunderforestApiKey = useStore(thunderforestApiKey);
     const $hiderMode = useStore(hiderMode);
     const $isLoading = useStore(isLoading);
-    const $followMe = useStore(followMe);
     const map = useStore(leafletMapContext);
-
-    const followMeMarkerRef = useMemo(
-        () => ({ current: null as L.Marker | null }),
-        [],
-    );
-    const geoWatchIdRef = useMemo(
-        () => ({ current: null as number | null }),
-        [],
-    );
 
     const refreshQuestions = async (focus: boolean = false) => {
         if (!map) return;
@@ -242,7 +231,7 @@ export const Map = ({ className }: { className?: string }) => {
                 )}
                 <MapClickHandler />
                 <DraggableMarkers />
-                <SeekerMarkers />
+                <PlayerMarkers />
                 <ThermometerGpsLayer />
                 <HidingTimerOverlay />
                 <div className="leaflet-top leaflet-right">
@@ -317,56 +306,6 @@ export const Map = ({ className }: { className?: string }) => {
             );
         };
     }, []);
-
-    useEffect(() => {
-        if (!map) return;
-        if (!$followMe) {
-            if (followMeMarkerRef.current) {
-                map.removeLayer(followMeMarkerRef.current);
-                followMeMarkerRef.current = null;
-            }
-            if (geoWatchIdRef.current !== null) {
-                navigator.geolocation.clearWatch(geoWatchIdRef.current);
-                geoWatchIdRef.current = null;
-            }
-            return;
-        }
-
-        geoWatchIdRef.current = navigator.geolocation.watchPosition(
-            (pos) => {
-                const lat = pos.coords.latitude;
-                const lng = pos.coords.longitude;
-                if (followMeMarkerRef.current) {
-                    followMeMarkerRef.current.setLatLng([lat, lng]);
-                } else {
-                    const marker = L.marker([lat, lng], {
-                        icon: L.divIcon({
-                            html: `<div class="text-blue-700 bg-white rounded-full border-2 border-blue-700 shadow w-5 h-5 flex items-center justify-center"><svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#2A81CB" opacity="0.5"/><circle cx="8" cy="8" r="3" fill="#2A81CB"/></svg></div>`,
-                            className: "",
-                        }),
-                        zIndexOffset: 1000,
-                    });
-                    marker.addTo(map);
-                    followMeMarkerRef.current = marker;
-                }
-            },
-            () => {
-                toast.error("Unable to access your location.");
-                followMe.set(false);
-            },
-            { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 },
-        );
-        return () => {
-            if (followMeMarkerRef.current) {
-                map.removeLayer(followMeMarkerRef.current);
-                followMeMarkerRef.current = null;
-            }
-            if (geoWatchIdRef.current !== null) {
-                navigator.geolocation.clearWatch(geoWatchIdRef.current);
-                geoWatchIdRef.current = null;
-            }
-        };
-    }, [$followMe, map]);
 
     // ── Persistent hiding zone circle ────────────────────────────────────────
     useEffect(() => {

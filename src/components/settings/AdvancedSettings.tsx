@@ -6,7 +6,6 @@ import {
     animateMapMovements,
     autoSave,
     customInitPreference,
-    followMe,
     hiderMode,
     hidingZone,
     highlightTrainLines,
@@ -47,7 +46,6 @@ export function AdvancedSettings({ onSelectOpen }: AdvancedSettingsProps) {
     const $planningMode = useStore(planningModeEnabled);
     const $autoSave = useStore(autoSave);
     const $customInitPref = useStore(customInitPreference);
-    const $followMe = useStore(followMe);
     const $hiderMode = useStore(hiderMode);
     const $hidingZone = useStore(hidingZone);
     const $offlineMapsEnabled = useStore(offlineMapsEnabled);

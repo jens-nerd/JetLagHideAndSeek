@@ -28,8 +28,7 @@ export function useGpsTracking(): void {
     const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useEffect(() => {
-        // Only seekers track their GPS
-        if (!participant || participant.role !== "seeker" || !ws) {
+        if (!participant) {
             return;
         }
 
@@ -38,9 +37,16 @@ export function useGpsTracking(): void {
             return;
         }
 
+        // Hider tracks GPS locally but doesn't need WS
+        const needsWs = participant.role === "seeker";
+        if (needsWs && !ws) return;
+
         function sendPosition() {
             const pos = latestPosRef.current;
             if (!pos || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+            // Only seekers broadcast their position to the server
+            if (participant?.role !== "seeker") return;
 
             const now = Date.now();
             if (now - lastSentRef.current < SEND_INTERVAL_MS) return;

@@ -5,7 +5,6 @@ import { locale, t, useT } from "@/i18n";
 import {
     autoZoom,
     defaultUnit,
-    followMe,
     hidingZone,
     notificationsEnabled,
     offlineMapsEnabled,
@@ -26,7 +25,6 @@ interface GeneralSettingsProps {
 export function GeneralSettings({ onSelectOpen }: GeneralSettingsProps) {
     const tr = useT();
     const $autoZoom = useStore(autoZoom);
-    const $followMe = useStore(followMe);
     const $soundEnabled = useStore(soundEnabled);
     const $notificationsEnabled = useStore(notificationsEnabled);
     const $offlineMapsEnabled = useStore(offlineMapsEnabled);
@@ -80,17 +78,6 @@ export function GeneralSettings({ onSelectOpen }: GeneralSettingsProps) {
                 <Switch
                     checked={$autoZoom}
                     onCheckedChange={(v) => autoZoom.set(v)}
-                />
-            </SettingsRow>
-
-            {/* ── Standort verwenden ── */}
-            <SettingsRow
-                title={tr("settings.useLocation")}
-                description={tr("settings.useLocationDesc")}
-            >
-                <Switch
-                    checked={$followMe}
-                    onCheckedChange={(v) => followMe.set(v)}
                 />
             </SettingsRow>
 
