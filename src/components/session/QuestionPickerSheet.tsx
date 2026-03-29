@@ -52,7 +52,7 @@ const CATEGORIES: CategoryDef[] = [
     { type: "radius",      sizes: ["S", "M", "L"] },
     { type: "thermometer", sizes: ["S", "M", "L"] },
     { type: "tentacles",   sizes: ["S", "M", "L"] },
-    { type: "matching",    sizes: ["M", "L"] },
+    { type: "matching",    sizes: ["S", "M", "L"] },
     { type: "measuring",   sizes: ["S", "M", "L"] },
     { type: "photo",       sizes: ["S", "M", "L"] },
 ];

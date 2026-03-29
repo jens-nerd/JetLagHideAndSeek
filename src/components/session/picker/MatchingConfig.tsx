@@ -19,7 +19,7 @@ import { bottomSheetState, pickerOpen } from "@/lib/bottom-sheet-state";
 import {
     leafletMapContext,
 } from "@/lib/context";
-import { addQuestion } from "@/lib/session-api";
+import { addQuestion, findNearestPoi } from "@/lib/session-api";
 import { handleSubmitError } from "@/lib/handle-submit-error";
 import {
     gameSize,
@@ -46,6 +46,7 @@ const MATCH_TYPES: MatchTypeDef[] = [
     // Standard (all sizes, no group)
     { value: "airport" },
     { value: "major-city" },
+    { value: "street" },
     { value: "zone" },
     { value: "letter-zone" },
     // S/M full variants (no group, hidden when L)
@@ -78,53 +79,12 @@ const MATCH_TYPES: MatchTypeDef[] = [
     { value: "park", group: "Versteckzonen-Modus" },
 ];
 
-// OSM tag mapping for "find nearest" Overpass queries
-const TYPE_TO_OSM: Record<string, { key: string; value: string }> = {
-    airport: { key: "aeroway", value: "aerodrome" },
-    aquarium: { key: "tourism", value: "aquarium" },
-    "aquarium-full": { key: "tourism", value: "aquarium" },
-    zoo: { key: "tourism", value: "zoo" },
-    "zoo-full": { key: "tourism", value: "zoo" },
-    theme_park: { key: "tourism", value: "theme_park" },
-    "theme_park-full": { key: "tourism", value: "theme_park" },
-    peak: { key: "natural", value: "peak" },
-    "peak-full": { key: "natural", value: "peak" },
-    museum: { key: "tourism", value: "museum" },
-    "museum-full": { key: "tourism", value: "museum" },
-    hospital: { key: "amenity", value: "hospital" },
-    "hospital-full": { key: "amenity", value: "hospital" },
-    cinema: { key: "amenity", value: "cinema" },
-    "cinema-full": { key: "amenity", value: "cinema" },
-    library: { key: "amenity", value: "library" },
-    "library-full": { key: "amenity", value: "library" },
-    golf_course: { key: "leisure", value: "golf_course" },
-    "golf_course-full": { key: "leisure", value: "golf_course" },
-    consulate: { key: "office", value: "diplomatic" },
-    "consulate-full": { key: "office", value: "diplomatic" },
-    park: { key: "leisure", value: "park" },
-    "park-full": { key: "leisure", value: "park" },
-    "same-first-letter-station": { key: "railway", value: "station" },
-    "same-length-station": { key: "railway", value: "station" },
-    "same-train-line": { key: "railway", value: "station" },
-};
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function getMatchLabel(type: string): string {
     const key = `matchType.${type}` as TranslationKey;
     return t(key, locale.get()) ?? type;
-}
-
-function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-    const R = 6371;
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLng = ((lng2 - lng1) * Math.PI) / 180;
-    const a =
-        Math.sin(dLat / 2) ** 2 +
-        Math.cos((lat1 * Math.PI) / 180) *
-            Math.cos((lat2 * Math.PI) / 180) *
-            Math.sin(dLng / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 // ── Question preview with highlighted keywords ───────────────────────────────
@@ -134,7 +94,7 @@ function Hl({ children }: { children: React.ReactNode }) {
 }
 
 /** Station types where the seeker provides a value and the hider answers gleich/ungleich */
-const STATION_TYPES = ["same-first-letter-station", "same-length-station", "same-train-line"] as const;
+const STATION_TYPES = ["same-first-letter-station", "same-length-station", "same-train-line", "street"] as const;
 type StationType = (typeof STATION_TYPES)[number];
 function isStationType(t: string): t is StationType { return (STATION_TYPES as readonly string[]).includes(t); }
 
@@ -146,6 +106,7 @@ function renderPreview(
     seekerLetter?: string,
     seekerLength?: number,
     seekerTrainLine?: string,
+    seekerStreet?: string,
 ): React.ReactNode {
     const label = getMatchLabel(matchType);
 
@@ -168,6 +129,10 @@ function renderPreview(
     if (matchType === "same-train-line") {
         const line = seekerTrainLine?.trim() || "…";
         return <>Liegt dein nächster <Hl>Bahnhof</Hl> an der Bahnlinie <Hl>{line}</Hl>?</>;
+    }
+    if (matchType === "street") {
+        const street = seekerStreet?.trim() || "…";
+        return <>Bist du auf derselben <Hl>Straße/Weg</Hl> wie ich? Meine: <Hl>{street}</Hl></>;
     }
     // Default: nearest X
     if (same) {
@@ -245,6 +210,7 @@ export function MatchingConfig({
     const [seekerLetter, setSeekerLetter] = useState("A");
     const [seekerLength, setSeekerLength] = useState(8);
     const [seekerTrainLine, setSeekerTrainLine] = useState("");
+    const [seekerStreet, setSeekerStreet] = useState("");
 
     // ── Center coordinate ────────────────────────────────────────────────────
     const mapInst = leafletMapContext.get();
@@ -356,51 +322,26 @@ export function MatchingConfig({
         });
     }, [same]);
 
-    // ── Find nearest POI via Overpass ─────────────────────────────────────────
+    // ── Find nearest POI via proxy ────────────────────────────────────────────
     async function handleFindNearest() {
-        const osm = TYPE_TO_OSM[matchType];
-        if (!osm) return;
-
         setNearestLoading(true);
         setNearestResult(null);
         try {
-            const radiusM = 50_000;
-            const { key, value } = osm;
-            const query =
-                `[out:json][timeout:25];` +
-                `(node["${key}"="${value}"](around:${radiusM},${centerLat},${centerLng});` +
-                `way["${key}"="${value}"](around:${radiusM},${centerLat},${centerLng});` +
-                `relation["${key}"="${value}"](around:${radiusM},${centerLat},${centerLng}););out center;`;
+            const data = await findNearestPoi({
+                lat: centerLat,
+                lng: centerLng,
+                category: matchType,
+                radiusM: 50_000,
+            });
 
-            const { overpassFetch } = await import("@/maps/api/overpass-fetch");
-            const data = await overpassFetch(query, { timeoutMs: 90_000 });
-
-            const pois = (data.elements ?? [])
-                .map((el: any) => ({
-                    lat: el.lat ?? el.center?.lat ?? 0,
-                    lng: el.lon ?? el.center?.lon ?? 0,
-                    name: el.tags?.name ?? el.tags?.["name:de"] ?? "Unbekannt",
-                }))
-                .filter((p: any) => p.lat !== 0);
-
-            if (pois.length === 0) {
+            if (data.pois.length === 0) {
                 toast.info("Keine Treffer im Umkreis von 50 km gefunden.");
                 setNearestLoading(false);
                 return;
             }
 
-            // Find nearest by haversine
-            let nearest = pois[0];
-            let nearestDist = haversineKm(centerLat, centerLng, nearest.lat, nearest.lng);
-            for (const p of pois) {
-                const d = haversineKm(centerLat, centerLng, p.lat, p.lng);
-                if (d < nearestDist) {
-                    nearest = p;
-                    nearestDist = d;
-                }
-            }
-
-            setNearestResult({ ...nearest, dist: nearestDist });
+            const nearest = data.pois[0];
+            setNearestResult(nearest);
 
             // Draw marker on map
             const m = leafletMapContext.get();
@@ -415,7 +356,7 @@ export function MatchingConfig({
                 }).addTo(m).bindPopup(nearest.name);
             }
         } catch {
-            toast.error("Overpass-API nicht erreichbar.");
+            toast.error("POI-Suche nicht erreichbar.");
         } finally {
             setNearestLoading(false);
         }
@@ -472,6 +413,10 @@ export function MatchingConfig({
             toast.error("Bitte gib den Namen der Bahnlinie ein.");
             return;
         }
+        if (matchType === "street" && !seekerStreet.trim()) {
+            toast.error("Bitte gib den Namen der Straße oder des Wegs ein.");
+            return;
+        }
 
         const data: Record<string, unknown> = {
             type: matchType,
@@ -486,6 +431,8 @@ export function MatchingConfig({
                 data.seekerLength = seekerLength;
             } else if (matchType === "same-train-line") {
                 data.seekerTrainLine = seekerTrainLine.trim();
+            } else if (matchType === "street") {
+                data.seekerStreet = seekerStreet.trim();
             }
         } else {
             data.lat = centerLat;
@@ -512,7 +459,7 @@ export function MatchingConfig({
 
     // ── Derived ──────────────────────────────────────────────────────────────
     const isStation = isStationType(matchType);
-    const canFindNearest = !isStation && matchType in TYPE_TO_OSM;
+    const canFindNearest = !isStation && matchType !== "zone" && matchType !== "letter-zone" && matchType !== "street";
     const selectedZoneName = adminLevels.find((al) => al.level === adminLevel)?.name ?? null;
 
     // ── Render ───────────────────────────────────────────────────────────────
@@ -657,11 +604,28 @@ export function MatchingConfig({
                             />
                         </div>
                     )}
+                    {matchType === "street" && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <span style={sectionLabel}>Straße / Weg</span>
+                            <input
+                                type="text"
+                                value={seekerStreet}
+                                onChange={(e) => setSeekerStreet(e.target.value.slice(0, 128))}
+                                maxLength={128}
+                                placeholder="z.B. Hauptstraße, Rheinweg…"
+                                style={{
+                                    ...selectStyle,
+                                    backgroundImage: "none",
+                                    padding: "12px 14px",
+                                }}
+                            />
+                        </div>
+                    )}
 
                     {/* ── Fragevorschau ────────────────────────────────────── */}
                     <ConfigCard accentColor="green" title="Fragevorschau">
                         <p style={{ margin: 0, color: "#E5E7EB", fontSize: "14px", lineHeight: 1.55 }}>
-                            {renderPreview(matchType, same, adminLevel, selectedZoneName, seekerLetter, seekerLength, seekerTrainLine)}
+                            {renderPreview(matchType, same, adminLevel, selectedZoneName, seekerLetter, seekerLength, seekerTrainLine, seekerStreet)}
                         </p>
 
                         {/* Compact same/different pills — hidden for station types (hider decides) */}

@@ -28,13 +28,14 @@ import { PickerHeader, type WsStatus } from "./PickerHeader";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-function toMeters(value: number, unit: "kilometers" | "miles"): number {
+function toMeters(value: number, unit: "kilometers" | "miles" | "meters"): number {
+    if (unit === "meters") return value;
     return unit === "miles" ? value * 1609.34 : value * 1000;
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type Chip = { label: string; value: number; unit: "kilometers" | "miles" };
+type Chip = { label: string; value: number; unit: "kilometers" | "miles" | "meters" };
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
@@ -69,6 +70,8 @@ export function RadiusConfig({ wsStatus, onBack, onSettings, onClose, onDone }: 
     // Distance chips
     const chips: Chip[] = isMetric
         ? [
+            { label: "300 m", value: 300, unit: "meters" },
+            { label: "500 m", value: 500, unit: "meters" },
             { label: "1 km",  value: 1,  unit: "kilometers" },
             { label: "3 km",  value: 3,  unit: "kilometers" },
             { label: "8 km",  value: 8,  unit: "kilometers" },
@@ -76,6 +79,7 @@ export function RadiusConfig({ wsStatus, onBack, onSettings, onClose, onDone }: 
             { label: "80 km", value: 80, unit: "kilometers" },
           ]
         : [
+            { label: "¼ mi",  value: 0.25, unit: "miles" },
             { label: "½ mi",  value: 0.5,  unit: "miles" },
             { label: "5 mi",  value: 5,    unit: "miles" },
             { label: "15 mi", value: 15,   unit: "miles" },

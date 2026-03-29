@@ -449,6 +449,7 @@ export const en: Record<TranslationKey, string> = {
     "matchType.letter-zone": "Letter Zone",
     "matchType.airport": "Airport",
     "matchType.major-city": "Major City",
+    "matchType.street": "Street or Path",
     "matchType.aquarium": "Aquarium",
     "matchType.aquarium-full": "Aquarium",
     "matchType.zoo": "Zoo",

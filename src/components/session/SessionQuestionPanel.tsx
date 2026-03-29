@@ -217,6 +217,10 @@ function describeQuestion(
                 const ans = typeof answerData?.same === "boolean" ? (answerData.same ? " — Gleich" : " — Ungleich") : "";
                 return `${typeLabel}: "${data.seekerTrainLine}"${ans}`;
             }
+            if (data.type === "street" && data.seekerStreet) {
+                const ans = typeof answerData?.same === "boolean" ? (answerData.same ? " — Gleich" : " — Ungleich") : "";
+                return `${typeLabel}: "${data.seekerStreet}"${ans}`;
+            }
             return `${dir} ${typeLabel}`;
         }
         case "measuring": {
@@ -330,6 +334,9 @@ function QuestionDetails({
         if (d.type === "same-train-line" && d.seekerTrainLine) {
             rows.push({ icon: "🚆", text: `Bahnlinie: ${d.seekerTrainLine}` });
         }
+        if (d.type === "street" && d.seekerStreet) {
+            rows.push({ icon: "🛤️", text: `Straße/Weg: ${d.seekerStreet}` });
+        }
     }
 
     // Photo: Titel + Regeln
@@ -387,7 +394,7 @@ function QuestionDetails({
         }
         if (sq.type === "matching" || sq.type === "measuring") {
             // Station matching: show gleich/ungleich answer
-            const stationTypes = ["same-first-letter-station", "same-length-station", "same-train-line"];
+            const stationTypes = ["same-first-letter-station", "same-length-station", "same-train-line", "street"];
             if (sq.type === "matching" && stationTypes.includes(d?.type)) {
                 const sameAnswer = typeof a.same === "boolean" ? a.same : null;
                 if (sameAnswer !== null) {
@@ -618,6 +625,9 @@ function StationMatchAnswer({
         }
         if (qData.type === "same-train-line") {
             return `Liegt dein nächster Bahnhof an der Bahnlinie "${qData.seekerTrainLine}"?`;
+        }
+        if (qData.type === "street") {
+            return `Bist du auf derselben Straße/Weg wie der Seeker? Seeker ist auf: "${qData.seekerStreet}"`;
         }
         return "";
     })();
@@ -1039,7 +1049,8 @@ export function SessionQuestionPanel() {
         const d = sq.data as any;
         return d?.type === "same-first-letter-station"
             || d?.type === "same-length-station"
-            || d?.type === "same-train-line";
+            || d?.type === "same-train-line"
+            || d?.type === "street";
     };
 
     // ── Hider: enter preview mode for a question ────────────────────────────
