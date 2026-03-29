@@ -16,7 +16,7 @@ import { toast } from "react-toastify";
 
 import { bottomSheetState, pickerOpen } from "@/lib/bottom-sheet-state";
 import { leafletMapContext } from "@/lib/context";
-import { addQuestion } from "@/lib/session-api";
+import { addQuestion, findNearestPoi } from "@/lib/session-api";
 import { handleSubmitError } from "@/lib/handle-submit-error";
 import {
     gameSize,
@@ -74,38 +74,6 @@ const MEAS_TYPES: MeasTypeDef[] = [
     { value: "consulate", group: "Versteckzonen-Modus" },
     { value: "park", group: "Versteckzonen-Modus" },
 ];
-
-// OSM tag mapping for "find nearest" Overpass queries
-const TYPE_TO_OSM: Record<string, { key: string; value: string; extra?: string }> = {
-    airport:                       { key: "aeroway", value: "aerodrome" },
-    city:                          { key: "place", value: "city" },
-    "highspeed-measure-shinkansen":{ key: "railway", value: "station" },
-    aquarium:                      { key: "tourism", value: "aquarium" },
-    "aquarium-full":               { key: "tourism", value: "aquarium" },
-    zoo:                           { key: "tourism", value: "zoo" },
-    "zoo-full":                    { key: "tourism", value: "zoo" },
-    theme_park:                    { key: "tourism", value: "theme_park" },
-    "theme_park-full":             { key: "tourism", value: "theme_park" },
-    peak:                          { key: "natural", value: "peak" },
-    "peak-full":                   { key: "natural", value: "peak" },
-    museum:                        { key: "tourism", value: "museum" },
-    "museum-full":                 { key: "tourism", value: "museum" },
-    hospital:                      { key: "amenity", value: "hospital" },
-    "hospital-full":               { key: "amenity", value: "hospital" },
-    cinema:                        { key: "amenity", value: "cinema" },
-    "cinema-full":                 { key: "amenity", value: "cinema" },
-    library:                       { key: "amenity", value: "library" },
-    "library-full":                { key: "amenity", value: "library" },
-    golf_course:                   { key: "leisure", value: "golf_course" },
-    "golf_course-full":            { key: "leisure", value: "golf_course" },
-    consulate:                     { key: "office", value: "diplomatic" },
-    "consulate-full":              { key: "office", value: "diplomatic" },
-    park:                          { key: "leisure", value: "park" },
-    "park-full":                   { key: "leisure", value: "park" },
-    mcdonalds:                     { key: "amenity", value: "fast_food", extra: `["name"~"McDonald"]` },
-    seven11:                       { key: "shop", value: "convenience", extra: `["name"~"7.Eleven|Seven.Eleven"]` },
-    "rail-measure":                { key: "railway", value: "station" },
-};
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -270,58 +238,32 @@ export function MeasuringConfig({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [measType, centerLat, centerLng]);
 
-    // ── Find nearest POI via Overpass ─────────────────────────────────────────
+    // ── Find nearest POI via backend proxy ───────────────────────────────────
     async function handleFindNearest() {
-        const osm = TYPE_TO_OSM[measType];
-        if (!osm) {
-            // Coastline: use a different query
-            if (measType === "coastline") {
-                await handleFindNearestCoastline();
-            }
+        // Coastline uses a custom geometry query — not a POI search
+        if (measType === "coastline") {
+            await handleFindNearestCoastline();
             return;
         }
 
         setNearestLoading(true);
         setNearestResult(null);
         try {
-            const radiusM = 50_000;
-            const { key, value, extra } = osm;
-            const filter = extra ?? "";
-            const query =
-                `[out:json][timeout:25];` +
-                `(node["${key}"="${value}"]${filter}(around:${radiusM},${centerLat},${centerLng});` +
-                `way["${key}"="${value}"]${filter}(around:${radiusM},${centerLat},${centerLng});` +
-                `relation["${key}"="${value}"]${filter}(around:${radiusM},${centerLat},${centerLng}););out center;`;
+            const data = await findNearestPoi({
+                lat: centerLat,
+                lng: centerLng,
+                category: measType,
+                radiusM: 50_000,
+            });
 
-            const { overpassFetch } = await import("@/maps/api/overpass-fetch");
-            const data = await overpassFetch(query, { timeoutMs: 90_000 });
-
-            const pois = (data.elements ?? [])
-                .map((el: any) => ({
-                    lat: el.lat ?? el.center?.lat ?? 0,
-                    lng: el.lon ?? el.center?.lon ?? 0,
-                    name: el.tags?.name ?? el.tags?.["name:de"] ?? "Unbekannt",
-                }))
-                .filter((p: any) => p.lat !== 0);
-
-            if (pois.length === 0) {
+            if (data.pois.length === 0) {
                 toast.info("Keine Treffer im Umkreis von 50 km gefunden.");
                 setNearestLoading(false);
                 return;
             }
 
-            // Find nearest by haversine
-            let nearest = pois[0];
-            let nearestDist = haversineKm(centerLat, centerLng, nearest.lat, nearest.lng);
-            for (const p of pois) {
-                const d = haversineKm(centerLat, centerLng, p.lat, p.lng);
-                if (d < nearestDist) {
-                    nearest = p;
-                    nearestDist = d;
-                }
-            }
-
-            setNearestResult({ ...nearest, dist: nearestDist });
+            const nearest = data.pois[0];
+            setNearestResult(nearest);
 
             // Draw marker on map
             const m = leafletMapContext.get();
@@ -336,7 +278,7 @@ export function MeasuringConfig({
                 }).addTo(m).bindPopup(nearest.name);
             }
         } catch {
-            toast.error("Overpass-API nicht erreichbar.");
+            toast.error("POI-Suche nicht erreichbar.");
         } finally {
             setNearestLoading(false);
         }
@@ -428,7 +370,7 @@ export function MeasuringConfig({
     }
 
     // ── Derived ──────────────────────────────────────────────────────────────
-    const canFindNearest = measType in TYPE_TO_OSM || measType === "coastline";
+    const canFindNearest = true; // all measuring types support POI proxy or coastline handler
 
     // ── Render ───────────────────────────────────────────────────────────────
     return (

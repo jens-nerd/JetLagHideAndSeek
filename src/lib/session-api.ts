@@ -177,3 +177,30 @@ export function answerQuestion(
         token,
     });
 }
+
+// ── POI endpoints ────────────────────────────────────────────────────────────
+
+export interface PoiResult {
+    name: string;
+    lat: number;
+    lng: number;
+    dist: number;
+}
+
+export interface PoiResponse {
+    source: "here" | "overpass";
+    pois: PoiResult[];
+}
+
+export function findNearestPoi(body: {
+    lat: number;
+    lng: number;
+    category: string;
+    radiusM: number;
+    nameFilter?: string;
+}): Promise<PoiResponse> {
+    return apiFetch("/api/poi/nearest", {
+        method: "POST",
+        body: JSON.stringify(body),
+    });
+}

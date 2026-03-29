@@ -18,7 +18,7 @@ import {
     defaultUnit,
     leafletMapContext,
 } from "@/lib/context";
-import { addQuestion } from "@/lib/session-api";
+import { addQuestion, findNearestPoi } from "@/lib/session-api";
 import { handleSubmitError } from "@/lib/handle-submit-error";
 import { sessionCode, sessionParticipant } from "@/lib/session-context";
 import { toast } from "react-toastify";
@@ -57,31 +57,21 @@ function toMeters(value: number, unit: "kilometers" | "miles"): number {
     return unit === "miles" ? value * 1609.34 : value * 1000;
 }
 
-async function fetchOverpassPois(
+async function fetchPois(
     lat: number,
     lng: number,
     radiusM: number,
     cat: Category,
     signal: AbortSignal,
 ): Promise<Poi[]> {
-    const { key, value } = cat.osm;
-    const r = Math.round(radiusM);
-    const query =
-        `[out:json][timeout:25];` +
-        `(node["${key}"="${value}"](around:${r},${lat},${lng});` +
-        `way["${key}"="${value}"](around:${r},${lat},${lng});` +
-        `relation["${key}"="${value}"](around:${r},${lat},${lng}););out center;`;
-
-    const { overpassFetch } = await import("@/maps/api/overpass-fetch");
-    const data = await overpassFetch(query, { timeoutMs: 90_000, signal });
-
-    return (data.elements ?? [])
-        .map((el: any) => ({
-            lat: el.lat ?? el.center?.lat ?? 0,
-            lng: el.lon ?? el.center?.lon ?? 0,
-            name: el.tags?.name ?? el.tags?.["name:de"] ?? "",
-        }))
-        .filter((p: Poi) => p.lat !== 0);
+    const data = await findNearestPoi({
+        lat,
+        lng,
+        category: cat.type,
+        radiusM: Math.round(radiusM),
+    });
+    if (signal.aborted) return [];
+    return data.pois.map((p) => ({ lat: p.lat, lng: p.lng, name: p.name }));
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
@@ -188,7 +178,7 @@ export function TentaclesConfig({ wsStatus, onBack, onSettings, onClose, onDone 
 
         const controller = new AbortController();
 
-        fetchOverpassPois(centerLat, centerLng, radiusM, selectedCategory, controller.signal)
+        fetchPois(centerLat, centerLng, radiusM, selectedCategory, controller.signal)
             .then((results) => {
                 setPois(results);
                 drawMarkers(results);

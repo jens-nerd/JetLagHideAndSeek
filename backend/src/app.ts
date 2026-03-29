@@ -22,6 +22,7 @@ import { createOverpassRouter } from "./routes/overpass.js";
 import { createQuestionsRouter } from "./routes/questions.js";
 import { createSessionsRouter } from "./routes/sessions.js";
 import { createUploadRouter } from "./routes/upload.js";
+import { createPoiRouter } from "./routes/poi.js";
 import type { Db } from "./db/types.js";
 
 export function createApp(db: Db): Hono {
@@ -57,6 +58,7 @@ export function createApp(db: Db): Hono {
     app.route("/api/sessions", createSessionsRouter(db));
     app.route("/api", createQuestionsRouter(db));
     app.route("/api", createOverpassRouter());
+    app.route("/api", createPoiRouter());
     app.route("/api", createUploadRouter());
 
     // ── Health check ──────────────────────────────────────────────────────────
