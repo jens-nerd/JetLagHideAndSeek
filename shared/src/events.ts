@@ -52,6 +52,8 @@ export type ServerToClientEvent =
           hiderConnected: boolean;
           /** All participants in the session (id, role, displayName) */
           participants: Array<{ id: string; role: "hider" | "seeker"; displayName: string }>;
+          /** Game size chosen by the creator (S/M/L) */
+          gameSize: "S" | "M" | "L" | null;
           /** Hider's hiding zone — null for seekers unless revealed */
           hidingZone: HidingZone | null;
       }

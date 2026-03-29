@@ -9,6 +9,7 @@ export const sessions = sqliteTable("sessions", {
         .default("waiting"),
     mapLocation: text("map_location"), // JSON
     hidingZone: text("hiding_zone"), // JSON: HidingZone | null
+    gameSize: text("game_size"), // "S" | "M" | "L" | null
     createdAt: text("created_at")
         .notNull()
         .default(sql`(datetime('now'))`),

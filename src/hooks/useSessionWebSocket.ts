@@ -6,6 +6,7 @@ import {
     activeHidingZone,
     applyServerMapLocation,
     currentSession,
+    gameSize,
     getRole,
     hiderConnected,
     newQuestionReceived,
@@ -94,6 +95,7 @@ export function useSessionWebSocket({ code, token, onSync }: Options): void {
                         sessionQuestions.set(patchedQuestions);
                         seekerCount.set(event.seekerCount);
                         hiderConnected.set(event.hiderConnected);
+                        gameSize.set(event.gameSize);
                         if (event.participants) {
                             sessionMembers.set(event.participants);
                         }

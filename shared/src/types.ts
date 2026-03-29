@@ -19,11 +19,14 @@ export type SessionStatus = z.infer<typeof sessionStatusSchema>;
 export const roleSchema = z.enum(["hider", "seeker"]);
 export type Role = z.infer<typeof roleSchema>;
 
+export type GameSize = "S" | "M" | "L";
+
 export interface Session {
     id: string;
     code: string;
     status: SessionStatus;
     mapLocation: MapLocation | null;
+    gameSize: GameSize | null;
     createdAt: string;
     expiresAt: string;
 }
@@ -108,6 +111,7 @@ export interface HidingZone {
 export interface CreateSessionRequest {
     displayName: string;
     mapLocation?: MapLocation;
+    gameSize?: GameSize;
 }
 
 export interface CreateSessionResponse {

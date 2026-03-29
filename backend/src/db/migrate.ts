@@ -150,5 +150,19 @@ if (!sessionCols.includes("hiding_zone")) {
     console.log("Migration v5 applied.");
 }
 
+// ── Migration v6: game_size column on sessions ─────────────────────────────
+
+const sessionColsV6 = (sqlite.pragma("table_info(sessions)") as { name: string }[]).map(
+    (r) => r.name,
+);
+
+if (!sessionColsV6.includes("game_size")) {
+    console.log("Applying migration v6: sessions game_size…");
+    sqlite.exec(`
+        ALTER TABLE sessions ADD COLUMN game_size TEXT;
+    `);
+    console.log("Migration v6 applied.");
+}
+
 console.log("Database migrated successfully:", DB_PATH);
 sqlite.close();

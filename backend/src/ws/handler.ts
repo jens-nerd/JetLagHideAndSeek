@@ -152,6 +152,7 @@ export async function handleWsOpen(
             mapLocation: sessionRow.mapLocation
                 ? JSON.parse(sessionRow.mapLocation)
                 : null,
+            gameSize: (sessionRow.gameSize as "S" | "M" | "L") ?? null,
             status: sessionRow.status,
             seekerCount: wsManager.seekerCount(code),
             hiderConnected: wsManager.hiderConnected(code),

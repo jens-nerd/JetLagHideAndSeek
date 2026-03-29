@@ -32,6 +32,7 @@ function toSession(row: Session) {
         code: row.code,
         status: row.status as "waiting" | "active" | "finished",
         mapLocation: row.mapLocation ? JSON.parse(row.mapLocation) : null,
+        gameSize: (row.gameSize as "S" | "M" | "L") ?? null,
         createdAt: row.createdAt,
         expiresAt: row.expiresAt,
     };
@@ -112,6 +113,7 @@ export function createSessionsRouter(db: Db): Hono {
             mapLocation: body.mapLocation
                 ? JSON.stringify(body.mapLocation)
                 : null,
+            gameSize: body.gameSize ?? null,
             expiresAt,
         });
 
