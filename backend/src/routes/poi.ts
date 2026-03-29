@@ -34,11 +34,11 @@ const HERE_CATEGORIES: Record<string, string> = {
     "peak-full":                    "350-3500-0306",
     consulate:                      "600-6400-0000",
     "consulate-full":               "600-6400-0000",
-    "rail-measure":                 "400-4100-0035",
-    "highspeed-measure-shinkansen": "400-4100-0035",
-    "same-first-letter-station":    "400-4100-0035",
-    "same-length-station":          "400-4100-0035",
-    "same-train-line":              "400-4100-0035",
+    "rail-measure":                 "400-4100-0035,400-4100-0039",
+    "highspeed-measure-shinkansen": "400-4100-0035,400-4100-0039",
+    "same-first-letter-station":    "400-4100-0035,400-4100-0039",
+    "same-length-station":          "400-4100-0035,400-4100-0039",
+    "same-train-line":              "400-4100-0035,400-4100-0039",
 };
 
 // ── Overpass OSM tag mapping (fallback) ────────────────────────────────────
