@@ -309,7 +309,6 @@ export const Map = ({ className }: { className?: string }) => {
 
     // ── Persistent hiding zone circle ────────────────────────────────────────
     useEffect(() => {
-        const map = leafletMapContext.get();
         if (!map) return;
 
         function drawZoneCircle() {
@@ -352,7 +351,7 @@ export const Map = ({ className }: { className?: string }) => {
                 if (layer.hidingZoneActive) map.removeLayer(layer);
             });
         };
-    }, []);
+    }, [map]);
 
     return displayMap;
 };
