@@ -33,14 +33,10 @@ import {
 // ── Station type options (same as ZoneSidebar) ──────────────────────────────
 
 const STATION_TYPE_OPTIONS: { label: TranslationKey; value: string }[] = [
-    { label: "placeType.railwayStations", value: "[railway=station]" },
-    { label: "placeType.railwayHalts", value: "[railway=halt]" },
-    { label: "placeType.railwayStops", value: "[railway=stop]" },
+    { label: "placeType.railwayStations", value: "[railway~'station|halt']" },
     { label: "placeType.tramStops", value: "[railway=tram_stop]" },
     { label: "placeType.busStops", value: "[highway=bus_stop]" },
     { label: "placeType.ferryTerminals", value: "[amenity=ferry_terminal]" },
-    { label: "placeType.funicularStations", value: "[railway=funicular]" },
-    { label: "placeType.aerialwayStations", value: "[aerialway=station]" },
     { label: "placeType.subwayStations", value: "[railway=station][subway=yes]" },
 ];
 
