@@ -4,6 +4,7 @@ import type { Server } from "node:http";
 import type { ServerType } from "@hono/node-server";
 import { WebSocket, WebSocketServer } from "ws";
 
+import type { Db } from "../db/types.js";
 import { handleWsClose, handleWsMessage, handleWsOpen } from "./handler.js";
 import type { ConnectedClient } from "./manager.js";
 
@@ -16,8 +17,12 @@ import type { ConnectedClient } from "./manager.js";
  * returned by `@hono/node-server`'s `serve()` (used in production). The HTTP
  * "upgrade" event is only emitted by HTTP/1 servers, so we cast to `Server`
  * for the listener registration.
+ *
+ * @param db  Optional DB instance. When omitted the global singleton is used
+ *            (production). Tests pass the test DB so WS handlers can find
+ *            seeded session data.
  */
-export function attachWsServer(server: Server | ServerType): WebSocketServer {
+export function attachWsServer(server: Server | ServerType, db?: Db): WebSocketServer {
     const httpServer = server as Server;
     const wss = new WebSocketServer({ noServer: true });
 
@@ -48,6 +53,7 @@ export function attachWsServer(server: Server | ServerType): WebSocketServer {
                 wsCtx as any,
                 sessionCode,
                 token,
+                db,
             );
             ws.on("message", async (data: Buffer) => {
                 if (!client) return;

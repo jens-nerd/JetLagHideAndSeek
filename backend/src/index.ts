@@ -37,7 +37,7 @@ async function recoverExpiryTimers(): Promise<void> {
                 where: eq(schema.sessions.id, q.sessionId),
             });
             if (session) {
-                scheduleExpiry(q.id, session.code, session.id, deadlineMs);
+                scheduleExpiry(q.id, session.code, session.id, deadlineMs, db);
                 rescheduledCount++;
             }
         }
