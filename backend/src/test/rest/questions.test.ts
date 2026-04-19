@@ -1,5 +1,8 @@
 /**
- * Integration tests for the REST API.
+ * Integration tests for the Questions REST API.
+ *
+ * Covers POST /api/sessions/:code/questions, GET /api/sessions/:code/questions,
+ * and POST /api/questions/:id/answer.
  *
  * MODE 1 – in-process (default, for CI without a running server):
  *   Each test group gets a fresh in-memory SQLite database via createTestDb(),
@@ -20,7 +23,7 @@
 import type { Hono } from "hono";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { createTestApp, createTestDb, req } from "./helpers.js";
+import { createTestApp, createTestDb, req } from "../helpers.js";
 
 // ── Detect mode ───────────────────────────────────────────────────────────────
 
@@ -76,139 +79,6 @@ async function addQuestion(
     });
     return { questionId: body.question.id as string, question: body.question };
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe("Health check", () => {
-    let app: Hono | null;
-    beforeEach(() => { app = makeApp(); });
-
-    it("GET /health returns { ok: true }", async () => {
-        const { status, body } = await req<{ ok: boolean }>(app, "GET", "/health");
-        expect(status).toBe(200);
-        expect(body.ok).toBe(true);
-    });
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-
-describe("Sessions", () => {
-    let app: Hono | null;
-    beforeEach(() => { app = makeApp(); });
-
-    // ── POST /api/sessions ──────────────────────────────────────────────────
-
-    it("creates a session and returns hider participant with token", async () => {
-        const { body, status } = await req<any>(app, "POST", "/api/sessions", {
-            body: { displayName: "Hider Hans" },
-        });
-
-        expect(status).toBe(201);
-        expect(body.session.code).toMatch(/^[A-Z2-9]{6}$/);
-        expect(body.session.status).toBe("waiting");
-        expect(body.participant.role).toBe("hider");
-        expect(typeof body.participant.token).toBe("string");
-        expect(body.participant.token.length).toBeGreaterThan(10);
-    });
-
-    it("rejects session creation without displayName", async () => {
-        const { status, body } = await req<any>(app, "POST", "/api/sessions", {
-            body: {},
-        });
-        expect(status).toBe(400);
-        expect(body.error).toMatch(/displayName/);
-    });
-
-    it("rejects session creation with whitespace-only displayName", async () => {
-        const { status } = await req<any>(app, "POST", "/api/sessions", {
-            body: { displayName: "   " },
-        });
-        expect(status).toBe(400);
-    });
-
-    // ── GET /api/sessions/:code ─────────────────────────────────────────────
-
-    it("fetches a session by code (case-insensitive)", async () => {
-        const { code } = await createSession(app);
-        const { status, body } = await req<any>(app, "GET", `/api/sessions/${code.toLowerCase()}`);
-
-        expect(status).toBe(200);
-        expect(body.session.code).toBe(code);
-        expect(Array.isArray(body.questions)).toBe(true);
-        expect(typeof body.seekerCount).toBe("number");
-        expect(typeof body.hiderConnected).toBe("boolean");
-    });
-
-    it("returns 404 for non-existent session code", async () => {
-        const { status } = await req<any>(app, "GET", "/api/sessions/ZZZZZZ");
-        expect(status).toBe(404);
-    });
-
-    // ── POST /api/sessions/:code/join ───────────────────────────────────────
-
-    it("seeker can join a session", async () => {
-        const { code } = await createSession(app);
-        const { status, body } = await req<any>(app, "POST", `/api/sessions/${code}/join`, {
-            body: { displayName: "Seeker Susi" },
-        });
-
-        expect(status).toBe(201);
-        expect(body.participant.role).toBe("seeker");
-        expect(typeof body.participant.token).toBe("string");
-    });
-
-    it("rejects join without displayName", async () => {
-        const { code } = await createSession(app);
-        const { status } = await req<any>(app, "POST", `/api/sessions/${code}/join`, {
-            body: {},
-        });
-        expect(status).toBe(400);
-    });
-
-    it("returns 404 when joining non-existent session", async () => {
-        const { status } = await req<any>(app, "POST", "/api/sessions/ZZZZZZ/join", {
-            body: { displayName: "Test" },
-        });
-        expect(status).toBe(404);
-    });
-
-    // ── PATCH /api/sessions/:code/map ───────────────────────────────────────
-
-    it("hider can update the map location", async () => {
-        const { code, hiderToken } = await createSession(app);
-        const mapLocation = { lat: 53.55, lng: 10.01, name: "Hamburg" };
-
-        const { status, body } = await req<any>(app, "PATCH", `/api/sessions/${code}/map`, {
-            body: { mapLocation },
-            token: hiderToken,
-        });
-
-        expect(status).toBe(200);
-        expect(body.ok).toBe(true);
-
-        // Verify the map location is persisted
-        const { body: getBody } = await req<any>(app, "GET", `/api/sessions/${code}`);
-        expect(getBody.session.mapLocation.lat).toBe(53.55);
-        expect(getBody.session.mapLocation.name).toBe("Hamburg");
-    });
-
-    it("rejects map update without token", async () => {
-        const { code } = await createSession(app);
-        const { status } = await req<any>(app, "PATCH", `/api/sessions/${code}/map`, {
-            body: { mapLocation: { lat: 0, lng: 0, name: "x" } },
-        });
-        expect(status).toBe(401);
-    });
-
-    it("rejects map update with wrong token", async () => {
-        const { code } = await createSession(app);
-        const { status } = await req<any>(app, "PATCH", `/api/sessions/${code}/map`, {
-            body: { mapLocation: { lat: 0, lng: 0, name: "x" } },
-            token: "invalidtoken123",
-        });
-        expect(status).toBe(403);
-    });
-});
 
 // ─────────────────────────────────────────────────────────────────────────────
 
