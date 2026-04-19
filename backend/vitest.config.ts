@@ -12,5 +12,8 @@ export default defineConfig({
         // (which imports db/index.ts directly) doesn't use a stale file.
         env: { DB_PATH: ":memory:" },
         setupFiles: ["./src/test/setup.ts"],
+        // Give waitFor's richer 2000ms timeout a chance to fire before
+        // vitest's generic test timeout kicks in.
+        testTimeout: 10_000,
     },
 });

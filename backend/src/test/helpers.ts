@@ -99,7 +99,6 @@ export interface TestContext {
     url: string; // http://127.0.0.1:<port>
     wsUrl: string; // ws://127.0.0.1:<port>
     makeWsClient: (sessionCode: string, token: string) => Promise<TestWsClient>;
-    close: () => Promise<void>;
 }
 
 export interface TestWsClient {
@@ -148,7 +147,6 @@ export async function withTestApp<T>(
             url,
             wsUrl,
             makeWsClient,
-            close: async () => {},
         });
     } finally {
         for (const c of clients) c.close();

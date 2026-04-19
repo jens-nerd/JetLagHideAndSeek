@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { seedSession, withTestApp } from "../helpers.js";
+import { seedSession, withTestApp, req } from "../helpers.js";
+import { sessions } from "../../db/schema.js";
 
 describe("hiding zone WS", () => {
     it("seeker sync returns hidingZone: null while the zone is unrevealed", async () => {
@@ -48,7 +49,7 @@ describe("hiding zone WS", () => {
 
             const row = db
                 .select()
-                .from((await import("../../db/schema.js")).sessions)
+                .from(sessions)
                 .all()
                 .find((s) => s.code === code);
             expect(row?.hidingZone).toBeNull();
@@ -83,9 +84,7 @@ describe("hiding zone WS", () => {
             );
 
             // Add a *new* seeker AFTER reveal
-            const secondSeeker = await (
-                await import("../helpers.js")
-            ).req<{ session: { code: string }; participant: { id: string; token: string } }>(
+            const secondSeeker = await req<{ session: { code: string }; participant: { id: string; token: string } }>(
                 app,
                 "POST",
                 `/api/sessions/${code}/join`,
