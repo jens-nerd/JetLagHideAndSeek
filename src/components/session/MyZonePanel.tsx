@@ -30,7 +30,10 @@ import {
     wsInstance,
 } from "@/lib/session-context";
 
-// ── Station type options (same as ZoneSidebar) ──────────────────────────────
+// Deliberately single-select and a curated subset of ZoneSidebar's options.
+// The "railwayStations" entry merges station+halt (`[railway~'station|halt']`)
+// so the hider picks "Bahnhöfe" once and gets halts too. ZoneSidebar is
+// multi-select and splits them — do not unify these lists.
 
 const STATION_TYPE_OPTIONS: { label: TranslationKey; value: string }[] = [
     { label: "placeType.railwayStations", value: "[railway~'station|halt']" },

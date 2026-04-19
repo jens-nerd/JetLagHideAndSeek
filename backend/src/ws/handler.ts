@@ -392,6 +392,7 @@ export async function handleWsMessage(
                     hidingZone,
                 };
                 wsManager.sendToRole(code, "seeker", revealEvent);
+                void wsManager.persistEvent(db, client.sessionId, client.participantId, revealEvent);
             }
             break;
         }
