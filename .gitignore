@@ -30,3 +30,6 @@ pnpm-debug.log*
 
 # Claude Code memory (local only)
 memory/
+
+# git worktrees (local only)
+.worktrees/
