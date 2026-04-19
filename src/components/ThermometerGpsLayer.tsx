@@ -19,7 +19,7 @@ import { Polygon, useMap } from "react-leaflet";
 import { toast } from "react-toastify";
 
 import { questions as questionsAtom } from "@/lib/context";
-import { SidebarContext } from "@/components/ui/sidebar-l-context";
+import { bottomSheetState } from "@/lib/bottom-sheet-state";
 import {
     pendingDraftKey,
     thermometerGpsTracking,
@@ -127,8 +127,8 @@ export function ThermometerGpsLayer() {
                     // Clear tracking state
                     thermometerGpsTracking.set(null);
 
-                    // Reopen sidebar
-                    SidebarContext.get().setOpenMobile(true);
+                    // Expand bottom sheet so the "Frage senden" button is visible
+                    bottomSheetState.set("default");
 
                     // Haptic feedback
                     navigator.vibrate?.([200, 100, 200]);
