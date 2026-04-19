@@ -9,6 +9,7 @@ import { runMigrations } from "./migrator.js";
 const DB_PATH = process.env.DB_PATH ?? "./hideandseek.db";
 const sqlite = new Database(DB_PATH);
 
+sqlite.pragma("journal_mode = WAL");
 runMigrations(sqlite);
 
 console.log(`Migrated ${DB_PATH} to current schema.`);

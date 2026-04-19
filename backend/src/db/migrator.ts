@@ -2,6 +2,12 @@ import type Database from "better-sqlite3";
 
 export const CURRENT_SCHEMA_VERSION = 6;
 
+type ColumnRow = { name: string };
+
+function columnNames(db: Database.Database, table: string): string[] {
+    return (db.pragma(`table_info(${table})`) as ColumnRow[]).map((r) => r.name);
+}
+
 // Copy of the initial schema from migrate.ts — verbatim.
 const INITIAL_SCHEMA = `
 CREATE TABLE IF NOT EXISTS sessions (
@@ -64,10 +70,7 @@ const MIGRATIONS: Migration[] = [
         // v2: deadline column + 'expired' status on questions
         version: 2,
         up: (db) => {
-            const cols = db
-                .prepare("PRAGMA table_info(questions)")
-                .all()
-                .map((r: any) => r.name);
+            const cols = columnNames(db, "questions");
             if (!cols.includes("deadline")) {
                 db.pragma("foreign_keys = OFF");
                 db.exec(`
@@ -110,10 +113,7 @@ const MIGRATIONS: Migration[] = [
         // v3: answered_by_participant_id column on questions
         version: 3,
         up: (db) => {
-            const cols = db
-                .prepare("PRAGMA table_info(questions)")
-                .all()
-                .map((r: any) => r.name);
+            const cols = columnNames(db, "questions");
             if (!cols.includes("answered_by_participant_id")) {
                 db.exec("ALTER TABLE questions ADD COLUMN answered_by_participant_id TEXT");
             }
@@ -123,10 +123,7 @@ const MIGRATIONS: Migration[] = [
         // v4: push_token column on participants
         version: 4,
         up: (db) => {
-            const cols = db
-                .prepare("PRAGMA table_info(participants)")
-                .all()
-                .map((r: any) => r.name);
+            const cols = columnNames(db, "participants");
             if (!cols.includes("push_token")) {
                 db.exec("ALTER TABLE participants ADD COLUMN push_token TEXT");
             }
@@ -136,10 +133,7 @@ const MIGRATIONS: Migration[] = [
         // v5: hiding_zone column on sessions
         version: 5,
         up: (db) => {
-            const cols = db
-                .prepare("PRAGMA table_info(sessions)")
-                .all()
-                .map((r: any) => r.name);
+            const cols = columnNames(db, "sessions");
             if (!cols.includes("hiding_zone")) {
                 db.exec("ALTER TABLE sessions ADD COLUMN hiding_zone TEXT");
             }
@@ -149,10 +143,7 @@ const MIGRATIONS: Migration[] = [
         // v6: game_size column on sessions
         version: 6,
         up: (db) => {
-            const cols = db
-                .prepare("PRAGMA table_info(sessions)")
-                .all()
-                .map((r: any) => r.name);
+            const cols = columnNames(db, "sessions");
             if (!cols.includes("game_size")) {
                 db.exec("ALTER TABLE sessions ADD COLUMN game_size TEXT");
             }
@@ -162,7 +153,6 @@ const MIGRATIONS: Migration[] = [
 ];
 
 export function runMigrations(db: Database.Database): void {
-    db.pragma("journal_mode = WAL");
     db.pragma("foreign_keys = ON");
     db.exec(INITIAL_SCHEMA);
 
