@@ -23,6 +23,11 @@ jobs:
 
             - run: pnpm install --frozen-lockfile
 
+            # pnpm's build-script allowlist means better-sqlite3 isn't compiled
+            # during `pnpm install`. Rebuild it explicitly so tests can load the
+            # native binding. See MEMORY.md ("better-sqlite3 native bindings").
+            - run: pnpm rebuild better-sqlite3
+
             - run: pnpm shared:build
 
             - name: Backend tests
