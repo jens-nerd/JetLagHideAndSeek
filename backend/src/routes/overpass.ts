@@ -44,6 +44,13 @@ function evictExpired(): void {
 
 // ── Fetch helpers ───────────────────────────────────────────────────────────
 
+// overpass-api.de's Apache returns 406 Not Acceptable to Node's default
+// `User-Agent: node` — set an explicit UA so the primary endpoint accepts
+// our POSTs. Overpass asks clients to identify themselves:
+// https://wiki.openstreetmap.org/wiki/Overpass_API#User-Agent
+const USER_AGENT =
+    "JetLagHideAndSeek/0.0.1 (+https://github.com/jens-nerd/JetLagHideAndSeek)";
+
 async function fetchWithTimeout(
     endpoint: string,
     query: string,
@@ -54,7 +61,10 @@ async function fetchWithTimeout(
     try {
         return await fetch(endpoint, {
             method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "User-Agent": USER_AGENT,
+            },
             body: `data=${encodeURIComponent(query)}`,
             signal: controller.signal,
         });
