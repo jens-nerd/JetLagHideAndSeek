@@ -16,6 +16,12 @@ interface ConnectedClient {
     /** Latest known GPS position (seekers only). */
     lat?: number;
     lng?: number;
+    /**
+     * DB instance to use for this client's queries.
+     * Defaults to the global singleton; tests inject the test DB via
+     * handleWsOpen so that seeded data is visible to the WS handler.
+     */
+    db: Db;
 }
 
 /**

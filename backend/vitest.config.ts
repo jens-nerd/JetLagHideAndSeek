@@ -8,5 +8,12 @@ export default defineConfig({
         poolOptions: { forks: { singleFork: true } },
         // Suppress Hono's request logger output during tests
         silent: false,
+        // Point the global DB singleton at :memory: so the WS handler
+        // (which imports db/index.ts directly) doesn't use a stale file.
+        env: { DB_PATH: ":memory:" },
+        setupFiles: ["./src/test/setup.ts"],
+        // Give waitFor's richer 2000ms timeout a chance to fire before
+        // vitest's generic test timeout kicks in.
+        testTimeout: 10_000,
     },
 });

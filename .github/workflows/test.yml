@@ -1,0 +1,37 @@
+name: Tests
+
+on:
+    pull_request:
+    push:
+        branches: [master]
+    workflow_dispatch:
+
+jobs:
+    test:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - uses: pnpm/action-setup@v4
+              with:
+                  version: 10
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: pnpm
+
+            - run: pnpm install --frozen-lockfile
+
+            # pnpm's build-script allowlist means better-sqlite3 isn't compiled
+            # during `pnpm install`. Rebuild it explicitly so tests can load the
+            # native binding. See MEMORY.md ("better-sqlite3 native bindings").
+            - run: pnpm rebuild better-sqlite3
+
+            - run: pnpm shared:build
+
+            - name: Backend tests
+              run: pnpm --filter @hideandseek/backend test
+
+            - name: Frontend tests
+              run: pnpm test -- --run

@@ -4,7 +4,8 @@ import { and, eq } from "drizzle-orm";
 import type { WSContext } from "hono/ws";
 import { nanoid } from "nanoid";
 
-import { db, schema } from "../db/index.js";
+import { db as globalDb, schema } from "../db/index.js";
+import type { Db } from "../db/types.js";
 import { sendPushNotifications } from "../lib/push.js";
 import { buildParticipantsMap, toSessionQuestion } from "../routes/sessions.js";
 import { type ConnectedClient, wsManager } from "./manager.js";
@@ -23,6 +24,7 @@ export function scheduleExpiry(
     sessionCode: string,
     sessionId: string,
     deadlineMs: number,
+    db: Db,
 ): void {
     const delay = Math.max(0, deadlineMs - Date.now());
     const timer = setTimeout(async () => {
@@ -70,12 +72,18 @@ function cancelExpiry(questionId: string): void {
  * Called when a new WebSocket connection is established.
  *
  * Expected URL: /ws/:code?token=<participantToken>
+ *
+ * @param injectedDb  Optional DB instance to use instead of the global singleton.
+ *                    Pass the test DB in integration tests so that session data
+ *                    seeded via the REST API is visible to the WS handler.
  */
 export async function handleWsOpen(
     ws: WSContext,
     sessionCode: string,
     token: string | null,
+    injectedDb?: Db,
 ): Promise<ConnectedClient | null> {
+    const db = injectedDb ?? globalDb;
     const code = sessionCode.toUpperCase();
 
     const sessionRow = await db.query.sessions.findFirst({
@@ -109,6 +117,7 @@ export async function handleWsOpen(
         participantId: participant.id,
         displayName: participant.displayName,
         role: participant.role as "hider" | "seeker",
+        db,
     };
 
     wsManager.register(client);
@@ -194,7 +203,7 @@ export async function handleWsMessage(
         case "add_question": {
             if (client.role !== "seeker") return;
 
-            const sessionRow = await db.query.sessions.findFirst({
+            const sessionRow = await client.db.query.sessions.findFirst({
                 where: eq(schema.sessions.code, code),
             });
             if (!sessionRow || sessionRow.status === "finished") return;
@@ -203,7 +212,7 @@ export async function handleWsMessage(
             const deadlineMs = event.questionType === "photo" ? PHOTO_DEADLINE_MS : QUESTION_DEADLINE_MS;
             const deadline = new Date(Date.now() + deadlineMs).toISOString();
 
-            await db.insert(schema.questions).values({
+            await client.db.insert(schema.questions).values({
                 id: questionId,
                 sessionId: sessionRow.id,
                 createdByParticipantId: client.participantId,
@@ -213,20 +222,20 @@ export async function handleWsMessage(
                 deadline,
             });
 
-            const questionRow = (await db.query.questions.findFirst({
+            const questionRow = (await client.db.query.questions.findFirst({
                 where: eq(schema.questions.id, questionId),
             }))!;
 
-            const addPMap = await buildParticipantsMap(db, sessionRow.id);
+            const addPMap = await buildParticipantsMap(client.db, sessionRow.id);
             const questionAddedEvent = {
                 type: "question_added" as const,
                 question: toSessionQuestion(questionRow, addPMap),
             };
             wsManager.broadcast(code, questionAddedEvent);
-            void wsManager.persistEvent(db, client.sessionId, client.participantId, questionAddedEvent);
+            void wsManager.persistEvent(client.db, client.sessionId, client.participantId, questionAddedEvent);
 
             // Push notification to hider(s)
-            const hiders = await db.query.participants.findMany({
+            const hiders = await client.db.query.participants.findMany({
                 where: (p, { and, eq: eq_ }) =>
                     and(eq_(p.sessionId, sessionRow.id), eq_(p.role, "hider")),
             });
@@ -236,22 +245,22 @@ export async function handleWsMessage(
                 `${client.displayName} hat eine Frage gestellt.`,
             );
 
-            scheduleExpiry(questionId, code, client.sessionId, new Date(deadline).getTime());
+            scheduleExpiry(questionId, code, client.sessionId, new Date(deadline).getTime(), client.db);
             break;
         }
 
         case "answer_question": {
             if (client.role !== "hider") return;
 
-            const questionRow = await db.query.questions.findFirst({
+            const questionRow = await client.db.query.questions.findFirst({
                 where: eq(schema.questions.id, event.questionId),
             });
             // Allow answering both "pending" and "expired" questions (late answers are allowed).
             if (!questionRow || (questionRow.status !== "pending" && questionRow.status !== "expired")) return;
-            if (questionRow.sessionId !== (await getSessionId(code))) return;
+            if (questionRow.sessionId !== (await getSessionId(client.db, code))) return;
 
             const answeredAt = new Date().toISOString();
-            await db
+            await client.db
                 .update(schema.questions)
                 .set({
                     status: "answered",
@@ -261,23 +270,23 @@ export async function handleWsMessage(
                 })
                 .where(eq(schema.questions.id, event.questionId));
 
-            const updatedRow = (await db.query.questions.findFirst({
+            const updatedRow = (await client.db.query.questions.findFirst({
                 where: eq(schema.questions.id, event.questionId),
             }))!;
 
             // Cancel the expiry timer now that the question is answered
             cancelExpiry(event.questionId);
 
-            const ansPMap = await buildParticipantsMap(db, client.sessionId);
+            const ansPMap = await buildParticipantsMap(client.db, client.sessionId);
             const questionAnsweredEvent = {
                 type: "question_answered" as const,
                 question: toSessionQuestion(updatedRow, ansPMap),
             };
             wsManager.broadcast(code, questionAnsweredEvent);
-            void wsManager.persistEvent(db, client.sessionId, client.participantId, questionAnsweredEvent);
+            void wsManager.persistEvent(client.db, client.sessionId, client.participantId, questionAnsweredEvent);
 
             // Push notification to question creator
-            const creator = await db.query.participants.findFirst({
+            const creator = await client.db.query.participants.findFirst({
                 where: eq(schema.participants.id, questionRow.createdByParticipantId),
             });
             if (creator?.pushToken) {
@@ -291,12 +300,12 @@ export async function handleWsMessage(
         }
 
         case "update_map_location": {
-            const sessionRow = await db.query.sessions.findFirst({
+            const sessionRow = await client.db.query.sessions.findFirst({
                 where: eq(schema.sessions.code, code),
             });
             if (!sessionRow) return;
 
-            await db
+            await client.db
                 .update(schema.sessions)
                 .set({ mapLocation: JSON.stringify(event.mapLocation) })
                 .where(eq(schema.sessions.id, sessionRow.id));
@@ -306,20 +315,20 @@ export async function handleWsMessage(
                 mapLocation: event.mapLocation,
             };
             wsManager.broadcast(code, mapEvent, client);
-            void wsManager.persistEvent(db, client.sessionId, client.participantId, mapEvent);
+            void wsManager.persistEvent(client.db, client.sessionId, client.participantId, mapEvent);
             break;
         }
 
         case "set_status": {
             if (client.role !== "seeker") return;
 
-            const sessionRow = await db.query.sessions.findFirst({
+            const sessionRow = await client.db.query.sessions.findFirst({
                 where: eq(schema.sessions.code, code),
             });
             if (!sessionRow) return;
             if (sessionRow.status === "finished") return;
 
-            await db
+            await client.db
                 .update(schema.sessions)
                 .set({ status: event.status })
                 .where(eq(schema.sessions.id, sessionRow.id));
@@ -329,7 +338,7 @@ export async function handleWsMessage(
                 status: event.status,
             };
             wsManager.broadcast(code, statusEvent);
-            void wsManager.persistEvent(db, client.sessionId, client.participantId, statusEvent);
+            void wsManager.persistEvent(client.db, client.sessionId, client.participantId, statusEvent);
             break;
         }
 
@@ -351,7 +360,7 @@ export async function handleWsMessage(
         case "set_hiding_zone": {
             if (client.role !== "hider") return;
 
-            const sessionRow = await db.query.sessions.findFirst({
+            const sessionRow = await client.db.query.sessions.findFirst({
                 where: eq(schema.sessions.code, code),
             });
             if (!sessionRow) return;
@@ -373,7 +382,7 @@ export async function handleWsMessage(
                 }
             }
 
-            await db
+            await client.db
                 .update(schema.sessions)
                 .set({ hidingZone: JSON.stringify(hidingZone) })
                 .where(eq(schema.sessions.id, sessionRow.id));
@@ -383,7 +392,7 @@ export async function handleWsMessage(
                 hidingZone,
             };
             wsManager.sendToRole(code, "hider", updatedEvent);
-            void wsManager.persistEvent(db, client.sessionId, client.participantId, updatedEvent);
+            void wsManager.persistEvent(client.db, client.sessionId, client.participantId, updatedEvent);
 
             // If already revealed, also notify seekers of the change
             if (hidingZone.revealed) {
@@ -392,7 +401,7 @@ export async function handleWsMessage(
                     hidingZone,
                 };
                 wsManager.sendToRole(code, "seeker", revealEvent);
-                void wsManager.persistEvent(db, client.sessionId, client.participantId, revealEvent);
+                void wsManager.persistEvent(client.db, client.sessionId, client.participantId, revealEvent);
             }
             break;
         }
@@ -400,7 +409,7 @@ export async function handleWsMessage(
         case "reveal_hiding_zone": {
             if (client.role !== "hider") return;
 
-            const sessionRow = await db.query.sessions.findFirst({
+            const sessionRow = await client.db.query.sessions.findFirst({
                 where: eq(schema.sessions.code, code),
             });
             if (!sessionRow || !sessionRow.hidingZone) return;
@@ -408,7 +417,7 @@ export async function handleWsMessage(
             const hidingZone = JSON.parse(sessionRow.hidingZone);
             hidingZone.revealed = true;
 
-            await db
+            await client.db
                 .update(schema.sessions)
                 .set({ hidingZone: JSON.stringify(hidingZone) })
                 .where(eq(schema.sessions.id, sessionRow.id));
@@ -418,7 +427,7 @@ export async function handleWsMessage(
                 hidingZone,
             };
             wsManager.sendToRole(code, "seeker", revealEvent);
-            void wsManager.persistEvent(db, client.sessionId, client.participantId, revealEvent);
+            void wsManager.persistEvent(client.db, client.sessionId, client.participantId, revealEvent);
 
             // Also confirm to hider
             wsManager.sendToRole(code, "hider", {
@@ -438,10 +447,10 @@ export function handleWsClose(client: ConnectedClient): void {
         participantId: client.participantId,
     };
     wsManager.broadcast(client.sessionCode, leftEvent);
-    void wsManager.persistEvent(db, client.sessionId, client.participantId, leftEvent);
+    void wsManager.persistEvent(client.db, client.sessionId, client.participantId, leftEvent);
 }
 
-async function getSessionId(code: string): Promise<string | null> {
+async function getSessionId(db: Db, code: string): Promise<string | null> {
     const row = await db.query.sessions.findFirst({
         where: eq(schema.sessions.code, code),
     });
