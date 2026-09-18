@@ -8,6 +8,8 @@ Der Deploy-Job baut nichts selbst und berührt den Server nicht direkt. Er verbi
 
 Welcher Stand ausgerollt wird, gibt der Job mit: Der `ssh`-Aufruf hängt den Commit an, der die Prüfung gerade bestanden hat. Das erzwungene Kommando verwirft ihn als Kommando und reicht ihn in `SSH_ORIGINAL_COMMAND` durch. `deploy.sh` nimmt ihn nur an, wenn er aus genau 40 Zeichen `0-9a-f` besteht, und rollt ihn nur aus, wenn er nach dem `git fetch` als Vorfahr von `origin/master` dasteht. Das ist der Zaun: Wer den Deploy-Schlüssel hat, bekommt damit keinen selbst gebauten Stand auf den Server, sondern höchstens einen, der ohnehin schon auf `master` liegt.
 
+Dahinter steht ein zweiter Zaun, der die Richtung prüft: Der mitgegebene Commit muss ein Nachfahr des gerade ausgerollten sein (derselbe Commit zählt dazu). Sonst bricht das Skript ab, ohne etwas anzufassen. Das trifft den Fall, der sonst leicht passiert: Ein älterer Actions-Lauf wird über „Re-run jobs“ neu gestartet – etwa weil ein Test geflattert hat – und trägt weiterhin seinen alten Commit. Ohne den zweiten Zaun stünde der Server danach auf einem Stand, der älter ist als der letzte grüne Push, und kein weiterer Deploy holte das zurück. Wer wirklich zurückdrehen will, setzt `DEPLOY_RUECKWAERTS=1`.
+
 Ohne diese Angabe zieht das Skript wie bisher die Spitze von `origin/master`. Im Protokoll steht deshalb entweder `Stand aus Actions: <sha>` oder `Kein Stand mitgegeben (Handbetrieb)`. Steht die zweite Zeile in einem Actions-Lauf, ist die Variable unterwegs verloren gegangen.
 
 Bei einem Pull Request läuft nur der Job `test`. Der Job `deploy` startet gar nicht erst.
@@ -51,7 +53,7 @@ Wer trotzdem vom Mac übertragen muss: `--no-owner --no-group` mitgeben, oder di
 
 ## Die Schalter
 
-Alle vier stehen in `scripts/deploy.sh` und werden über Umgebungsvariablen gesetzt, zum Beispiel:
+Alle fünf stehen in `scripts/deploy.sh` und werden über Umgebungsvariablen gesetzt, zum Beispiel:
 
 ```bash
 sudo DEPLOY_STOP_AFTER=bau /opt/hideandseek/scripts/deploy.sh
@@ -61,8 +63,9 @@ sudo DEPLOY_STOP_AFTER=bau /opt/hideandseek/scripts/deploy.sh
 - **`DEPLOY_STOP_AFTER=bau`**: Hält an, sobald Frontend und Backend gebaut und geprüft sind. Webroot und Datenbank sind dann unverändert, die Seite läuft weiter wie bisher. Unverändert ist aber nicht alles: `node_modules` und `backend/dist` stehen nach diesem Lauf auf dem neuen Stand und werden beim nächsten Neustart des Dienstes wirksam – auch bei einem Neustart, der nichts mit einem Deploy zu tun hat. Der Schalter ist also gut zum Bauen-Prüfen, aber er lässt den Server nicht so zurück, wie er ihn vorgefunden hat.
 - **`HEALTH_URL`** (Vorgabe `https://hideandseek.vielhaben.com/`): Die Adresse, die die Gesundheitsprüfung nach dem Neustart abfragt. Erwartet wird HTTP 200.
 - **`DEPLOY_SKIP_RESET`** (auf `1` gesetzt): Umgeht `git fetch` und `git reset --hard` in Schritt 3. Nur für die Erprobung gedacht, etwa um einen absichtlich manipulierten Arbeitsbaum zu testen, ohne dass der Reset ihn sofort geradezieht.
+- **`DEPLOY_RUECKWAERTS`** (auf `1` gesetzt): Erlaubt einen Stand, der hinter dem gerade ausgerollten liegt. Ohne den Schalter bricht Schritt 3 ab und nennt beide Commits. Gebraucht wird er für genau einen Fall: Ein älterer Stand soll bewusst noch einmal live – etwa weil der neuere sich als kaputt erwiesen hat und ein Zurückdrehen schneller ist als ein Revert-Commit. Der Einsatz steht im Protokoll.
 
-Das Skript ruft sich selbst per `sudo` erneut auf, wenn es nicht schon als root läuft. Dabei reicht es die vier Schalter und `SSH_ORIGINAL_COMMAND` ausdrücklich über `--preserve-env` durch. Ohne dieses Flag würde `sudo` die Umgebung leeren, und alle gesetzten Schalter wären beim eigentlichen Lauf spurlos verschwunden.
+Das Skript ruft sich selbst per `sudo` erneut auf, wenn es nicht schon als root läuft. Dabei reicht es die fünf Schalter und `SSH_ORIGINAL_COMMAND` ausdrücklich über `--preserve-env` durch. Ohne dieses Flag würde `sudo` die Umgebung leeren, und alle gesetzten Schalter wären beim eigentlichen Lauf spurlos verschwunden.
 
 ## Eine Änderung an deploy.sh wirkt erst beim nächsten Deploy
 

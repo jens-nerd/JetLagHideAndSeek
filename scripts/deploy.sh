@@ -26,7 +26,7 @@ BACKEND_ZURUECKSTELLEN=0
 # SSH_ORIGINAL_COMMAND traegt den auszurollenden Commit (Schritt 3) und muss
 # den Selbstaufruf genauso ueberleben wie die Schalter.
 [ "$(id -u)" -eq 0 ] || exec sudo -n \
-    --preserve-env=MIN_FREE_MB,DEPLOY_STOP_AFTER,DEPLOY_SKIP_RESET,HEALTH_URL,SSH_ORIGINAL_COMMAND \
+    --preserve-env=MIN_FREE_MB,DEPLOY_STOP_AFTER,DEPLOY_SKIP_RESET,HEALTH_URL,SSH_ORIGINAL_COMMAND,DEPLOY_RUECKWAERTS \
     "$0" "$@"
 
 log() { printf '[%s] %s\n' "$(date -u +%H:%M:%S)" "$*"; }
@@ -101,6 +101,21 @@ else
         git -C "$PROJEKT" merge-base --is-ancestor "$ZIEL_COMMIT" "origin/$BRANCH" \
             || fehler "Commit $ZIEL_COMMIT liegt nicht auf origin/$BRANCH. Abbruch, es wird nichts ausgerollt."
         log "Stand aus Actions: $ZIEL_COMMIT liegt auf origin/$BRANCH."
+        # Der zweite Zaun, gegen das Zurueckdrehen. Der erste begrenzt, WAS
+        # ausrollbar ist; dieser, in WELCHE RICHTUNG. Ein "Re-run jobs" auf
+        # einem aelteren Actions-Lauf traegt weiterhin dessen Commit - vor der
+        # Bindung an den Commit war das folgenlos, weil ohnehin die Spitze
+        # ausgerollt wurde. Jetzt wuerde der Server auf dem alten Stand
+        # stehenbleiben, und kein weiterer Deploy holte das zurueck.
+        # Derselbe Stand noch einmal ist ein echter Re-Run und geht durch:
+        # is-ancestor gilt auch fuer den Commit selbst.
+        AKTUELL_COMMIT=$(git -C "$PROJEKT" rev-parse HEAD) \
+            || fehler "Ausgerollter Stand liess sich nicht lesen (git rev-parse HEAD in $PROJEKT)."
+        if ! git -C "$PROJEKT" merge-base --is-ancestor "$AKTUELL_COMMIT" "$ZIEL_COMMIT"; then
+            [ "${DEPLOY_RUECKWAERTS:-}" = "1" ] \
+                || fehler "Ausgerollt ist bereits $AKTUELL_COMMIT; $ZIEL_COMMIT liegt nicht dahinter. Es wird nichts zurueckgedreht. Wer genau das will: DEPLOY_RUECKWAERTS=1 setzen."
+            log "DEPLOY_RUECKWAERTS=1 - es wird auf $ZIEL_COMMIT zurueckgedreht, obwohl $AKTUELL_COMMIT ausgerollt ist."
+        fi
         git -C "$PROJEKT" reset --hard "$ZIEL_COMMIT"
     else
         log "Kein Stand mitgegeben (Handbetrieb) - es wird die Spitze von origin/$BRANCH ausgerollt."

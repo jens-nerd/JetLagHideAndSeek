@@ -99,14 +99,19 @@ echo
 
 LAUF_CODE=0
 LAUF_AUS=""
+LAUF_START="$C1"        # Stand, der vor dem Lauf ausgerollt ist (HEAD in PROJEKT)
+LAUF_RUECKWAERTS=""     # Inhalt von DEPLOY_RUECKWAERTS, leer = ungesetzt
 # $1 = Wert fuer SSH_ORIGINAL_COMMAND, "__ungesetzt__" laesst die Variable weg.
 lauf() {
-    git -C "$PROJEKT" reset -q --hard "$C1"
+    git -C "$PROJEKT" reset -q --hard "$LAUF_START"
+    local -a umgebung=(env)
+    [ -n "$LAUF_RUECKWAERTS" ] && umgebung+=("DEPLOY_RUECKWAERTS=$LAUF_RUECKWAERTS")
     if [ "$1" = "__ungesetzt__" ]; then
-        LAUF_AUS=$(env -u SSH_ORIGINAL_COMMAND bash "$SKRIPT" 2>&1)
+        umgebung+=(-u SSH_ORIGINAL_COMMAND)
     else
-        LAUF_AUS=$(env SSH_ORIGINAL_COMMAND="$1" bash "$SKRIPT" 2>&1)
+        umgebung+=("SSH_ORIGINAL_COMMAND=$1")
     fi
+    LAUF_AUS=$("${umgebung[@]}" bash "$SKRIPT" 2>&1)
     LAUF_CODE=$?
 }
 
@@ -131,8 +136,9 @@ teste_annahme() {
     lauf "$C2"
     if [ "$LAUF_CODE" -eq 0 ] && [ "$(kopf)" = "$C2" ]; then
         ok "40 Hex, aelterer Commit auf master: angenommen (HEAD $C2)."
-        info "Der Zaun laesst jeden Commit durch, der auf master liegt - auch einen alten."
-        info "Das ist Absicht: er begrenzt WAS ausrollbar ist, nicht WANN."
+        info "Der erste Zaun laesst jeden Commit durch, der auf master liegt: er"
+        info "begrenzt WAS ausrollbar ist. Was davon nicht hinter dem ausgerollten"
+        info "Stand liegen darf, prueft der zweite Zaun - siehe N4 weiter unten."
     else
         nok "Aelterer Commit auf master wurde abgelehnt (Exit $LAUF_CODE)."
     fi
@@ -162,7 +168,7 @@ teste_annahme() {
 abgelehnt() {
     local name="$1" wert="$2"
     lauf "$wert"
-    if [ "$LAUF_CODE" -ne 0 ] && [ "$(kopf)" = "$C1" ]; then
+    if [ "$LAUF_CODE" -ne 0 ] && [ "$(kopf)" = "$LAUF_START" ]; then
         ok "$name: abgelehnt (Exit $LAUF_CODE), HEAD unveraendert."
     else
         nok "$name: NICHT abgelehnt (Exit $LAUF_CODE, HEAD $(kopf))."
@@ -239,6 +245,86 @@ teste_quelltext() {
     echo
 }
 
+# ══ N4: kein Zurueckdrehen auf einen aelteren Stand ═════════════════════════
+# Befund der Nachpruefung: Seit der Commit mitgegeben wird, rollt ein
+# "Re-run jobs" auf einem aelteren Actions-Lauf genau dessen Commit aus - und
+# der Server bleibt darauf stehen. Vorher war derselbe Handgriff folgenlos,
+# weil ohnehin die Spitze ausgerollt wurde. Aus einer Bequemlichkeit
+# (Flatter-Test rot, einmal neu starten) wird sonst ein stilles Zurueckdrehen.
+teste_n4() {
+    echo "── N4: der ausgerollte Stand darf nicht zurueckfallen ──"
+
+    # Nachfahre: ausgerollt ist C1, mitgegeben wird C3. Der Normalfall.
+    LAUF_START="$C1"; LAUF_RUECKWAERTS=""
+    lauf "$C3"
+    if [ "$LAUF_CODE" -eq 0 ] && [ "$(kopf)" = "$C3" ]; then
+        ok "Nachfahre des ausgerollten Standes: angenommen (HEAD $C3)."
+    else
+        nok "Nachfahre wurde nicht ausgerollt (Exit $LAUF_CODE, HEAD $(kopf))."
+        echo "$LAUF_AUS" | sed 's/^/      /'
+    fi
+
+    # Gleicher Stand: ein echter Re-Run desselben Commits. Laeuft durch.
+    LAUF_START="$C2"
+    lauf "$C2"
+    if [ "$LAUF_CODE" -eq 0 ] && [ "$(kopf)" = "$C2" ]; then
+        ok "derselbe Stand noch einmal (echter Re-Run): angenommen."
+    else
+        nok "Re-Run desselben Standes ging schief (Exit $LAUF_CODE, HEAD $(kopf))."
+        echo "$LAUF_AUS" | sed 's/^/      /'
+    fi
+
+    # Vorfahre: ausgerollt ist C3, mitgegeben wird C1. Genau der Re-Run des
+    # alten Laufs. Muss folgenlos abbrechen.
+    LAUF_START="$C3"
+    lauf "$C1"
+    if [ "$LAUF_CODE" -ne 0 ] && [ "$(kopf)" = "$C3" ]; then
+        ok "Vorfahre des ausgerollten Standes: abgelehnt, HEAD bleibt auf $C3."
+    else
+        nok "Vorfahre wurde NICHT abgelehnt (Exit $LAUF_CODE, HEAD $(kopf))."
+    fi
+    case "$LAUF_AUS" in
+        *"$C3"*"$C1"*|*"$C1"*"$C3"*) ok "die Meldung nennt beide Staende." ;;
+        *) nok "die Meldung nennt nicht beide Staende: $(echo "$LAUF_AUS" | tail -1)" ;;
+    esac
+    case "$LAUF_AUS" in
+        *DEPLOY_RUECKWAERTS*) ok "die Meldung sagt, wie man es trotzdem erzwingt." ;;
+        *) nok "die Meldung nennt den Schalter zum Erzwingen nicht." ;;
+    esac
+
+    # Und mit dem Schalter geht es doch - aber es steht im Protokoll.
+    LAUF_RUECKWAERTS=1
+    lauf "$C1"
+    if [ "$LAUF_CODE" -eq 0 ] && [ "$(kopf)" = "$C1" ]; then
+        ok "DEPLOY_RUECKWAERTS=1: Vorfahre wird ausgerollt (HEAD $C1)."
+    else
+        nok "DEPLOY_RUECKWAERTS=1 hat nicht gewirkt (Exit $LAUF_CODE, HEAD $(kopf))."
+        echo "$LAUF_AUS" | sed 's/^/      /'
+    fi
+    case "$LAUF_AUS" in
+        *DEPLOY_RUECKWAERTS*) ok "der Einsatz des Schalters steht im Protokoll." ;;
+        *) nok "der Schalter wurde benutzt, steht aber nicht im Protokoll." ;;
+    esac
+    LAUF_START="$C1"; LAUF_RUECKWAERTS=""
+
+    # Ein Commit, der gar nicht auf master liegt, faellt weiterhin am ERSTEN
+    # Zaun durch - die Reihenfolge der beiden Pruefungen darf nicht kippen.
+    LAUF_START="$C1"
+    lauf "$NEBEN"
+    case "$LAUF_AUS" in
+        *"liegt nicht auf origin/"*) ok "der Abstammungszaun prueft weiterhin zuerst." ;;
+        *) nok "ein Commit neben master faellt nicht mehr am Abstammungszaun durch." ;;
+    esac
+
+    if grep -q 'preserve-env=.*DEPLOY_RUECKWAERTS' "$DEPLOY"; then
+        ok "DEPLOY_RUECKWAERTS steht in der --preserve-env-Liste."
+    else
+        nok "DEPLOY_RUECKWAERTS fehlt in --preserve-env - der Schalter kaeme nie an."
+    fi
+    info "Ob sudo ihn durchreicht, zeigt wie bei SSH_ORIGINAL_COMMAND erst der Server."
+    echo
+}
+
 echo "════ Nachweise zu K1: Bindung an den gepruefen Commit ════"
 echo "  Wegwerf-origin: $ORIGIN"
 echo "  Spitze C3=$C3, davor C2=$C2, Start C1=$C1, Nebenzweig=$NEBEN"
@@ -246,6 +332,7 @@ echo
 teste_annahme
 teste_ablehnung
 teste_kein_eval
+teste_n4
 teste_quelltext
 
 if [ "$FEHLER" -eq 0 ]; then
