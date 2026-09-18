@@ -1,4 +1,4 @@
-name: Tests
+name: CI
 
 on:
     pull_request:
@@ -35,3 +35,22 @@ jobs:
 
             - name: Frontend tests
               run: pnpm test -- --run
+
+    deploy:
+        needs: test
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        concurrency:
+            group: deploy-vps
+            cancel-in-progress: false
+        steps:
+            - name: SSH-Schlüssel und Host-Key einrichten
+              run: |
+                  mkdir -p ~/.ssh && chmod 700 ~/.ssh
+                  printf '%s\n' "${{ secrets.VPS_DEPLOY_KEY }}" > ~/.ssh/id_ed25519
+                  chmod 600 ~/.ssh/id_ed25519
+                  printf '%s\n' "${{ secrets.VPS_HOST_KEY }}" > ~/.ssh/known_hosts
+
+            - name: Deploy auslösen
+              run: ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes deploy@91.98.85.53
