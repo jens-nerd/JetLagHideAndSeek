@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Nachweise fuer Korrekturrunde A (Befunde K2, K3, W2, W3, W4 der
-# Abschlusspruefung). Laeuft ohne Server: alle Faelle werden mit
+# Nachweise fuer die Korrekturrunden A und A2 (Befunde K2, K3, W2, W3, W4 der
+# Abschlusspruefung sowie die drei Luecken, die beim Pruefen von Runde A
+# aufgefallen sind). Laeuft ohne Server: alle Faelle werden mit
 # Wegwerf-Verzeichnissen, einer Wegwerf-SQLite-Datei und Attrappen fuer
 # systemctl/chown nachgestellt.
 #
@@ -12,7 +13,7 @@
 #
 # WAS HIER NICHT GEPRUEFT WERDEN KANN (keine Behauptung dazu weiter unten):
 #   - dass die Falle auf dem VPS bei einem echten Abriss der SSH-Sitzung
-#     anspringt. Hier wird nur gemessen, dass eine Falle auf ERN allein ein
+#     anspringt. Hier wird nur gemessen, dass eine Falle auf ERR allein ein
 #     TERM/HUP nicht faengt und eine auf ERR INT TERM HUP es faengt, und per
 #     grep geprueft, dass deploy.sh die zweite Form verwendet.
 #   - dass systemctl, der Dienst, curl und die oeffentliche Gesundheitspruefung
