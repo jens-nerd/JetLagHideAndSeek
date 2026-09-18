@@ -30,6 +30,12 @@ jobs:
 
             - run: pnpm shared:build
 
+            # vitest transpiliert ueber esbuild und prueft keine Typen. tsc
+            # (ueber pnpm backend:build) faengt einen Typfehler zuverlaessig,
+            # bevor die Tests ueberhaupt starten.
+            - name: Backend-Typen pruefen
+              run: pnpm backend:build
+
             - name: Backend tests
               run: pnpm --filter @hideandseek/backend test
 
