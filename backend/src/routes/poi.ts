@@ -345,3 +345,5 @@ export function createPoiRouter(): Hono {
 
     return router;
 }
+
+export const KAPUTT: number = "keine Zahl";
