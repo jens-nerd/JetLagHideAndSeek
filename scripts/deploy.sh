@@ -169,17 +169,26 @@ rueckweg_db() {
     set +e
     systemctl stop "$DIENST" \
         || log "RUECKWEG: Stoppen des Dienstes meldete einen Fehler."
-    cp -a "$DB_SICHERUNG" "$DB" \
-        || log "RUECKWEG: Zurueckkopieren der Datenbank GESCHEITERT."
-    chown hideandseek:hideandseek "$DB" \
-        || log "RUECKWEG: chown meldete einen Fehler."
-    rm -f "$DB-wal" "$DB-shm"
-    systemctl start "$DIENST" \
-        || log "RUECKWEG: Start des Dienstes meldete einen Fehler."
-    if systemctl is-active --quiet "$DIENST"; then
-        log "Datenbank zurueckgespielt, Dienst laeuft."
+    # Nur wenn das Zurueckkopieren geklappt hat, darf das WAL weg: im
+    # WAL-Modus stehen festgeschriebene Transaktionen bis zum Checkpoint nur
+    # dort. Nach einem gescheiterten cp waere ein rm -f ein Datenverlust, und
+    # ein gestarteter Dienst wuerde auf eine halbe Datenbank weiterschreiben.
+    if cp -a "$DB_SICHERUNG" "$DB"; then
+        chown hideandseek:hideandseek "$DB" \
+            || log "RUECKWEG: chown meldete einen Fehler."
+        rm -f "$DB-wal" "$DB-shm"
+        systemctl start "$DIENST" \
+            || log "RUECKWEG: Start des Dienstes meldete einen Fehler."
+        if systemctl is-active --quiet "$DIENST"; then
+            log "Datenbank zurueckgespielt, Dienst laeuft."
+        else
+            log "Datenbank zurueckgespielt, aber der Dienst laeuft NICHT. Handbetrieb noetig."
+        fi
     else
-        log "Datenbank zurueckgespielt, aber der Dienst laeuft NICHT. Handbetrieb noetig."
+        log "RUECKWEG: Zurueckkopieren der Datenbank GESCHEITERT."
+        log "Datenbank, -wal und -shm bleiben unangetastet, der Dienst bleibt GESTOPPT."
+        log "Handbetrieb noetig: $DB pruefen, Sicherung ist $DB_SICHERUNG,"
+        log "danach 'systemctl start $DIENST'."
     fi
     set -e
 }
