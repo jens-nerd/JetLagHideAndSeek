@@ -78,6 +78,10 @@ pnpm backend:migrate
 
 ### 3. Backend bauen und starten
 
+> **Nicht für hideandseek.vielhaben.com.** Auf diesem Server läuft das Backend als
+> systemd-Unit `hideandseek-backend`. Eine zusätzliche PM2-Instanz findet Port 3001
+> belegt und läuft in eine Neustartschleife. Einzelheiten in `docs/deploy-vps.md`.
+
 ```bash
 cd /opt/hideandseek
 pnpm backend:build
