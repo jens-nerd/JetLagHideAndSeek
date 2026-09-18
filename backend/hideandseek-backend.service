@@ -1,23 +1,58 @@
-# systemd unit file – alternative to PM2
-# Install: sudo cp hideandseek-backend.service /etc/systemd/system/
-#          sudo systemctl enable --now hideandseek-backend
+# systemd-Unit für das Backend. Auf hideandseek.vielhaben.com läuft genau
+# diese Unit unter /etc/systemd/system/hideandseek-backend.service.
+#
+# VOR dem ersten Start muss /etc/hideandseek-backend.env existieren:
+#   sudo install -m 600 -o root -g root /dev/null /etc/hideandseek-backend.env
+#   sudo sh -c 'echo "HERE_API_KEY=<schluessel>" >> /etc/hideandseek-backend.env'
+# Die Datei liegt bewusst außerhalb von /opt/hideandseek, damit ein Deploy sie
+# nicht überschreibt, und gehört root:root mit Modus 600.
+#
+# Fehlt HERE_API_KEY, startet der Dienst trotzdem und meldet nichts: die
+# POI-Suche in backend/src/routes/poi.ts steigt bei `if (!HERE_API_KEY) return
+# null` still auf Overpass um. Es gibt keine Fehlermeldung, nur schlechtere
+# Treffer. Nach dem Anlegen oder Ändern der Datei:
+#   sudo systemctl daemon-reload && sudo systemctl restart hideandseek-backend
+#
+# Installation:
+#   sudo cp backend/hideandseek-backend.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now hideandseek-backend
+#
+# Die Unit erwartet den Systemnutzer hideandseek und das Deploy-Verzeichnis
+# /opt/hideandseek. Wer beides anders benennt, passt User, Group,
+# WorkingDirectory, DB_PATH und ReadWritePaths gemeinsam an.
 [Unit]
 Description=Hide and Seek Backend
 After=network.target
 
 [Service]
 Type=simple
-User=www-data
+User=hideandseek
+Group=hideandseek
 WorkingDirectory=/opt/hideandseek/backend
 ExecStart=/usr/bin/node dist/index.js
 Restart=on-failure
 RestartSec=5s
+
+# Umgebungsvariablen
 Environment=NODE_ENV=production
 Environment=PORT=3001
-Environment=DB_PATH=/var/data/hideandseek/hideandseek.db
-Environment=FRONTEND_ORIGIN=https://yourdomain.com
+Environment=DB_PATH=/opt/hideandseek/backend/hideandseek.db
+Environment=FRONTEND_ORIGIN=https://hideandseek.vielhaben.com
+EnvironmentFile=/etc/hideandseek-backend.env
+
+# Sicherheits-Härtung
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/hideandseek/backend
+ProtectHome=true
+CapabilityBoundingSet=
+
+# Logging
 StandardOutput=journal
 StandardError=journal
+SyslogIdentifier=hideandseek-backend
 
 [Install]
 WantedBy=multi-user.target

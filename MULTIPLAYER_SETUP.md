@@ -93,10 +93,30 @@ pm2 save
 pm2 startup
 
 # Alternativ: systemd
+# Zuerst die Secret-Datei anlegen, sonst startet das Backend ohne HERE_API_KEY:
+sudo install -m 600 -o root -g root /dev/null /etc/hideandseek-backend.env
+sudo sh -c 'echo "HERE_API_KEY=<schluessel>" >> /etc/hideandseek-backend.env'
+
 sudo cp backend/hideandseek-backend.service /etc/systemd/system/
-# Passe den Pfad in der .service-Datei an
+sudo systemctl daemon-reload
 sudo systemctl enable --now hideandseek-backend
 ```
+
+Die Unit im Repo ist die, die auf hideandseek.vielhaben.com läuft: Nutzer
+`hideandseek`, Arbeitsverzeichnis `/opt/hideandseek/backend`, Datenbank unter
+`/opt/hideandseek/backend/hideandseek.db`, `FRONTEND_ORIGIN` auf
+`https://hideandseek.vielhaben.com`. Wer anders deployt, ändert `User`,
+`Group`, `WorkingDirectory`, `DB_PATH` und `ReadWritePaths` zusammen - die
+Härtung `ProtectSystem=strict` macht sonst das Datenbankverzeichnis
+schreibgeschützt.
+
+`EnvironmentFile=/etc/hideandseek-backend.env` ist kein Beiwerk. Fehlt die
+Datei oder fehlt darin `HERE_API_KEY`, läuft das Backend trotzdem an und
+schweigt: die POI-Suche fällt in `backend/src/routes/poi.ts` auf Overpass
+zurück (`if (!HERE_API_KEY) return null`), ohne Log-Eintrag und ohne
+Fehlermeldung. Auffällig wird das erst an schlechteren Treffern. Den Wert des
+Schlüssels nie im Repo ablegen, sondern nur in dieser Datei (root:root,
+Modus 600).
 
 ### 4. Frontend bauen
 
