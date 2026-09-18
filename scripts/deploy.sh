@@ -208,4 +208,6 @@ else
     log "ACHTUNG: Die Datenbank steht auf dem NEUEN Schema ($DB_SICHERUNG ist die Sicherung davor)."
     exit 1
 fi
+# bash darf nach dem Ende der Gruppe nicht in die (inzwischen ersetzte) Datei zuruecklaufen.
+exit 0
 }
