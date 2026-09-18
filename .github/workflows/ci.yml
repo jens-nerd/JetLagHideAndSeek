@@ -36,6 +36,13 @@ jobs:
             - name: Backend-Typen pruefen
               run: pnpm backend:build
 
+            # Probebau: hier wird gebaut, was der Server gleich noch einmal
+            # baut. Ein gescheiterter Bau in Actions hinterlaesst nichts, ein
+            # gescheiterter Bau auf dem Server einen halben Zustand - neues
+            # backend/dist und neue node_modules, aber kein getauschtes Webroot.
+            - name: Probebau Frontend
+              run: pnpm build
+
             - name: Backend tests
               run: pnpm --filter @hideandseek/backend test
 
