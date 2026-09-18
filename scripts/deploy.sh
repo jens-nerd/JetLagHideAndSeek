@@ -99,25 +99,42 @@ gesundheit() {
 
 rueckweg_code() {
     log "RUECKWEG: vorigen Webroot zurueckspielen ..."
-    rsync -a --delete "$DIST_SICHERUNG/" "$PROJEKT/dist/"
-    chmod -R 755 "$PROJEKT/dist"
-    systemctl restart "$DIENST"
+    # set +e, damit ein Fehlschlag hier die Funktion nicht abbricht: sonst
+    # erfuehre der Operator nie, in welchem Zustand die Seite zurueckbleibt.
+    set +e
+    rsync -a --delete "$DIST_SICHERUNG/" "$PROJEKT/dist/" \
+        || log "RUECKWEG: rsync meldete einen Fehler."
+    chmod -R 755 "$PROJEKT/dist" \
+        || log "RUECKWEG: chmod meldete einen Fehler."
+    systemctl restart "$DIENST" \
+        || log "RUECKWEG: Neustart meldete einen Fehler."
     sleep 3
     if gesundheit; then
         log "RUECKWEG erfolgreich. Voriger Stand ist wieder live."
     else
         log "RUECKWEG gescheitert - die Seite ist NICHT gesund. Handbetrieb noetig."
     fi
+    set -e
 }
 
 rueckweg_db() {
     log "RUECKWEG: Datenbank aus $DB_SICHERUNG zurueckspielen ..."
-    systemctl stop "$DIENST"
-    cp -a "$DB_SICHERUNG" "$DB"
-    chown hideandseek:hideandseek "$DB"
+    set +e
+    systemctl stop "$DIENST" \
+        || log "RUECKWEG: Stoppen des Dienstes meldete einen Fehler."
+    cp -a "$DB_SICHERUNG" "$DB" \
+        || log "RUECKWEG: Zurueckkopieren der Datenbank GESCHEITERT."
+    chown hideandseek:hideandseek "$DB" \
+        || log "RUECKWEG: chown meldete einen Fehler."
     rm -f "$DB-wal" "$DB-shm"
-    systemctl start "$DIENST"
-    log "Datenbank zurueckgespielt."
+    systemctl start "$DIENST" \
+        || log "RUECKWEG: Start des Dienstes meldete einen Fehler."
+    if systemctl is-active --quiet "$DIENST"; then
+        log "Datenbank zurueckgespielt, Dienst laeuft."
+    else
+        log "Datenbank zurueckgespielt, aber der Dienst laeuft NICHT. Handbetrieb noetig."
+    fi
+    set -e
 }
 
 # ── 7. Datenbank sichern ───────────────────────────────────────────────
