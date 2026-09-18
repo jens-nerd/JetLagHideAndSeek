@@ -4,12 +4,15 @@
  *
  * - SEEKER / HIDER answered: answered questions are inserted with their
  *   `answerData` so the map shows the final clipped result.
- * - Pending questions are NOT inserted into the questions atom – doing so
- *   would corrupt the map clipping pipeline (applyQuestionsToMapGeoData runs
- *   them through adjustMapGeoDataForQuestion even when drag=true because the
+ * - Open (pending/expired) questions are NOT inserted into the questions atom –
+ *   doing so would corrupt the map clipping pipeline (applyQuestionsToMapGeoData
+ *   runs them through adjustMapGeoDataForQuestion even when drag=true because the
  *   skip condition only fires when planningModeEnabled=true).  The visual
- *   outlines for pending questions (radius circles etc.) are rendered directly
- *   by DraggableMarkers via react-leaflet geometry components instead.
+ *   outlines for open questions (radius circles etc.) are rendered directly
+ *   by DraggableMarkers via react-leaflet geometry components instead — for both
+ *   roles.  DraggableMarkers is therefore the ONLY place an open question shows
+ *   up on the map; if that block stops drawing a question type, the asking
+ *   seeker sees nothing at all until an answer arrives.
  *
  * Mount this hook once in a top-level component (e.g. QuestionSidebar.tsx).
  */

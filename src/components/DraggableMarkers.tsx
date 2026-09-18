@@ -277,10 +277,18 @@ export const DraggableMarkers = () => {
                     }}
                 />
             )}
-            {/* Blue pins + geometry outlines for all pending seeker questions – hider only */}
-            {$participant?.role === "hider" &&
+            {/* Blue pins + geometry outlines for every open seeker question.
+                Drawn for BOTH roles: the seeker who asked has to see where their
+                own radius/thermometer sits, and useSessionMapSync deliberately
+                keeps open questions out of the map clipping, so this is the only
+                place they show up at all.  "expired" questions keep their outline
+                because they can still be answered. */}
+            {$participant &&
                 $sessionQuestions
-                    .filter((sq) => sq.status === "pending")
+                    .filter(
+                        (sq) =>
+                            sq.status === "pending" || sq.status === "expired",
+                    )
                     .map((sq) => {
                         const loc = extractQuestionCenter(sq);
                         if (!loc) return null;
