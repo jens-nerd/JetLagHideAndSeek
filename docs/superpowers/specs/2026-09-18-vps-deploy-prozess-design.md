@@ -70,7 +70,7 @@ Für den privaten turflock-Klon braucht der Server zusätzlich einen **lesenden*
 
 Das Deploy-Skript kommt aus dem Repo und läuft nach dem Pull. Schreibzugriff auf den Hauptbranch bedeutet damit Codeausführung auf dem VPS. Das gilt für jedes Deploy-aus-dem-Repo, ist aber ein Unterschied zum heutigen Zustand. Zwei Folgerungen: der Hauptbranch bleibt geschützt, und der Deploy-Schlüssel gehört zu den Dingen, die man rotiert, wenn ein Gerät abhandenkommt.
 
-Zweite Eigenheit, die sonst Verwirrung stiftet: Eine Änderung an `deploy.sh` wirkt erst beim übernächsten Deploy. Beim aktuellen läuft noch die Fassung, die vor dem Pull auf der Platte lag.
+Zweite Eigenheit, die sonst Verwirrung stiftet: Eine Änderung an `deploy.sh` wirkt erst beim nächsten Deploy. Beim aktuellen läuft noch die Fassung, die vor dem Pull auf der Platte lag.
 
 ## Das Deploy-Skript
 
