@@ -78,7 +78,7 @@ Das sind dieselben Befehle, die das Skript im Rückweg selbst verwendet, nur mit
 
 Scheitert eine Migration (Schritt 8), spielt das Skript die eben angelegte Datenbanksicherung zurück und bricht ab. Der Webroot wurde zu diesem Zeitpunkt noch nicht getauscht, der Dienst noch nicht neu gestartet. Die Seite läuft also unverändert mit dem alten Stand weiter. Das ist der harmloseste der drei Fehlschläge.
 
-Scheitert der Dienst-Neustart oder alles, was direkt danach kommt, bevor die Gesundheitsprüfung läuft, fängt eine Falle das ab und spielt den vorigen Webroot und den vorigen `backend/dist` automatisch zurück.
+Scheitert der Dienst-Neustart oder alles, was direkt danach kommt, bevor die Gesundheitsprüfung läuft, fängt eine Falle das ab und spielt den vorigen Webroot und den vorigen `backend/dist` automatisch zurück. Die Falle hängt an `ERR` und zusätzlich an `INT`, `TERM` und `HUP`: Reißt die SSH-Sitzung mitten im `rsync --delete` ab, kommt kein Rückgabewert, sondern ein Signal.
 
 Scheitert stattdessen die Gesundheitsprüfung selbst (Dienst nicht aktiv, `/health` antwortet nicht, oder die öffentliche URL liefert keine 200), rollt das Skript ebenfalls den Code zurück – Webroot und `backend/dist`, letzteres vor dem Neustart – und beendet sich mit Fehler.
 

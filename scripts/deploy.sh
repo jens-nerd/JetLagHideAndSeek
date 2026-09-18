@@ -208,7 +208,11 @@ cp -a "$PROJEKT/dist" "$DIST_SICHERUNG"
 # faengt alles, was zwischen hier und der Gesundheitspruefung abbricht:
 # ein mittendrin gescheitertes rsync ebenso wie ein fehlgeschlagener
 # systemctl restart. Ohne sie bliebe ein halb getauschtes Webroot liegen.
-trap 'log "Unerwarteter Abbruch nach dem Sicherungspunkt."; rueckweg_code; exit 1' ERR
+# INT TERM HUP gehoeren dazu, weil ERR nur auf Rueckgabewerte reagiert: reisst
+# die SSH-Sitzung waehrend des rsync --delete ab, kommt ein Signal, kein
+# Rueckgabewert. Die Falle raeumt sich als Erstes selbst ab - sonst loeste ein
+# Fehlschlag im Rueckweg die Falle erneut aus.
+trap 'trap - ERR INT TERM HUP; log "Unerwarteter Abbruch nach dem Sicherungspunkt."; rueckweg_code; exit 1' ERR INT TERM HUP
 
 log "Webroot tauschen ..."
 rsync -a --delete "$STAGING/" "$PROJEKT/dist/"
@@ -223,7 +227,7 @@ sleep 3
 # Nur der Code wird zurueckgerollt. Die Datenbank steht auf dem neuen
 # Schema und bleibt dort: ein automatisches Zurueckspielen wuerde alles
 # verwerfen, was seit Schritt 7 geschrieben wurde.
-trap - ERR   # ab hier wird von Hand entschieden, nicht mehr automatisch
+trap - ERR INT TERM HUP   # ab hier wird von Hand entschieden, nicht mehr automatisch
 if gesundheit; then
     log "Gesundheitspruefung bestanden. Deploy $COMMIT ist live."
 
