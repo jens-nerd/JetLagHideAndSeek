@@ -10,6 +10,9 @@
 set -euo pipefail
 
 PROJEKT=/opt/hideandseek
+# Datenbank und hochgeladene Bilder liegen ausserhalb des Git-Arbeitsbaums.
+# Angelegt wird das Verzeichnis von der Unit (StateDirectory=hideandseek).
+DATEN=/var/lib/hideandseek
 BRANCH=master
 STAGING="$PROJEKT/build-deploy"
 SICHERUNGEN="$PROJEKT/backups"
@@ -79,7 +82,9 @@ if [ -n "$ZIEL_COMMIT" ] && ! [[ "$ZIEL_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
     fehler "Mitgegebener Stand ist kein Commit: '$(printf '%s' "$ZIEL_COMMIT" | tr -c '0-9A-Za-z' '.' | cut -c1-64)' (${#ZIEL_COMMIT} Zeichen). Erlaubt sind genau 40 Zeichen aus 0-9a-f."
 fi
 
-# Bewusst KEIN git clean -fd: untracked liegen uploads/, backups/ und .env.
+# Bewusst KEIN git clean -fd: untracked liegen backups/ und .env. Die Uploads
+# lagen bis zum 18.09.2026 ebenfalls hier; seither stehen sie mit der Datenbank
+# unter $DATEN und waeren von einem clean gar nicht mehr betroffen.
 # DEPLOY_SKIP_RESET dient ausschliesslich der Erprobung (Task 4): damit laesst
 # sich ein absichtlich manipulierter Arbeitsbaum testen, ohne dass der Reset
 # ihn sofort wieder geradezieht.
@@ -205,7 +210,7 @@ if [ "$DEPLOY_STOP_AFTER" = "bau" ]; then
 fi
 
 # ═══ ab hier wird der Webroot und die Datenbank angefasst ══════════════
-DB="$PROJEKT/backend/hideandseek.db"
+DB="$DATEN/hideandseek.db"
 DB_SICHERUNG="$SICHERUNGEN/db-$STEMPEL.sqlite"
 DIST_SICHERUNG="$SICHERUNGEN/dist-$STEMPEL"
 
@@ -264,8 +269,12 @@ rueckweg_db() {
     # dort. Nach einem gescheiterten cp waere ein rm -f ein Datenverlust, und
     # ein gestarteter Dienst wuerde auf eine halbe Datenbank weiterschreiben.
     if cp -a "$DB_SICHERUNG" "$DB"; then
+        # cp -a bringt Eigentuemer und Modus der Sicherung mit: die gehoert
+        # root und ist 644, weil sqlite3 sie als root angelegt hat.
         chown hideandseek:hideandseek "$DB" \
             || log "RUECKWEG: chown meldete einen Fehler."
+        chmod 640 "$DB" \
+            || log "RUECKWEG: chmod meldete einen Fehler."
         rm -f "$DB-wal" "$DB-shm"
         RUECKWEG_DB_ERGEBNIS=zurueckgespielt
         systemctl start "$DIENST" \
@@ -309,7 +318,12 @@ TABELLEN_SICHERUNG=$(sqlite3 "$DB_SICHERUNG" "$TABELLEN_SQL" || echo sicherung-u
 # Scheitert die Migration, ist das Schema ohnehin kaputt: Datenbank zurueck,
 # Code gar nicht erst tauschen.
 log "Migrationen fahren ..."
-if ! ( cd "$PROJEKT" && pnpm backend:migrate ); then
+# DB_PATH muss hier stehen. backend/src/db/migrate.ts faellt sonst auf
+# ./hideandseek.db zurueck, und pnpm --filter setzt das Arbeitsverzeichnis auf
+# backend/ - die Migration liefe also gegen eine zweite, leere Datei im
+# Arbeitsbaum, waehrend der Dienst auf $DB weiterarbeitet. Sie wuerde sogar
+# gelingen und nichts melden.
+if ! ( cd "$PROJEKT" && DB_PATH="$DB" pnpm backend:migrate ); then
     rueckweg_db
     # Die Schlussmeldung muss zu dem passen, was rueckweg_db wirklich getan
     # hat - sonst steht hier dasselbe Problem wie in W4, nur eine Zeile weiter.
@@ -319,6 +333,15 @@ if ! ( cd "$PROJEKT" && pnpm backend:migrate ); then
         fehler "Migration gescheitert UND die Datenbank liess sich nicht zurueckspielen. Der Dienst ist GESTOPPT, Handbetrieb noetig (siehe RUECKWEG-Zeilen)."
     fi
 fi
+# Die Migration laeuft als root - das Skript ruft sich in Schritt 0 selbst per
+# sudo auf. Ein dabei neu angelegtes -wal oder -shm gehoert dann root, und der
+# Dienst kaeme nicht mehr daran. Den Modus setzt SQLite von der Datenbankdatei
+# ab, den muss hier niemand nachziehen.
+for datei in "$DB" "$DB-wal" "$DB-shm"; do
+    [ -e "$datei" ] || continue
+    chown hideandseek:hideandseek "$datei" \
+        || log "chown auf $(basename "$datei") meldete einen Fehler."
+done
 
 # ── 9. Webroot sichern, dann tauschen ──────────────────────────────────
 log "Webroot sichern -> $DIST_SICHERUNG"

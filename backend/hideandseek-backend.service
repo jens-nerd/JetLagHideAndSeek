@@ -19,8 +19,10 @@
 #   sudo systemctl enable --now hideandseek-backend
 #
 # Die Unit erwartet den Systemnutzer hideandseek und das Deploy-Verzeichnis
-# /opt/hideandseek. Wer beides anders benennt, passt User, Group,
-# WorkingDirectory, DB_PATH und ReadWritePaths gemeinsam an.
+# /opt/hideandseek. Wer beides anders benennt, passt User, Group und
+# WorkingDirectory gemeinsam an. Die veränderlichen Daten hängen daran nicht
+# mehr: sie liegen unter /var/lib/hideandseek und werden über StateDirectory
+# verwaltet.
 [Unit]
 Description=Hide and Seek Backend
 After=network.target
@@ -34,18 +36,32 @@ ExecStart=/usr/bin/node dist/index.js
 Restart=on-failure
 RestartSec=5s
 
+# Veränderliche Daten: Datenbank und hochgeladene Bilder.
+# StateDirectory legt /var/lib/hideandseek beim Start an, setzt Eigentümer auf
+# User:Group und macht es trotz ProtectSystem=strict beschreibbar. Ein
+# zusätzliches ReadWritePaths für denselben Pfad steht deshalb bewusst nicht
+# hier: zwei Zeilen für eine Aussage driften auseinander, sobald jemand eine
+# davon ändert.
+StateDirectory=hideandseek
+
 # Umgebungsvariablen
 Environment=NODE_ENV=production
 Environment=PORT=3001
-Environment=DB_PATH=/opt/hideandseek/backend/hideandseek.db
+Environment=DB_PATH=/var/lib/hideandseek/hideandseek.db
+# Ohne UPLOADS_DIR schreibt backend/src/routes/upload.ts nach
+# join(process.cwd(), "uploads") - also mitten in den Git-Arbeitsbaum.
+Environment=UPLOADS_DIR=/var/lib/hideandseek/uploads
 Environment=FRONTEND_ORIGIN=https://hideandseek.vielhaben.com
 EnvironmentFile=/etc/hideandseek-backend.env
 
 # Sicherheits-Härtung
+# Kein ReadWritePaths: /var/lib/hideandseek kommt über StateDirectory,
+# /opt/hideandseek/backend braucht der Dienst nur lesend. Dorthin schreibt
+# ausschließlich das Deploy-Skript, und das läuft als root außerhalb dieser
+# Unit - die Härtung hier gilt für es ohnehin nicht.
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ReadWritePaths=/opt/hideandseek/backend
 ProtectHome=true
 CapabilityBoundingSet=
 
