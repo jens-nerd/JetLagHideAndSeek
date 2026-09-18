@@ -338,6 +338,64 @@ teste_a2_fehler() {
     fi
 }
 
+# ══ A2-3: der Webroot-Rueckweg darf nicht nach Zeitstempeln raten ═══════════
+# Gemessen vor der Behebung: `rsync -a --delete` ueberspringt index.html und
+# sw.js, wenn sie gleich gross sind und denselben Zeitstempel tragen. Genau das
+# ist der Fall, den der Rueckweg treffen muss.
+
+# Baut Webroot und Sicherung so, dass Groesse und Zeitstempel gleich sind.
+baue_webroot_fall() {
+    local wurzel="$1"
+    rm -rf "$wurzel"; mkdir -p "$wurzel/dist"
+    printf '<!doctype html><title>ALT</title>\n' > "$wurzel/dist/index.html"
+    printf 'self.__WB=["ALT"];\n' > "$wurzel/dist/sw.js"
+    cp -a "$wurzel/dist" "$wurzel/sicherung"
+    printf '<!doctype html><title>NEU</title>\n' > "$wurzel/dist/index.html"
+    printf 'self.__WB=["NEU"];\n' > "$wurzel/dist/sw.js"
+    touch -r "$wurzel/sicherung/index.html" "$wurzel/dist/index.html"
+    touch -r "$wurzel/sicherung/sw.js" "$wurzel/dist/sw.js"
+}
+
+teste_a2_webroot() {
+    echo "── A2-3: Webroot-Rueckweg bei gleicher Groesse und Zeit ──"
+
+    # Erst die Gegenprobe: so, wie die Zeile vor Runde A2 aussah.
+    local w="$TMPDIR/webroot-kontrolle"
+    baue_webroot_fall "$w"
+    rsync -a --delete "$w/sicherung/" "$w/dist/"
+    local kontrolle
+    kontrolle=$(grep -o 'ALT\|NEU' "$w/dist/index.html" | head -1)
+    if [ "$kontrolle" = "NEU" ]; then
+        info "Gegenprobe (rsync -a --delete, ohne --ignore-times): index.html bleibt auf NEU."
+        info "      Das ist der Befund - der Rueckweg haette genau die Datei nicht zurueckgeholt,"
+        info "      auf die es ankommt."
+    else
+        info "Gegenprobe: rsync hat hier auch ohne --ignore-times zurueckgespielt ($kontrolle)."
+        info "      Auf diesem Dateisystem reproduziert sich der Befund also nicht; die"
+        info "      Pruefung unten gilt weiterhin."
+    fi
+
+    # Und jetzt die Zeile, wie sie heute in rueckweg_code steht.
+    w="$TMPDIR/webroot-echt"
+    baue_webroot_fall "$w"
+    (
+        set -uo pipefail
+        PROJEKT="$w"
+        DIST_SICHERUNG="$w/sicherung"
+        log() { printf '%s\n' "$*"; }
+        eval "$(awk '/^rueckweg_code\(\) \{$/,/^\}$/' "$DEPLOY" | grep -A1 -m1 'rsync -a --delete')"
+    ) > "$TMPDIR/webroot.out" 2>&1
+    local nachher_html nachher_sw
+    nachher_html=$(grep -o 'ALT\|NEU' "$w/dist/index.html" | head -1)
+    nachher_sw=$(grep -o 'ALT\|NEU' "$w/dist/sw.js" | head -1)
+    if [ "$nachher_html" = "ALT" ] && [ "$nachher_sw" = "ALT" ]; then
+        ok "die Zeile aus rueckweg_code holt index.html und sw.js zurueck."
+    else
+        nok "nach dem Rueckweg: index.html=$nachher_html, sw.js=$nachher_sw, erwartet beide ALT."
+        sed 's/^/    | /' "$TMPDIR/webroot.out"
+    fi
+}
+
 # ══ K2/K3: backend/dist wird gesichert und zurueckgespielt ══════════════════
 # Befund K3: tsc schreibt direkt in backend/dist, also in die Dateien, die der
 # Dienst ausfuehrt. Ein abgebrochener Bau hinterliess bisher neuen Backend-Code
@@ -367,6 +425,10 @@ fahre_bau_mit_abbruch() {
         # Mischung aus alt und neu, die der Befund beschreibt.
         echo 'echo NEU > "$PROJEKT/backend/dist/index.js"'
         echo 'echo NEU > "$PROJEKT/backend/dist/nur-neu.js"'
+        # Zeitstempel bewusst gleichziehen: sonst haengt dieser Nachweis daran,
+        # ob Sicherung und Bau zufaellig in dieselbe Sekunde fallen. Genau so
+        # ist der Fall in Runde A beim ersten Lauf aufgefallen.
+        echo 'touch -r "$BACKEND_SICHERUNG/index.js" "$PROJEKT/backend/dist/index.js"'
         if [ "$art" = "signal" ]; then
             echo 'kill -TERM $$'
             echo 'sleep 5'
@@ -514,6 +576,7 @@ teste_w4; echo
 teste_k2_k3; echo
 teste_w2; echo
 teste_a2_fehler; echo
+teste_a2_webroot; echo
 
 if [ "$FEHLER" -eq 0 ]; then
     echo "Ergebnis: bestanden."

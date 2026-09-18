@@ -55,13 +55,13 @@ Von Hand zurücksetzen, am Beispiel eines Zeitstempels:
 
 ```bash
 # Webroot
-sudo rsync -a --delete /opt/hideandseek/backups/dist-<STEMPEL>/ /opt/hideandseek/dist/
+sudo rsync -a --delete --ignore-times /opt/hideandseek/backups/dist-<STEMPEL>/ /opt/hideandseek/dist/
 sudo chmod -R 755 /opt/hideandseek/dist
 sudo systemctl restart hideandseek-backend
 
 # Backend-Bau
 sudo systemctl stop hideandseek-backend
-sudo rsync -a --delete /opt/hideandseek/backups/backend-<STEMPEL>/ /opt/hideandseek/backend/dist/
+sudo rsync -a --delete --ignore-times /opt/hideandseek/backups/backend-<STEMPEL>/ /opt/hideandseek/backend/dist/
 sudo systemctl start hideandseek-backend
 
 # Datenbank
@@ -72,7 +72,7 @@ sudo rm -f /opt/hideandseek/backend/hideandseek.db-wal /opt/hideandseek/backend/
 sudo systemctl start hideandseek-backend
 ```
 
-Das sind dieselben Befehle, die das Skript im Rückweg selbst verwendet, nur mit einem frei gewählten Zeitstempel statt dem letzten.
+Das sind dieselben Befehle, die das Skript im Rückweg selbst verwendet, nur mit einem frei gewählten Zeitstempel statt dem letzten. `--ignore-times` steht bewusst dabei: ohne diese Option vergleicht rsync nur Größe und Zeitstempel und überspringt eine gleich große Datei, die in derselben Sekunde geschrieben wurde – bei `index.html` und `sw.js` ist das kein Gedankenspiel.
 
 ## Der Rückweg
 

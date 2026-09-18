@@ -165,7 +165,11 @@ rueckweg_code() {
     # set +e, damit ein Fehlschlag hier die Funktion nicht abbricht: sonst
     # erfuehre der Operator nie, in welchem Zustand die Seite zurueckbleibt.
     set +e
-    rsync -a --delete "$DIST_SICHERUNG/" "$PROJEKT/dist/" \
+    # --ignore-times aus demselben Grund wie beim Backend: rsync entscheidet
+    # nach Groesse und Zeitstempel. Deploy und Rueckweg liegen Sekunden
+    # auseinander, und index.html und sw.js tragen feste Namen und koennen
+    # gleich gross sein. Gemessen: dann bleiben genau diese zwei Dateien neu.
+    rsync -a --delete --ignore-times "$DIST_SICHERUNG/" "$PROJEKT/dist/" \
         || log "RUECKWEG: rsync meldete einen Fehler."
     chmod -R 755 "$PROJEKT/dist" \
         || log "RUECKWEG: chmod meldete einen Fehler."
