@@ -57,7 +57,10 @@ BACKEND_SICHERUNG="$SICHERUNGEN/backend-$STEMPEL"
 mkdir -p "$SICHERUNGEN"
 
 # ── 2. Platz pruefen ───────────────────────────────────────────────────
-FREI_MB=$(df --output=avail -m / | tail -1 | tr -d ' ')
+# Auch hier eine Pipeline unter pipefail: ohne || fehler beendet ein
+# fehlgeschlagenes df das Skript, ohne dass eine FEHLER-Zeile im Protokoll steht.
+FREI_MB=$(df --output=avail -m / | tail -1 | tr -d ' ') \
+    || fehler "Freier Platz liess sich nicht ermitteln (df)."
 log "Frei auf /: ${FREI_MB} MB (Mindestwert ${MIN_FREE_MB} MB)"
 [ "$FREI_MB" -ge "$MIN_FREE_MB" ] \
     || fehler "Zu wenig Platz: ${FREI_MB} MB frei, ${MIN_FREE_MB} MB verlangt."
@@ -104,7 +107,8 @@ else
         git -C "$PROJEKT" reset --hard "origin/$BRANCH"
     fi
 fi
-COMMIT=$(git -C "$PROJEKT" rev-parse --short HEAD)
+COMMIT=$(git -C "$PROJEKT" rev-parse --short HEAD) \
+    || fehler "HEAD liess sich nicht lesen - ist $PROJEKT noch ein Git-Arbeitsbaum?"
 log "Stand: $COMMIT $(git -C "$PROJEKT" log -1 --pretty=%s)"
 
 # ── 4. Abhaengigkeiten ─────────────────────────────────────────────────
@@ -153,18 +157,27 @@ BACKEND_ZURUECKSTELLEN=1
 
 # Ein abgebrochener Bau darf den Server nicht auf neuem Backend-Code stehen
 # lassen: der wuerde beim naechsten Dienstneustart gegen eine nicht migrierte
-# Datenbank laufen. Die Falle raeumt sich als Erstes selbst ab, damit sie beim
+# Datenbank laufen. Dasselbe gilt fuer jeden weiteren Abbruch bis zum
+# Sicherungspunkt - Bau-Pruefung, Datenbanksicherung und vor allem die lange
+# Migration liegen noch davor. Darum bleibt diese Falle stehen, statt nach dem
+# Bau abgeraeumt zu werden; sie tut dasselbe wie fehler(). Abgeloest wird sie
+# erst von der Falle hinter dem Sicherungspunkt, und ein trap-Aufruf ersetzt
+# den vorigen in einem Zug - dazwischen liegt kein Augenblick ohne Falle und
+# keiner mit zweien. Sie raeumt sich als Erstes selbst ab, damit sie beim
 # Zurueckspielen oder bei einem zweiten Signal nicht in sich selbst faellt.
-trap 'trap - ERR INT TERM HUP; log "Backend-Bau abgebrochen."; backend_dist_zurueck; exit 1' ERR INT TERM HUP
+trap 'trap - ERR INT TERM HUP; log "Abbruch zwischen Backend-Bau und Sicherungspunkt - Webroot unveraendert, eine begonnene Migration bleibt stehen."; backend_dist_zurueck; exit 1' ERR INT TERM HUP
 log "Backend bauen ..."
 ( cd "$PROJEKT" && pnpm backend:build )
-trap - ERR INT TERM HUP
 
 # ── 6. Bau pruefen ─────────────────────────────────────────────────────
 [ -f "$STAGING/index.html" ] || fehler "index.html fehlt im Bau."
 [ -f "$STAGING/sw.js" ]      || fehler "sw.js fehlt im Bau."
 [ -f "$PROJEKT/backend/dist/index.js" ] || fehler "Backend-Bau fehlt."
-PRECACHE=$(grep -o 'revision:' "$STAGING/sw.js" | wc -l)
+# `|| true`, weil grep ohne Treffer 1 liefert: mit pipefail scheitert sonst die
+# ganze Kommandosubstitution, und set -e beendet das Skript still - ausgerechnet
+# an der Zeile, die den kaputten Bau melden soll. Mit || true steht 0 in
+# PRECACHE und die Pruefung darunter sagt es.
+PRECACHE=$(grep -o 'revision:' "$STAGING/sw.js" | wc -l || true)
 [ "$PRECACHE" -ge 20 ] \
     || fehler "sw.js hat nur $PRECACHE Precache-Eintraege - Bau ist kaputt."
 log "Bau geprueft: $PRECACHE Precache-Eintraege."
@@ -302,7 +315,8 @@ cp -a "$PROJEKT/dist" "$DIST_SICHERUNG" \
 # ausloesen.
 BACKEND_ZURUECKSTELLEN=0
 
-# Ab hier ist ein Rueckweg moeglich, weil die Sicherung steht. Die Falle
+# Ab hier ist ein Rueckweg moeglich, weil die Sicherung steht. Diese Falle
+# loest die vom Backend-Bau ab - sie ersetzt sie, ohne Luecke dazwischen. Sie
 # faengt alles, was zwischen hier und der Gesundheitspruefung abbricht:
 # ein mittendrin gescheitertes rsync ebenso wie ein fehlgeschlagener
 # systemctl restart. Ohne sie bliebe ein halb getauschtes Webroot liegen.

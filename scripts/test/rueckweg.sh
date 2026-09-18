@@ -51,7 +51,15 @@ block_backend_zurueck() {
     awk '/^backend_dist_zurueck\(\) \{$/,/^\}$/' "$DEPLOY"
 }
 zeile_bau_falle() {
-    grep -m1 'Backend-Bau abgebrochen' "$DEPLOY"
+    grep -m1 'Abbruch zwischen Backend-Bau' "$DEPLOY"
+}
+block_precache() {
+    awk '/^PRECACHE=/,/^log "Bau geprueft/' "$DEPLOY"
+}
+# Alles zwischen der ersten und der zweiten scharfgestellten Falle - also das
+# Fenster, das nach dem Backend-Bau beginnt und am Sicherungspunkt endet.
+block_fenster() {
+    awk "/^trap 'trap - /{n++} n==1" "$DEPLOY"
 }
 
 # ══ W3: die Sicherungspruefung prueft den Inhalt ════════════════════════════
@@ -550,10 +558,13 @@ teste_w2() {
     else
         nok "deploy.sh hat $scharf Fallen auf ERR INT TERM HUP, erwartet 2."
     fi
-    if [ "$entschaerft" = "2" ]; then
-        ok "beide Fallen werden mit derselben Signalliste wieder entschaerft."
+    # Genau eine Abschaltzeile, und die steht vor der Gesundheitspruefung. Die
+    # erste Falle wird nicht abgeschaltet, sondern von der zweiten abgeloest -
+    # eine zweite Abschaltzeile waere das Loch aus N1.
+    if [ "$entschaerft" = "1" ]; then
+        ok "es gibt genau eine Abschaltzeile - die Fallen loesen sich sonst ab."
     else
-        nok "es gibt $entschaerft Abschaltzeilen 'trap - ERR INT TERM HUP', erwartet 2."
+        nok "es gibt $entschaerft Abschaltzeilen 'trap - ERR INT TERM HUP', erwartet 1."
     fi
     if grep -q "trap 'trap - ERR INT TERM HUP;" "$DEPLOY"; then
         ok "die Fallen raeumen sich selbst ab - keine Rekursion, kein zweiter Durchlauf."
@@ -567,6 +578,97 @@ teste_w2() {
     info "      Das kann nur der Controller auf dem Server erproben."
 }
 
+# ══ N1: das Fenster zwischen Bau und Sicherungspunkt ════════════════════════
+# Befund der Nachpruefung: die Falle nach dem Backend-Bau wurde direkt nach dem
+# Bau wieder abgeraeumt. Danach lagen Bau-Pruefung, Stop-Schalter,
+# Datenbanksicherung, Migration und Webroot-Sicherung ohne jede Falle - und die
+# Merkvariable liest nur fehler(). Jeder Abbruch, der nicht durch fehler()
+# laeuft, hinterliess dort neues backend/dist neben einer halb migrierten
+# Datenbank.
+
+teste_n1() {
+    echo "── N1: Fenster zwischen Backend-Bau und Sicherungspunkt ──"
+
+    # Gemessen, nicht behauptet: unter `set -euo pipefail` beendet eine
+    # Kommandosubstitution, deren grep nichts findet, das Skript auf der Stelle.
+    local mess="$TMPDIR/pipefail.sh"
+    {
+        echo 'set -euo pipefail'
+        echo 'X=$(grep -o nichtsdavon /dev/null | wc -l)'
+        echo 'echo "WEITER X=$X"'
+    } > "$mess"
+    local mess_aus
+    mess_aus=$(bash "$mess" 2>&1)
+    echo "  grep ohne Treffer unter pipefail -> Exit $?, Ausgabe: '${mess_aus:-<nichts>}'"
+    if [ -z "$mess_aus" ]; then
+        info "bestaetigt: die Zeile danach wird nicht mehr erreicht."
+    else
+        info "diese bash bricht dort nicht ab - der Nachweis unten misst trotzdem das Skript."
+    fi
+
+    # Und nun dieselbe Lage mit dem echten Text aus deploy.sh: leere sw.js, also
+    # kein einziger Precache-Eintrag. Erwartet wird die eigens dafuer
+    # geschriebene Meldung - nicht ein stiller Abgang.
+    local wurzel="$TMPDIR/precache" skript="$TMPDIR/precache.sh"
+    rm -rf "$wurzel"; mkdir -p "$wurzel"
+    : > "$wurzel/sw.js"
+    {
+        echo '#!/usr/bin/env bash'
+        echo 'set -euo pipefail'
+        echo "STAGING='$wurzel'"
+        echo 'log() { printf "%s\n" "$*"; }'
+        echo 'fehler() { printf "FEHLER: %s\n" "$*" >&2; exit 1; }'
+        block_precache
+    } > "$skript"
+    local aus code
+    aus=$(bash "$skript" 2>&1); code=$?
+    echo "  leere sw.js -> Exit $code, Ausgabe: '${aus:-<nichts>}'"
+    case "$aus" in
+        *"Precache-Eintraege - Bau ist kaputt"*)
+            ok "leere Precache-Liste laeuft in die vorgesehene Fehlermeldung." ;;
+        *)
+            nok "leere Precache-Liste endet ohne die vorgesehene Meldung (Exit $code)." ;;
+    esac
+    [ "$code" -eq 1 ] || nok "erwartet wurde Exit 1 aus fehler(), gemessen: $code."
+
+    # Quelltext: zwischen der Falle nach dem Bau und der Falle hinter dem
+    # Sicherungspunkt darf keine Abschaltzeile stehen, sonst ist das Fenster
+    # wieder offen.
+    local fenster
+    fenster=$(block_fenster)
+    if [ -z "$fenster" ]; then
+        nok "das Fenster liess sich nicht aus deploy.sh schneiden."
+        return
+    fi
+    if printf '%s\n' "$fenster" | grep -q '^trap - ERR INT TERM HUP'; then
+        nok "die Falle wird mitten im Fenster abgeraeumt - der Rest laeuft ohne Absicherung."
+    else
+        ok "die Falle bleibt ueber das ganze Fenster stehen."
+    fi
+
+    # Gegenprobe, dass der geschnittene Bereich wirklich das gemeinte Fenster
+    # ist und nicht zufaellig leer: die teuren Schritte muessen darin liegen.
+    local schritt
+    for schritt in 'PRECACHE=' 'DEPLOY_STOP_AFTER' 'Datenbank sichern' 'pnpm backend:migrate' 'Webroot sichern'; do
+        if printf '%s\n' "$fenster" | grep -q -- "$schritt"; then
+            ok "im abgesicherten Fenster liegt: $schritt"
+        else
+            nok "'$schritt' liegt NICHT im abgesicherten Fenster."
+        fi
+    done
+
+    # Der Handler muss dasselbe tun wie fehler(): zurueckstellen, dann Schluss.
+    local falle
+    falle=$(zeile_bau_falle)
+    case "$falle" in
+        *backend_dist_zurueck*exit\ 1*) ok "der Handler stellt backend/dist zurueck und bricht dann ab." ;;
+        *) nok "der Handler der Falle tut nicht dasselbe wie fehler(): '$falle'" ;;
+    esac
+
+    info "nicht gezeigt: dass ein Abriss der SSH-Sitzung waehrend pnpm backend:migrate"
+    info "      auf dem VPS als Signal bei diesem Prozess ankommt."
+}
+
 # ══ Ablauf ══════════════════════════════════════════════════════════════════
 
 echo "bash: $(bash --version | head -1)"
@@ -578,6 +680,7 @@ teste_k2_k3; echo
 teste_w2; echo
 teste_a2_fehler; echo
 teste_a2_webroot; echo
+teste_n1; echo
 
 if [ "$FEHLER" -eq 0 ]; then
     echo "Ergebnis: bestanden."
