@@ -22,6 +22,33 @@ sudo /opt/hideandseek/scripts/deploy.sh
 
 Das ruft dasselbe Skript auf wie der Deploy-Job. Ein Unterschied bleibt: Ohne mitgegebenen Commit rollt der Handbetrieb die Spitze von `origin/master` aus, nicht einen bestimmten geprüften Stand.
 
+## Wo was liegt
+
+| | Pfad |
+|---|---|
+| Repository-Klon | `/opt/hideandseek` |
+| Webroot (nginx) | `/opt/hideandseek/dist` |
+| Backend-Bau | `/opt/hideandseek/backend/dist`, der Dienst führt `index.js` von dort aus |
+| Backend-Dienst | `hideandseek-backend.service` (systemd), Port 3001 |
+| Datenbank | `/opt/hideandseek/backend/hideandseek.db`, gehört `hideandseek:hideandseek` |
+| Sicherungen | `/opt/hideandseek/backups` |
+| Uploads | `/opt/hideandseek/uploads` (nginx liefert von dort aus) |
+| nginx-Site | `/etc/nginx/sites-available/hideandseek.vielhaben.com` |
+| Umgebung für den Frontend-Build | `/opt/hideandseek/.env`, gitignored, bleibt bei `git reset` liegen |
+| Geheimnisse fürs Backend | `/etc/hideandseek-backend.env`, `600 root:root`, außerhalb des Projekts |
+
+Zugang über `ssh deploy@<vps>`, der Benutzer hat passwortloses `sudo`.
+
+## Eingriffe von Hand: kein `rsync -a` vom Mac
+
+Gebaut wird auf dem Server. Wer die Strecke benutzt, kann den Fehler unten gar nicht mehr machen. Für alles, was man von Hand am Server tut, gilt er weiter: **niemals `rsync -a` vom Mac auf den Server.**
+
+`rsync -a` überträgt Eigentümer und Gruppe numerisch. Auf dem Server gibt es die uid 502 und die Gruppe `staff` nicht, die Dateien gehören danach niemandem, den das System kennt. Bei statischen Dateien im Webroot fällt das nicht auf, weil nginx nur liest. Die SQLite-Datenbank des Backends dagegen wird damit für den Dienstbenutzer unbeschreibbar, und jede Session-Erstellung endet in einem 500er.
+
+Im April 2026 ist genau das passiert. Aufgefallen ist es am 18.09., knapp fünf Monate später: Der Multiplayer war seit dem 23.04. tot, im Journal stand `SqliteError: attempt to write a readonly database`, und niemand hat hingesehen.
+
+Wer trotzdem vom Mac übertragen muss: `--no-owner --no-group` mitgeben, oder direkt danach den Eigentümer geradeziehen. Der Befehl dafür steht im Abschnitt *Nach dem Deploy prüfen*.
+
 ## Die Schalter
 
 Alle vier stehen in `scripts/deploy.sh` und werden über Umgebungsvariablen gesetzt, zum Beispiel:
