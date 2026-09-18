@@ -109,7 +109,11 @@ MIN_FREE_MB="${MIN_FREE_MB:-2048}"
 DEPLOY_STOP_AFTER="${DEPLOY_STOP_AFTER:-}"
 
 # Ohne root geht hier nichts: git in /opt, rsync ins Webroot, systemctl.
-[ "$(id -u)" -eq 0 ] || exec sudo -n "$0" "$@"
+# --preserve-env ist noetig, weil sudo die Umgebung sonst ausraeumt und alle
+# Erprobungsschalter still verschwinden wuerden.
+[ "$(id -u)" -eq 0 ] || exec sudo -n \
+    --preserve-env=MIN_FREE_MB,DEPLOY_STOP_AFTER,DEPLOY_SKIP_RESET,HEALTH_URL \
+    "$0" "$@"
 
 log() { printf '[%s] %s\n' "$(date -u +%H:%M:%S)" "$*"; }
 fehler() { printf '[%s] FEHLER: %s\n' "$(date -u +%H:%M:%S)" "$*" >&2; exit 1; }
@@ -466,7 +470,9 @@ Ohne das wird `backups/` der nächste Plattenfresser. Am 18.09. war die Platte z
 - Konsumiert: `SICHERUNGEN`, `log()` aus Task 3
 - Produziert: nichts, worauf spätere Aufgaben aufbauen
 
-- [ ] **Schritt 1: Ans Ende des Skripts anfügen, in den Erfolgszweig nach „ist live."**
+- [ ] **Schritt 1: In den Erfolgszweig der Gesundheitsprüfung einfügen**
+
+Der Block gehört **innerhalb** des `if gesundheit; then`-Zweigs, unmittelbar nach der Zeile `log "Gesundheitspruefung bestanden. Deploy $COMMIT ist live."`. Nicht ans Dateiende und nicht in den `else`-Zweig: Nach einem Rückweg sollen die alten Sicherungen gerade **nicht** ausgedünnt werden, weil man sie dann braucht.
 
 ```bash
 # ── 12. Alte Sicherungen ausduennen ────────────────────────────────────
@@ -566,13 +572,21 @@ rm -f /tmp/vps-hostkey
 Der vorhandene `test.yml` bleibt die Prüfung. Der Deploy-Job hängt sich per `needs` daran und läuft nur bei einem Push auf `master`.
 
 **Dateien:**
-- Ändern: `.github/workflows/test.yml`
+- Umbenennen: `.github/workflows/test.yml` → `.github/workflows/ci.yml` (per `git mv`, damit die Historie erhalten bleibt)
+- Ändern: `.github/workflows/ci.yml`
 
 **Interfaces:**
 - Konsumiert: die Secrets `VPS_DEPLOY_KEY` und `VPS_HOST_KEY` aus Task 6
 - Produziert: nichts, worauf spätere Aufgaben aufbauen
 
-- [ ] **Schritt 1: Workflow-Namen anpassen und Deploy-Job anfügen**
+- [ ] **Schritt 1: Datei umbenennen, Workflow-Namen anpassen, Deploy-Job anfügen**
+
+```bash
+cd ~/hideandseek
+git mv .github/workflows/test.yml .github/workflows/ci.yml
+```
+
+Eine Datei namens `test.yml`, die einen Deploy-Job enthält, ist irreführend — daher die Umbenennung.
 
 Die erste Zeile `name: Tests` wird zu `name: CI`. Am Dateiende anfügen (Einrückung wie im vorhandenen Job, vier Leerzeichen):
 
@@ -602,7 +616,7 @@ Das mitgegebene Kommando fehlt bewusst: Das erzwungene Kommando in `authorized_k
 
 ```bash
 cd ~/hideandseek
-python3 -c "import yaml,sys; d=yaml.safe_load(open('.github/workflows/test.yml')); print('Jobs:', list(d['jobs'])); print('deploy.needs:', d['jobs']['deploy']['needs'])"
+python3 -c "import yaml,sys; d=yaml.safe_load(open('.github/workflows/ci.yml')); print('Jobs:', list(d['jobs'])); print('deploy.needs:', d['jobs']['deploy']['needs'])"
 ```
 
 Erwartet: `Jobs: ['test', 'deploy']`, `deploy.needs: test`.
@@ -610,7 +624,7 @@ Erwartet: `Jobs: ['test', 'deploy']`, `deploy.needs: test`.
 - [ ] **Schritt 3: Committen und pushen** — dieser Push ist zugleich der erste automatische Deploy, also unter Aufsicht
 
 ```bash
-git add .github/workflows/test.yml
+git add .github/workflows/ci.yml
 git commit -m "feat(ci): Deploy auf den VPS nach gruenen Tests
 
 Der Job haengt per needs am vorhandenen Test-Job und laeuft nur bei einem
