@@ -179,6 +179,18 @@ sleep 3
 trap - ERR   # ab hier wird von Hand entschieden, nicht mehr automatisch
 if gesundheit; then
     log "Gesundheitspruefung bestanden. Deploy $COMMIT ist live."
+
+    # ── 12. Alte Sicherungen ausduennen ────────────────────────────────────
+    BEHALTEN=5
+    for muster in 'db-*.sqlite' 'dist-*'; do
+        # shellcheck disable=SC2012
+        ls -1dt "$SICHERUNGEN"/$muster 2>/dev/null | tail -n "+$((BEHALTEN+1))" \
+            | while read -r alt; do
+                log "Entferne alte Sicherung: $(basename "$alt")"
+                rm -rf "$alt"
+              done
+    done
+    log "Sicherungen ausgeduennt, die neuesten $BEHALTEN bleiben."
 else
     log "Gesundheitspruefung gescheitert."
     rueckweg_code
