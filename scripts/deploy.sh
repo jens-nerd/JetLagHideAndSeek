@@ -32,6 +32,13 @@ exec 9>/var/lock/hideandseek-deploy.lock
 flock -n 9 || fehler "Ein Deploy laeuft bereits. Abbruch."
 log "Sperre gesetzt."
 
+# Ein Zeitstempel fuer den ganzen Lauf: die Sicherungen von Backend-Bau,
+# Datenbank und Webroot tragen denselben und gehoeren damit sichtbar zusammen.
+# So frueh, weil die Backend-Sicherung schon vor dem Bau angelegt wird.
+STEMPEL=$(date -u +%Y%m%d-%H%M%S)
+BACKEND_SICHERUNG="$SICHERUNGEN/backend-$STEMPEL"
+mkdir -p "$SICHERUNGEN"
+
 # ── 2. Platz pruefen ───────────────────────────────────────────────────
 FREI_MB=$(df --output=avail -m / | tail -1 | tr -d ' ')
 log "Frei auf /: ${FREI_MB} MB (Mindestwert ${MIN_FREE_MB} MB)"
@@ -66,8 +73,41 @@ log "pnpm install ..."
 rm -rf "$STAGING"
 log "Frontend bauen -> $STAGING"
 ( cd "$PROJEKT" && pnpm exec astro build --outDir "$STAGING" )
+
+# tsc schreibt direkt nach backend/dist - also in genau die Dateien, die der
+# Dienst beim naechsten Start ausfuehrt - und raeumt das Verzeichnis vorher
+# nicht auf. Darum vorher sichern.
+backend_dist_zurueck() {
+    # Jeder Befehl mit || log: die Funktion laeuft unter set -e genauso
+    # vollstaendig durch wie unter set +e im Rueckweg.
+    if [ -d "$BACKEND_SICHERUNG" ]; then
+        log "Backend-Bau aus $BACKEND_SICHERUNG zurueckspielen ..."
+        # --ignore-times, weil rsync sonst nach Groesse und Zeitstempel
+        # entscheidet: eine gleich grosse, in derselben Sekunde geschriebene
+        # index.js wuerde uebersprungen. Beim Wiederherstellen von Code, der
+        # gleich ausgefuehrt wird, ist Raten zu wenig; backend/dist ist klein.
+        rsync -a --delete --ignore-times "$BACKEND_SICHERUNG/" "$PROJEKT/backend/dist/" \
+            || log "Zurueckspielen von backend/dist meldete einen Fehler."
+    else
+        log "Keine Backend-Sicherung vorhanden - backend/dist bleibt, wie es ist."
+    fi
+}
+
+if [ -d "$PROJEKT/backend/dist" ]; then
+    log "Backend-Bau sichern -> $BACKEND_SICHERUNG"
+    cp -a "$PROJEKT/backend/dist" "$BACKEND_SICHERUNG"
+else
+    log "Kein voriger Backend-Bau vorhanden - nichts zu sichern."
+fi
+
+# Ein abgebrochener Bau darf den Server nicht auf neuem Backend-Code stehen
+# lassen: der wuerde beim naechsten Dienstneustart gegen eine nicht migrierte
+# Datenbank laufen. Die Falle raeumt sich als Erstes selbst ab, damit sie beim
+# Zurueckspielen oder bei einem zweiten Signal nicht in sich selbst faellt.
+trap 'trap - ERR INT TERM HUP; log "Backend-Bau abgebrochen."; backend_dist_zurueck; exit 1' ERR INT TERM HUP
 log "Backend bauen ..."
 ( cd "$PROJEKT" && pnpm backend:build )
+trap - ERR INT TERM HUP
 
 # ── 6. Bau pruefen ─────────────────────────────────────────────────────
 [ -f "$STAGING/index.html" ] || fehler "index.html fehlt im Bau."
@@ -79,16 +119,16 @@ PRECACHE=$(grep -o 'revision:' "$STAGING/sw.js" | wc -l)
 log "Bau geprueft: $PRECACHE Precache-Eintraege."
 
 if [ "$DEPLOY_STOP_AFTER" = "bau" ]; then
-    log "DEPLOY_STOP_AFTER=bau gesetzt - hier ist Schluss. Live unveraendert."
+    log "DEPLOY_STOP_AFTER=bau gesetzt - hier ist Schluss."
+    log "Webroot und Datenbank sind unveraendert. node_modules und backend/dist"
+    log "stehen auf dem neuen Stand und werden beim naechsten Dienstneustart wirksam."
     exit 0
 fi
 
-# ═══ ab hier wird Laufendes angefasst ══════════════════════════════════
-STEMPEL=$(date -u +%Y%m%d-%H%M%S)
+# ═══ ab hier wird der Webroot und die Datenbank angefasst ══════════════
 DB="$PROJEKT/backend/hideandseek.db"
 DB_SICHERUNG="$SICHERUNGEN/db-$STEMPEL.sqlite"
 DIST_SICHERUNG="$SICHERUNGEN/dist-$STEMPEL"
-mkdir -p "$SICHERUNGEN"
 
 gesundheit() {
     systemctl is-active --quiet "$DIENST" || { log "Dienst nicht aktiv."; return 1; }
@@ -110,6 +150,9 @@ rueckweg_code() {
         || log "RUECKWEG: rsync meldete einen Fehler."
     chmod -R 755 "$PROJEKT/dist" \
         || log "RUECKWEG: chmod meldete einen Fehler."
+    # Vor dem Neustart, sonst startet der Dienst wieder den neuen Backend-Bau -
+    # also genau den, der die Gesundheitspruefung eben hat durchfallen lassen.
+    backend_dist_zurueck
     systemctl restart "$DIENST" \
         || log "RUECKWEG: Neustart meldete einen Fehler."
     sleep 3
@@ -192,7 +235,7 @@ if gesundheit; then
     ZIFFER8='[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
     ZIFFER6='[0-9][0-9][0-9][0-9][0-9][0-9]'
     shopt -s nullglob
-    for muster in "db-$ZIFFER8-$ZIFFER6.sqlite" "dist-$ZIFFER8-$ZIFFER6"; do
+    for muster in "db-$ZIFFER8-$ZIFFER6.sqlite" "dist-$ZIFFER8-$ZIFFER6" "backend-$ZIFFER8-$ZIFFER6"; do
         eintraege=("$SICHERUNGEN"/$muster)
         [ "${#eintraege[@]}" -gt "$BEHALTEN" ] || continue
         while IFS= read -r alt; do

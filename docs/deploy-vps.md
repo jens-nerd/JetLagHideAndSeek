@@ -27,7 +27,7 @@ sudo DEPLOY_STOP_AFTER=bau /opt/hideandseek/scripts/deploy.sh
 ```
 
 - **`MIN_FREE_MB`** (Vorgabe `2048`): Mindestfreier Platz auf `/` in Megabyte. Ist weniger frei, bricht das Skript ab, bevor es irgendetwas anfasst.
-- **`DEPLOY_STOP_AFTER=bau`**: Hält an, sobald Frontend und Backend gebaut und geprüft sind, noch bevor irgendetwas Laufendes angefasst wird. Die Seite bleibt bis dahin unverändert live.
+- **`DEPLOY_STOP_AFTER=bau`**: Hält an, sobald Frontend und Backend gebaut und geprüft sind. Webroot und Datenbank sind dann unverändert, die Seite läuft weiter wie bisher. Unverändert ist aber nicht alles: `node_modules` und `backend/dist` stehen nach diesem Lauf auf dem neuen Stand und werden beim nächsten Neustart des Dienstes wirksam – auch bei einem Neustart, der nichts mit einem Deploy zu tun hat. Der Schalter ist also gut zum Bauen-Prüfen, aber er lässt den Server nicht so zurück, wie er ihn vorgefunden hat.
 - **`HEALTH_URL`** (Vorgabe `https://hideandseek.vielhaben.com/`): Die Adresse, die die Gesundheitsprüfung nach dem Neustart abfragt. Erwartet wird HTTP 200.
 - **`DEPLOY_SKIP_RESET`** (auf `1` gesetzt): Umgeht `git fetch` und `git reset --hard` in Schritt 3. Nur für die Erprobung gedacht, etwa um einen absichtlich manipulierten Arbeitsbaum zu testen, ohne dass der Reset ihn sofort geradezieht.
 
@@ -43,12 +43,13 @@ Gemessen wurde das auf bash 5.2.21, der Version auf dem Ziel-VPS (Ubuntu 24.04).
 
 ## Sicherungen
 
-Beide Sicherungsarten landen in `/opt/hideandseek/backups`, mit demselben UTC-Zeitstempel je Lauf:
+Alle drei Sicherungsarten landen in `/opt/hideandseek/backups`, mit demselben UTC-Zeitstempel je Lauf. Der Zeitstempel wird gleich nach der Sperre vergeben, damit die drei Sicherungen eines Laufs zusammengehören:
 
+- `backend-<JJJJMMTT-HHMMSS>`, `backend/dist` vor dem Backend-Bau (Schritt 5)
 - `db-<JJJJMMTT-HHMMSS>.sqlite`, Datenbank vor der Migration (Schritt 7)
 - `dist-<JJJJMMTT-HHMMSS>`, Webroot vor dem Tausch (Schritt 9)
 
-Nach einem erfolgreichen Deploy dünnt das Skript aus: Von jeder der beiden Arten bleiben die neuesten fünf, ältere werden gelöscht. Von Hand angelegte Sicherungen mit anderen Namen, etwa `dist-vor-rebuild`, treffen die Lösch-Muster nicht und bleiben unangetastet.
+Nach einem erfolgreichen Deploy dünnt das Skript aus: Von jeder der drei Arten bleiben die neuesten fünf, ältere werden gelöscht. Von Hand angelegte Sicherungen mit anderen Namen, etwa `dist-vor-rebuild`, treffen die Lösch-Muster nicht und bleiben unangetastet.
 
 Von Hand zurücksetzen, am Beispiel eines Zeitstempels:
 
@@ -57,6 +58,11 @@ Von Hand zurücksetzen, am Beispiel eines Zeitstempels:
 sudo rsync -a --delete /opt/hideandseek/backups/dist-<STEMPEL>/ /opt/hideandseek/dist/
 sudo chmod -R 755 /opt/hideandseek/dist
 sudo systemctl restart hideandseek-backend
+
+# Backend-Bau
+sudo systemctl stop hideandseek-backend
+sudo rsync -a --delete /opt/hideandseek/backups/backend-<STEMPEL>/ /opt/hideandseek/backend/dist/
+sudo systemctl start hideandseek-backend
 
 # Datenbank
 sudo systemctl stop hideandseek-backend
@@ -72,9 +78,9 @@ Das sind dieselben Befehle, die das Skript im Rückweg selbst verwendet, nur mit
 
 Scheitert eine Migration (Schritt 8), spielt das Skript die eben angelegte Datenbanksicherung zurück und bricht ab. Der Webroot wurde zu diesem Zeitpunkt noch nicht getauscht, der Dienst noch nicht neu gestartet. Die Seite läuft also unverändert mit dem alten Stand weiter. Das ist der harmloseste der drei Fehlschläge.
 
-Scheitert der Dienst-Neustart oder alles, was direkt danach kommt, bevor die Gesundheitsprüfung läuft, fängt eine Falle das ab und spielt den vorigen Webroot automatisch zurück.
+Scheitert der Dienst-Neustart oder alles, was direkt danach kommt, bevor die Gesundheitsprüfung läuft, fängt eine Falle das ab und spielt den vorigen Webroot und den vorigen `backend/dist` automatisch zurück.
 
-Scheitert stattdessen die Gesundheitsprüfung selbst (Dienst nicht aktiv, `/health` antwortet nicht, oder die öffentliche URL liefert keine 200), rollt das Skript ebenfalls den Code zurück und beendet sich mit Fehler.
+Scheitert stattdessen die Gesundheitsprüfung selbst (Dienst nicht aktiv, `/health` antwortet nicht, oder die öffentliche URL liefert keine 200), rollt das Skript ebenfalls den Code zurück – Webroot und `backend/dist`, letzteres vor dem Neustart – und beendet sich mit Fehler.
 
 Der Vorbehalt dabei: Nur der Code geht zurück. Die Datenbank bleibt auf dem neuen Schema, weil die Migration bereits vor dem Webroot-Tausch läuft. Ein automatisches Zurückspielen der Datenbank an dieser Stelle würde alles verwerfen, was seit der Sicherung vor der Migration geschrieben wurde, deshalb macht das Skript das nicht von selbst. Es protokolliert die Lage mit "ACHTUNG" und nennt dabei den Pfad der Datenbanksicherung von vor der Migration.
 
