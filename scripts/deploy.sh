@@ -181,15 +181,24 @@ if gesundheit; then
     log "Gesundheitspruefung bestanden. Deploy $COMMIT ist live."
 
     # ── 12. Alte Sicherungen ausduennen ────────────────────────────────────
+    # Die Muster treffen bewusst NUR den Zeitstempel, den dieses Skript selbst
+    # vergibt (JJJJMMTT-HHMMSS). Von Hand angelegte Sicherungen wie
+    # dist-vor-rebuild bleiben dadurch unangetastet.
     BEHALTEN=5
-    for muster in 'db-*.sqlite' 'dist-*'; do
-        # shellcheck disable=SC2012
-        ls -1dt "$SICHERUNGEN"/$muster 2>/dev/null | tail -n "+$((BEHALTEN+1))" \
-            | while read -r alt; do
-                log "Entferne alte Sicherung: $(basename "$alt")"
-                rm -rf "$alt"
-              done
+    ZIFFER8='[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
+    ZIFFER6='[0-9][0-9][0-9][0-9][0-9][0-9]'
+    shopt -s nullglob
+    for muster in "db-$ZIFFER8-$ZIFFER6.sqlite" "dist-$ZIFFER8-$ZIFFER6"; do
+        eintraege=("$SICHERUNGEN"/$muster)
+        [ "${#eintraege[@]}" -gt "$BEHALTEN" ] || continue
+        while IFS= read -r alt; do
+            log "Entferne alte Sicherung: $(basename "$alt")"
+            # Ein fehlgeschlagenes rm darf einen laengst live geschalteten
+            # Deploy nicht nachtraeglich als Fehler enden lassen.
+            rm -rf "$alt" || log "Konnte $(basename "$alt") nicht entfernen."
+        done < <(ls -1dt "${eintraege[@]}" | tail -n "+$((BEHALTEN + 1))")
     done
+    shopt -u nullglob
     log "Sicherungen ausgeduennt, die neuesten $BEHALTEN bleiben."
 else
     log "Gesundheitspruefung gescheitert."
