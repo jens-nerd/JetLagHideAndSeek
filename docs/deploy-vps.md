@@ -34,12 +34,26 @@ Das ruft dasselbe Skript auf wie der Deploy-Job. Ein Unterschied bleibt: Ohne mi
 | Backend-Dienst | `hideandseek-backend.service` (systemd), Port 3001 |
 | Datenbank | `/opt/hideandseek/backend/hideandseek.db`, gehört `hideandseek:hideandseek` |
 | Sicherungen | `/opt/hideandseek/backups` |
-| Uploads | `/opt/hideandseek/uploads` (nginx liefert von dort aus) |
-| nginx-Site | `/etc/nginx/sites-available/hideandseek.vielhaben.com` |
+| Uploads | `/opt/hideandseek/backend/uploads`, gehört `hideandseek:hideandseek` |
+| nginx-Site | `/etc/nginx/sites-enabled/hideandseek.vielhaben.com` — eine **echte Datei**, kein Verweis |
 | Umgebung für den Frontend-Build | `/opt/hideandseek/.env`, gitignored, bleibt bei `git reset` liegen |
 | Geheimnisse fürs Backend | `/etc/hideandseek-backend.env`, `600 root:root`, außerhalb des Projekts |
 
 Zugang über `ssh deploy@<vps>`, der Benutzer hat passwortloses `sudo`.
+
+## Zwei Fallen bei den Pfaden
+
+**Die nginx-Site liegt direkt in `sites-enabled`.** Bei den meisten Seiten auf diesem Server ist der Eintrag dort ein Verweis nach `sites-available` — bei hideandseek nicht. Dort steht eine echte Datei. In `sites-available` liegt zusätzlich eine veraltete Datei namens `hideandseek`, die nichts mehr mit dem laufenden Betrieb zu tun hat. Wer sie bearbeitet, ändert nichts und merkt es womöglich erst, wenn er sich wundert.
+
+Zweitens lädt nginx **alles**, was in `sites-enabled` liegt. Eine dort abgelegte Sicherungskopie wird mitgeladen und erzeugt einen doppelten Server-Block. Sicherungen gehören woanders hin, etwa nach `/root/nginx-sicherungen/`.
+
+**Uploads liegen im Arbeitsverzeichnis des Dienstes.** Das Backend schreibt hochgeladene Bilder nach `join(process.cwd(), "uploads")`, solange `UPLOADS_DIR` nicht gesetzt ist. Das Arbeitsverzeichnis der Unit ist `/opt/hideandseek/backend`, also landen sie in `backend/uploads`, und nginx liefert `/uploads/` von dort.
+
+Bis zum 18.09.2026 passte das nicht zusammen: nginx lieferte aus `/opt/hideandseek/uploads`, geschrieben wurde nach `backend/uploads`. Fünf Fotoantworten vom April lagen auf der Platte und erreichten keinen Nutzer. Aufgefallen ist es erst, als jemand die beiden Verzeichnisse verglich.
+
+Die Unit ist gehärtet: `ProtectSystem=strict` mit `ReadWritePaths=/opt/hideandseek/backend`. Der Dienst kann außerhalb dieses Verzeichnisses gar nicht schreiben. Wer den Upload-Pfad verlegen will, muss `UPLOADS_DIR` **und** `ReadWritePaths` anfassen, sonst schlagen Uploads fehl, ohne dass es auffällt.
+
+Die Bilder liegen damit im Git-Arbeitsbaum. `git reset --hard` und `rsync --delete` fassen sie nicht an, weil sie unverfolgt sind und außerhalb von `dist/` liegen. Ein `git clean -fd` würde sie löschen — noch ein Grund, warum im Skript keines steht und von Hand keines laufen sollte.
 
 ## Eingriffe von Hand: kein `rsync -a` vom Mac
 
