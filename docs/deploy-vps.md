@@ -32,9 +32,10 @@ Das ruft dasselbe Skript auf wie der Deploy-Job. Ein Unterschied bleibt: Ohne mi
 | Webroot (nginx) | `/opt/hideandseek/dist` |
 | Backend-Bau | `/opt/hideandseek/backend/dist`, der Dienst führt `index.js` von dort aus |
 | Backend-Dienst | `hideandseek-backend.service` (systemd), Port 3001 |
-| Datenbank | `/opt/hideandseek/backend/hideandseek.db`, gehört `hideandseek:hideandseek` |
+| Veränderliche Daten | `/var/lib/hideandseek`, gehört `hideandseek:hideandseek`, angelegt von `StateDirectory=` in der Unit |
+| Datenbank | `/var/lib/hideandseek/hideandseek.db`, Modus `640` |
+| Uploads | `/var/lib/hideandseek/uploads`, Modus `755`, Bilder `644` — nginx liest als `www-data` |
 | Sicherungen | `/opt/hideandseek/backups` |
-| Uploads | `/opt/hideandseek/backend/uploads`, gehört `hideandseek:hideandseek` |
 | nginx-Site | `/etc/nginx/sites-enabled/hideandseek.vielhaben.com` — eine **echte Datei**, kein Verweis |
 | Umgebung für den Frontend-Build | `/opt/hideandseek/.env`, gitignored, bleibt bei `git reset` liegen |
 | Geheimnisse fürs Backend | `/etc/hideandseek-backend.env`, `600 root:root`, außerhalb des Projekts |
@@ -47,13 +48,19 @@ Zugang über `ssh deploy@<vps>`, der Benutzer hat passwortloses `sudo`.
 
 Zweitens lädt nginx **alles**, was in `sites-enabled` liegt. Eine dort abgelegte Sicherungskopie wird mitgeladen und erzeugt einen doppelten Server-Block. Sicherungen gehören woanders hin, etwa nach `/root/nginx-sicherungen/`.
 
-**Uploads liegen im Arbeitsverzeichnis des Dienstes.** Das Backend schreibt hochgeladene Bilder nach `join(process.cwd(), "uploads")`, solange `UPLOADS_DIR` nicht gesetzt ist. Das Arbeitsverzeichnis der Unit ist `/opt/hideandseek/backend`, also landen sie in `backend/uploads`, und nginx liefert `/uploads/` von dort.
+**Datenbank und Uploads liegen außerhalb des Repository-Klons.** Beides steht unter `/var/lib/hideandseek`, dort, wo auf diesem Server auch `english-sync`, `hohenfelde` und `plenum-bot` ihre Daten halten. Drei Einstellungen halten das zusammen, und sie gehören zusammen angefasst:
 
-Bis zum 18.09.2026 passte das nicht zusammen: nginx lieferte aus `/opt/hideandseek/uploads`, geschrieben wurde nach `backend/uploads`. Fünf Fotoantworten vom April lagen auf der Platte und erreichten keinen Nutzer. Aufgefallen ist es erst, als jemand die beiden Verzeichnisse verglich.
+- `Environment=DB_PATH=/var/lib/hideandseek/hideandseek.db` in der Unit
+- `Environment=UPLOADS_DIR=/var/lib/hideandseek/uploads` in der Unit — ohne diese Zeile schreibt `backend/src/routes/upload.ts` nach `join(process.cwd(), "uploads")`, und das Arbeitsverzeichnis ist nach wie vor `/opt/hideandseek/backend`
+- `alias /var/lib/hideandseek/uploads/;` in der nginx-Site
 
-Die Unit ist gehärtet: `ProtectSystem=strict` mit `ReadWritePaths=/opt/hideandseek/backend`. Der Dienst kann außerhalb dieses Verzeichnisses gar nicht schreiben. Wer den Upload-Pfad verlegen will, muss `UPLOADS_DIR` **und** `ReadWritePaths` anfassen, sonst schlagen Uploads fehl, ohne dass es auffällt.
+Das Verzeichnis legt die Unit selbst an: `StateDirectory=hideandseek`. systemd erzeugt es beim Start, setzt `hideandseek:hideandseek` und macht es trotz `ProtectSystem=strict` beschreibbar. Ein zusätzliches `ReadWritePaths` für denselben Pfad steht bewusst nicht in der Unit — zwei Zeilen für dieselbe Aussage driften auseinander, sobald jemand nur eine davon ändert.
 
-Die Bilder liegen damit im Git-Arbeitsbaum. `git reset --hard` und `rsync --delete` fassen sie nicht an, weil sie unverfolgt sind und außerhalb von `dist/` liegen. Ein `git clean -fd` würde sie löschen — noch ein Grund, warum im Skript keines steht und von Hand keines laufen sollte.
+Bis zum 18.09.2026 lag beides unter `/opt/hideandseek/backend`, also mitten in dem Verzeichnis, in dem der Deploy `git reset --hard` fährt. Die Dateien waren unverfolgt und überlebten das, aber ein `git clean -fd` hätte sie gelöscht. Seit dem Umzug ist diese Frage erledigt: Der Deploy fasst `/var/lib/hideandseek` nirgends an.
+
+An demselben Tag kam ein zweiter Fehler ans Licht: nginx lieferte aus `/opt/hideandseek/uploads`, geschrieben wurde nach `backend/uploads`. Fünf Fotoantworten vom April lagen auf der Platte und erreichten keinen Nutzer. Aufgefallen ist es erst, als jemand die beiden Verzeichnisse verglich. Wer an einem der drei Pfade oben dreht, prüft danach einen echten Upload und ruft ihn über die öffentliche URL wieder ab. Der Befehl steht im Abschnitt *Nach dem Deploy prüfen*.
+
+Auf die Rechte kommt es an, weil zwei Benutzer beteiligt sind. Der Dienst läuft als `hideandseek` und muss schreiben, nginx läuft als `www-data` und muss lesen. `/var/lib/hideandseek` ist deshalb `755` und nicht `750` wie bei den Nachbarprojekten: `www-data` braucht das Durchgangsrecht. Die Datenbank ist `640` — nginx hat dort nichts zu suchen.
 
 ## Eingriffe von Hand: kein `rsync -a` vom Mac
 
@@ -97,6 +104,8 @@ Alle drei Sicherungsarten landen in `/opt/hideandseek/backups`, mit demselben UT
 - `db-<JJJJMMTT-HHMMSS>.sqlite`, Datenbank vor der Migration (Schritt 7)
 - `dist-<JJJJMMTT-HHMMSS>`, Webroot vor dem Tausch (Schritt 9)
 
+Die Uploads sind bewusst **nicht** dabei. Der Deploy fasst sie nicht an — sie liegen außerhalb des Klons, kein `rsync --delete` und kein `git reset` kommt dorthin. Eine Sicherung pro Lauf würde also gegen nichts schützen, was der Lauf selbst anrichten kann, und bei 34 MB mal fünf behaltenen Ständen knapp 170 MB auf einer 38-GB-Platte binden. Gegen Plattenverlust hilft das ohnehin nicht; dafür braucht es eine Sicherung, die den Server verlässt. Die gibt es für hideandseek bis heute nicht.
+
 Nach einem erfolgreichen Deploy dünnt das Skript aus: Von jeder der drei Arten bleiben die neuesten fünf, ältere werden gelöscht. Von Hand angelegte Sicherungen mit anderen Namen, etwa `dist-vor-rebuild`, treffen die Lösch-Muster nicht und bleiben unangetastet.
 
 Von Hand zurücksetzen, am Beispiel eines Zeitstempels:
@@ -114,9 +123,10 @@ sudo systemctl start hideandseek-backend
 
 # Datenbank
 sudo systemctl stop hideandseek-backend
-sudo cp -a /opt/hideandseek/backups/db-<STEMPEL>.sqlite /opt/hideandseek/backend/hideandseek.db
-sudo chown hideandseek:hideandseek /opt/hideandseek/backend/hideandseek.db
-sudo rm -f /opt/hideandseek/backend/hideandseek.db-wal /opt/hideandseek/backend/hideandseek.db-shm
+sudo cp -a /opt/hideandseek/backups/db-<STEMPEL>.sqlite /var/lib/hideandseek/hideandseek.db
+sudo chown hideandseek:hideandseek /var/lib/hideandseek/hideandseek.db
+sudo chmod 640 /var/lib/hideandseek/hideandseek.db
+sudo rm -f /var/lib/hideandseek/hideandseek.db-wal /var/lib/hideandseek/hideandseek.db-shm
 sudo systemctl start hideandseek-backend
 ```
 
@@ -158,19 +168,27 @@ curl -s -X POST http://127.0.0.1:3001/api/sessions \
 Erwartet wird 201 mit einem Session-Code. Kommt stattdessen 500, steht im Journal fast sicher wieder `attempt to write a readonly database`, und dann gehört die Datenbank dem Falschen:
 
 ```bash
-sudo chown hideandseek:hideandseek /opt/hideandseek/backend
-sudo chown hideandseek:hideandseek /opt/hideandseek/backend/hideandseek.db \
-                                   /opt/hideandseek/backend/hideandseek.db-wal \
-                                   /opt/hideandseek/backend/hideandseek.db-shm
+sudo chown -R hideandseek:hideandseek /var/lib/hideandseek
 sudo systemctl restart hideandseek-backend
 ```
 
 Das Verzeichnis muss mit, nicht nur die Datei. SQLite legt im WAL-Modus `-wal` und `-shm` daneben an und braucht dafür Schreibrecht auf dem Verzeichnis.
 
+Der zweite Pfad, der still bricht, ist der Upload. Ein Bild hochladen und über die öffentliche URL wieder abrufen prüft beides auf einmal: dass der Dienst nach `/var/lib/hideandseek/uploads` schreiben darf und dass nginx von dort ausliefert.
+
+```bash
+URL=$(curl -s -X POST https://hideandseek.vielhaben.com/api/upload \
+      -F "image=@/pfad/zu/bild.png;type=image/png" | sed 's/.*"url":"\([^"]*\)".*/\1/')
+curl -s -o /dev/null -w "%{http_code} %{size_download}\n" "https://hideandseek.vielhaben.com$URL"
+sudo rm "/var/lib/hideandseek$URL"   # Testbild wieder weg
+```
+
+Erwartet wird 200 und die Größe der hochgeladenen Datei. Kommt 404, liefert nginx aus einem anderen Verzeichnis als das Backend schreibt — genau der Fehler vom April.
+
 Testeintrag danach wieder entfernen:
 
 ```bash
-sudo -u hideandseek sqlite3 /opt/hideandseek/backend/hideandseek.db \
+sudo -u hideandseek sqlite3 /var/lib/hideandseek/hideandseek.db \
   "delete from participants where display_name='deploy-check';
    delete from sessions where id not in (select session_id from participants);"
 ```

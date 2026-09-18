@@ -68,13 +68,20 @@ pnpm install
 pnpm approve-builds  # better-sqlite3 + esbuild auswählen
 ```
 
-### 2. Datenbank und Logs
+### 2. Datenbank und Uploads
+
+Beides gehört außerhalb des Repository-Klons, sonst liegt es in dem Verzeichnis, in dem ein Deploy `git reset --hard` und `rsync --delete` fährt.
 
 ```bash
-mkdir -p /var/data/hideandseek /var/log/hideandseek
-pnpm backend:migrate
-# DB_PATH env var auf /var/data/hideandseek/hideandseek.db setzen
+sudo mkdir -p /var/lib/hideandseek/uploads
+sudo chown -R hideandseek:hideandseek /var/lib/hideandseek
+sudo chmod 755 /var/lib/hideandseek /var/lib/hideandseek/uploads
+DB_PATH=/var/lib/hideandseek/hideandseek.db pnpm backend:migrate
+sudo chown hideandseek:hideandseek /var/lib/hideandseek/hideandseek.db
+sudo chmod 640 /var/lib/hideandseek/hideandseek.db
 ```
+
+`755` auf den Verzeichnissen, weil nginx als `www-data` die Bilder liest. Die Unit legt `/var/lib/hideandseek` über `StateDirectory=hideandseek` beim Start ohnehin selbst an; die Zeilen oben braucht nur, wer vor dem ersten Start migrieren will.
 
 ### 3. Backend bauen und starten
 
@@ -104,11 +111,19 @@ sudo systemctl enable --now hideandseek-backend
 
 Die Unit im Repo ist die, die auf hideandseek.vielhaben.com läuft: Nutzer
 `hideandseek`, Arbeitsverzeichnis `/opt/hideandseek/backend`, Datenbank unter
-`/opt/hideandseek/backend/hideandseek.db`, `FRONTEND_ORIGIN` auf
+`/var/lib/hideandseek/hideandseek.db`, Uploads unter
+`/var/lib/hideandseek/uploads`, `FRONTEND_ORIGIN` auf
 `https://hideandseek.vielhaben.com`. Wer anders deployt, ändert `User`,
-`Group`, `WorkingDirectory`, `DB_PATH` und `ReadWritePaths` zusammen - die
-Härtung `ProtectSystem=strict` macht sonst das Datenbankverzeichnis
-schreibgeschützt.
+`Group`, `WorkingDirectory`, `DB_PATH`, `UPLOADS_DIR` und `StateDirectory`
+zusammen - die Härtung `ProtectSystem=strict` erlaubt Schreibzugriff nur auf
+das Verzeichnis, das `StateDirectory` anlegt.
+
+`UPLOADS_DIR` ist keine Kür. Fehlt die Variable, schreibt
+`backend/src/routes/upload.ts` nach `join(process.cwd(), "uploads")`, also ins
+Arbeitsverzeichnis der Unit - und nginx liefert `/uploads/` aus dem Verzeichnis,
+das in der Site steht. Passt das nicht zusammen, landen Fotoantworten auf der
+Platte und erreichen niemanden. Genau das ist im April 2026 fünf Monate lang
+unbemerkt passiert.
 
 `EnvironmentFile=/etc/hideandseek-backend.env` ist kein Beiwerk. Fehlt die
 Datei oder fehlt darin `HERE_API_KEY`, läuft das Backend trotzdem an und
@@ -178,6 +193,7 @@ server {
 |---|---|---|
 | `PORT` | `3001` | Backend-Port |
 | `DB_PATH` | `./hideandseek.db` | Pfad zur SQLite-Datenbankdatei |
+| `UPLOADS_DIR` | `<cwd>/uploads` | Verzeichnis für hochgeladene Bilder; nginx muss von dort ausliefern |
 | `FRONTEND_ORIGIN` | `http://localhost:4321` | CORS erlaubte Frontend-URL |
 
 ---
