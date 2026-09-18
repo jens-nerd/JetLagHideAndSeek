@@ -3,6 +3,8 @@
 # Wird von GitHub Actions über ein erzwungenes SSH-Kommando gestartet
 # und laesst sich jederzeit von Hand ausfuehren:
 #   sudo /opt/hideandseek/scripts/deploy.sh
+# Es laeuft immer die Fassung, die beim Start auf der Platte lag: eine
+# Aenderung an dieser Datei wirkt erst beim naechsten Deploy.
 # Klammer um den Rumpf: Schutz gegen Selbstaenderung durch git reset --hard in Schritt 3.
 {
 set -euo pipefail
