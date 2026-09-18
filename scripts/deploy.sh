@@ -185,9 +185,16 @@ rueckweg_code() {
 
 rueckweg_db() {
     log "RUECKWEG: Datenbank aus $DB_SICHERUNG zurueckspielen ..."
+    # Fail-safe belegt: nur der Erfolgszweig unten setzt das um.
+    RUECKWEG_DB_ERGEBNIS=gescheitert
     set +e
     systemctl stop "$DIENST" \
         || log "RUECKWEG: Stoppen des Dienstes meldete einen Fehler."
+    # Der Dienst ist gestoppt, also ist hier der Platz fuer backend/dist - vor
+    # jedem moeglichen start. Eine zurueckgedrehte Datenbank neben neuem Code
+    # waere genau die Paarung, gegen die diese Runde angetreten ist.
+    backend_dist_zurueck
+    BACKEND_ZURUECKSTELLEN=0
     # Nur wenn das Zurueckkopieren geklappt hat, darf das WAL weg: im
     # WAL-Modus stehen festgeschriebene Transaktionen bis zum Checkpoint nur
     # dort. Nach einem gescheiterten cp waere ein rm -f ein Datenverlust, und
@@ -196,6 +203,7 @@ rueckweg_db() {
         chown hideandseek:hideandseek "$DB" \
             || log "RUECKWEG: chown meldete einen Fehler."
         rm -f "$DB-wal" "$DB-shm"
+        RUECKWEG_DB_ERGEBNIS=zurueckgespielt
         systemctl start "$DIENST" \
             || log "RUECKWEG: Start des Dienstes meldete einen Fehler."
         if systemctl is-active --quiet "$DIENST"; then
@@ -206,8 +214,12 @@ rueckweg_db() {
     else
         log "RUECKWEG: Zurueckkopieren der Datenbank GESCHEITERT."
         log "Datenbank, -wal und -shm bleiben unangetastet, der Dienst bleibt GESTOPPT."
-        log "Handbetrieb noetig: $DB pruefen, Sicherung ist $DB_SICHERUNG,"
-        log "danach 'systemctl start $DIENST'."
+        log "Handbetrieb noetig: $DB pruefen, Sicherung ist $DB_SICHERUNG."
+        # Der Backend-Bau ist an dieser Stelle schon zurueckgedreht, die
+        # Datenbank nicht - wer jetzt blind startet, faehrt alten Code gegen
+        # ein Schema, von dem niemand weiss, wie weit die Migration kam.
+        log "Welcher Backend-Bau liegt, sagen die Zeilen oben. Erst wenn Code und"
+        log "Schema zusammenpassen: 'systemctl start $DIENST'."
     fi
     set -e
 }
@@ -235,7 +247,13 @@ TABELLEN_SICHERUNG=$(sqlite3 "$DB_SICHERUNG" "$TABELLEN_SQL" || echo sicherung-u
 log "Migrationen fahren ..."
 if ! ( cd "$PROJEKT" && pnpm backend:migrate ); then
     rueckweg_db
-    fehler "Migration gescheitert. Datenbank zurueckgespielt, Code NICHT getauscht."
+    # Die Schlussmeldung muss zu dem passen, was rueckweg_db wirklich getan
+    # hat - sonst steht hier dasselbe Problem wie in W4, nur eine Zeile weiter.
+    if [ "$RUECKWEG_DB_ERGEBNIS" = "zurueckgespielt" ]; then
+        fehler "Migration gescheitert. Datenbank und Backend-Bau zurueckgedreht (siehe RUECKWEG-Zeilen), Webroot NICHT getauscht."
+    else
+        fehler "Migration gescheitert UND die Datenbank liess sich nicht zurueckspielen. Der Dienst ist GESTOPPT, Handbetrieb noetig (siehe RUECKWEG-Zeilen)."
+    fi
 fi
 
 # ── 9. Webroot sichern, dann tauschen ──────────────────────────────────

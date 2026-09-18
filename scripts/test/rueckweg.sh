@@ -133,28 +133,45 @@ teste_w3() {
 # systemctl-Attrappe in $TMPDIR/w4.systemctl.
 fahre_rueckweg_db() {
     local sicherung="$1" arbeitsverzeichnis="$TMPDIR/w4"
-    rm -rf "$arbeitsverzeichnis"; mkdir -p "$arbeitsverzeichnis"
+    rm -rf "$arbeitsverzeichnis"
+    mkdir -p "$arbeitsverzeichnis/backend/dist" "$arbeitsverzeichnis/backups"
     echo "DATENBANK" > "$arbeitsverzeichnis/db.sqlite"
     echo "WAL-INHALT-NUR-HIER" > "$arbeitsverzeichnis/db.sqlite-wal"
     echo "SHM" > "$arbeitsverzeichnis/db.sqlite-shm"
+    # Backend-Stand wie nach einem gelungenen Bau: die Sicherung traegt ALT,
+    # backend/dist traegt NEU - mit gleicher Groesse und gleichem Zeitstempel,
+    # damit auch hier nichts an rsyncs Schnellvergleich haengenbleibt.
+    echo "ALT" > "$arbeitsverzeichnis/backend/dist/index.js"
+    cp -a "$arbeitsverzeichnis/backend/dist" "$arbeitsverzeichnis/backups/backend-20260918-120000"
+    echo "NEU" > "$arbeitsverzeichnis/backend/dist/index.js"
+    touch -r "$arbeitsverzeichnis/backups/backend-20260918-120000/index.js" \
+             "$arbeitsverzeichnis/backend/dist/index.js"
     : > "$TMPDIR/w4.systemctl"
     (
         set -uo pipefail
+        PROJEKT="$arbeitsverzeichnis"
         DB="$arbeitsverzeichnis/db.sqlite"
         DB_SICHERUNG="$sicherung"
+        BACKEND_SICHERUNG="$arbeitsverzeichnis/backups/backend-20260918-120000"
+        BACKEND_ZURUECKSTELLEN=1
         DIENST=hideandseek-backend
         log() { printf '%s\n' "$*"; }
-        # Attrappen. systemctl schreibt mit, was von ihm verlangt wurde;
-        # is-active meldet "laeuft" nur, wenn vorher start kam.
+        # Attrappen. systemctl schreibt mit, was von ihm verlangt wurde, und
+        # meldet sich zusaetzlich im Protokoll - nur so ist die Reihenfolge
+        # gegen das Zurueckspielen von backend/dist pruefbar. is-active meldet
+        # "laeuft" nur, wenn vorher start kam.
         systemctl() {
             case "$1" in
                 is-active) grep -q '^start$' "$TMPDIR/w4.systemctl" ;;
-                *) echo "$1" >> "$TMPDIR/w4.systemctl" ;;
+                *) echo "SYSTEMCTL $1"; echo "$1" >> "$TMPDIR/w4.systemctl" ;;
             esac
         }
         chown() { :; }
+        eval "$(block_backend_zurueck)"
         eval "$(block_rueckweg_db)"
         rueckweg_db
+        printf '%s\n' "$RUECKWEG_DB_ERGEBNIS" > "$TMPDIR/w4.ergebnis"
+        printf '%s\n' "$BACKEND_ZURUECKSTELLEN" > "$TMPDIR/w4.merker"
     ) >"$TMPDIR/w4.out" 2>&1
 }
 
@@ -196,6 +213,12 @@ teste_w4() {
         nok "die Meldung benennt den tatsaechlichen Zustand nicht."
     fi
 
+    if [ "$(cat "$TMPDIR/w4.ergebnis" 2>/dev/null)" = "gescheitert" ]; then
+        ok "rueckweg_db meldet dem Aufrufer 'gescheitert' - die Schlussmeldung dort kann nichts anderes behaupten."
+    else
+        nok "rueckweg_db meldet dem Aufrufer '$(cat "$TMPDIR/w4.ergebnis" 2>/dev/null)', erwartet 'gescheitert'."
+    fi
+
     # Fall 2: die Sicherung ist da, cp gelingt - der Normalfall muss weiterhin
     # zuende laufen, sonst hat die Korrektur den Rueckweg lahmgelegt.
     echo "SICHERUNG" > "$TMPDIR/sicherung.sqlite"
@@ -212,6 +235,34 @@ teste_w4() {
         ok "nach gelungenem cp meldet das Skript den Erfolg."
     else
         nok "nach gelungenem cp fehlt die Erfolgsmeldung."
+    fi
+    if [ "$(cat "$TMPDIR/w4.ergebnis" 2>/dev/null)" = "zurueckgespielt" ]; then
+        ok "rueckweg_db meldet dem Aufrufer 'zurueckgespielt'."
+    else
+        nok "rueckweg_db meldet dem Aufrufer '$(cat "$TMPDIR/w4.ergebnis" 2>/dev/null)', erwartet 'zurueckgespielt'."
+    fi
+
+    # Runde A2, Punkt 2: die zurueckgedrehte Datenbank darf nicht neben neuem
+    # Backend-Code stehenbleiben - und das Zurueckspielen muss VOR dem Start
+    # passieren, sonst laeuft der Dienst kurz auf neuem Code gegen altes Schema.
+    local stand_backend zeile_backend zeile_start
+    stand_backend=$(cat "$TMPDIR/w4/backend/dist/index.js" 2>/dev/null)
+    if [ "$stand_backend" = "ALT" ]; then
+        ok "rueckweg_db hat backend/dist auf den vorigen Stand zurueckgedreht."
+    else
+        nok "backend/dist steht nach rueckweg_db auf '$stand_backend', erwartet 'ALT'."
+    fi
+    zeile_backend=$(grep -n 'Backend-Bau aus' "$TMPDIR/w4.out" | head -1 | cut -d: -f1)
+    zeile_start=$(grep -n '^SYSTEMCTL start$' "$TMPDIR/w4.out" | head -1 | cut -d: -f1)
+    if [ -n "$zeile_backend" ] && [ -n "$zeile_start" ] && [ "$zeile_backend" -lt "$zeile_start" ]; then
+        ok "Reihenfolge stimmt: backend/dist (Zeile $zeile_backend) vor systemctl start (Zeile $zeile_start)."
+    else
+        nok "Reihenfolge falsch oder nicht feststellbar: backend/dist in Zeile '${zeile_backend:-?}', start in Zeile '${zeile_start:-?}'."
+    fi
+    if [ "$(cat "$TMPDIR/w4.merker" 2>/dev/null)" = "0" ]; then
+        ok "rueckweg_db loescht die Merkvariable - fehler() stellt danach nicht ein zweites Mal zurueck."
+    else
+        nok "die Merkvariable steht nach rueckweg_db auf '$(cat "$TMPDIR/w4.merker" 2>/dev/null)', erwartet '0'."
     fi
 }
 
