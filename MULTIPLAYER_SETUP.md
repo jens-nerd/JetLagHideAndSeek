@@ -50,6 +50,8 @@ Frontend läuft auf: `http://localhost:4321`
 
 ## Deployment auf VPS
 
+Für wiederkehrende Deploys auf den bestehenden Server siehe `docs/deploy-vps.md`. Dieser Abschnitt beschreibt die Erstinstallation.
+
 ### Voraussetzungen
 - Ubuntu/Debian VPS
 - Node.js 20+ (`nvm install 20`)
