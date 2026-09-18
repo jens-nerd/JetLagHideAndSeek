@@ -79,4 +79,50 @@ if [ "$DEPLOY_STOP_AFTER" = "bau" ]; then
     exit 0
 fi
 
-log "Bis hier folgenlos. Ausrollen folgt."
+# ═══ ab hier wird Laufendes angefasst ══════════════════════════════════
+STEMPEL=$(date -u +%Y%m%d-%H%M%S)
+DB="$PROJEKT/backend/hideandseek.db"
+DB_SICHERUNG="$SICHERUNGEN/db-$STEMPEL.sqlite"
+DIST_SICHERUNG="$SICHERUNGEN/dist-$STEMPEL"
+mkdir -p "$SICHERUNGEN"
+
+gesundheit() {
+    systemctl is-active --quiet "$DIENST" || { log "Dienst nicht aktiv."; return 1; }
+    curl -fsS -m 10 http://127.0.0.1:3001/health >/dev/null \
+        || { log "/health antwortet nicht."; return 1; }
+    local code
+    code=$(curl -s -o /dev/null -m 15 -w '%{http_code}' \
+           "${HEALTH_URL:-https://hideandseek.vielhaben.com/}")
+    [ "$code" = "200" ] || { log "Oeffentliche URL liefert $code."; return 1; }
+    return 0
+}
+
+# ── 7. Datenbank sichern ───────────────────────────────────────────────
+# .backup statt cp: atomar, nimmt den WAL-Stand mit.
+log "Datenbank sichern -> $DB_SICHERUNG"
+sqlite3 "file:$DB?mode=ro" ".backup '$DB_SICHERUNG'"
+sqlite3 "$DB_SICHERUNG" "pragma integrity_check;" | grep -qx ok \
+    || fehler "Sicherung der Datenbank ist nicht lesbar. Abbruch vor der Migration."
+
+# ── 8. Migrationen ─────────────────────────────────────────────────────
+log "Migrationen fahren ..."
+( cd "$PROJEKT" && pnpm backend:migrate )
+
+# ── 9. Webroot sichern, dann tauschen ──────────────────────────────────
+log "Webroot sichern -> $DIST_SICHERUNG"
+cp -a "$PROJEKT/dist" "$DIST_SICHERUNG"
+log "Webroot tauschen ..."
+rsync -a --delete "$STAGING/" "$PROJEKT/dist/"
+chmod -R 755 "$PROJEKT/dist"
+
+# ── 10. Dienst neu starten ─────────────────────────────────────────────
+log "Dienst neu starten ..."
+systemctl restart "$DIENST"
+sleep 3
+
+# ── 11. Gesundheitspruefung ────────────────────────────────────────────
+if gesundheit; then
+    log "Gesundheitspruefung bestanden. Deploy $COMMIT ist live."
+else
+    fehler "Gesundheitspruefung gescheitert."
+fi
