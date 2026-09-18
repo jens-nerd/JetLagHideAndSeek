@@ -8,6 +8,7 @@
         "postbuild": "chmod -R 755 dist/",
         "preview": "astro preview",
         "astro": "astro",
+        "check": "astro check",
         "lint": "eslint --fix src && prettier . --write",
         "test": "vitest",
         "test:backend": "BACKEND_URL=http://localhost:3001 pnpm --filter @hideandseek/backend test",
@@ -69,6 +70,8 @@
         "zod": "^3.25.28"
     },
     "devDependencies": {
+        "@astrojs/check": "^0.9.10",
+        "@emnapi/runtime": "^1.11.3",
         "@eslint/js": "^9.25.1",
         "@types/d3-geo": "^3.1.0",
         "@types/geojson": "^7946.0.16",

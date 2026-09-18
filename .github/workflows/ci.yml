@@ -36,6 +36,15 @@ jobs:
             - name: Backend-Typen pruefen
               run: pnpm backend:build
 
+            # astro build transpiliert nur und prueft keine Typen. Ohne diesen
+            # Schritt kaeme ein Typfehler in einer .astro- oder .tsx-Datei
+            # durch beide Netze bis in die Produktion. astro check zieht dafuer
+            # den Astro-Language-Server heran, der auch .astro-Dateien liest.
+            # Rot wird der Schritt nur bei Fehlern; Hinweise (derzeit 100,
+            # ueberwiegend ungenutzte Importe im geerbten Fremdcode) nicht.
+            - name: Frontend-Typen pruefen
+              run: pnpm run check
+
             # Probebau: hier wird gebaut, was der Server gleich noch einmal
             # baut. Ein gescheiterter Bau in Actions hinterlaesst nichts, ein
             # gescheiterter Bau auf dem Server einen halben Zustand - neues
