@@ -117,9 +117,96 @@ Der Vorbehalt dabei: Nur der Code geht zurück. Die Datenbank bleibt auf dem neu
 
 Nach einem solchen Fehlschlag steht der alte Code neben dem neuen Schema. Ob das ein Problem ist, hängt davon ab, ob der alte Code mit dem neuen Schema zurechtkommt. Passt das nicht zusammen, bleiben zwei Wege: die Datenbank von Hand auf die in der ACHTUNG-Zeile genannte Sicherung zurücksetzen (Befehle siehe Abschnitt Sicherungen) oder den fehlerhaften Codestand fixen und erneut deployen.
 
+## Nach dem Deploy prüfen
+
+Auf dem Regelweg prüft das Skript selbst: Dienst aktiv, `/health` antwortet, öffentliche URL liefert 200. Fällt das durch, rollt es zurück. Von Hand braucht man die Prüfung deshalb vor allem nach einem Eingriff von Hand, etwa nach einem Zurücksetzen aus den Sicherungen.
+
+```bash
+sudo systemctl status hideandseek-backend --no-pager
+journalctl -u hideandseek-backend -n 30 --no-pager
+curl -s -o /dev/null -w "%{http_code}\n" https://hideandseek.vielhaben.com/
+curl -s https://hideandseek.vielhaben.com/sw.js | grep -o 'url:"/",revision:"[^"]*"'
+```
+
+Die Service-Worker-Revision muss sich nach einem Deploy geändert haben. Tut sie das nicht, sehen Besucher mit installierter PWA weiter die alte Seite.
+
+Der Schreibpfad ins Backend bricht bei Rechteproblemen als Erstes, und `/health` merkt davon nichts, weil es nur antwortet. Also einmal wirklich schreiben:
+
+```bash
+curl -s -X POST http://127.0.0.1:3001/api/sessions \
+  -H "Content-Type: application/json" \
+  -d '{"displayName":"deploy-check"}' -w "\nHTTP %{http_code}\n"
+```
+
+Erwartet wird 201 mit einem Session-Code. Kommt stattdessen 500, steht im Journal fast sicher wieder `attempt to write a readonly database`, und dann gehört die Datenbank dem Falschen:
+
+```bash
+sudo chown hideandseek:hideandseek /opt/hideandseek/backend
+sudo chown hideandseek:hideandseek /opt/hideandseek/backend/hideandseek.db \
+                                   /opt/hideandseek/backend/hideandseek.db-wal \
+                                   /opt/hideandseek/backend/hideandseek.db-shm
+sudo systemctl restart hideandseek-backend
+```
+
+Das Verzeichnis muss mit, nicht nur die Datei. SQLite legt im WAL-Modus `-wal` und `-shm` daneben an und braucht dafür Schreibrecht auf dem Verzeichnis.
+
+Testeintrag danach wieder entfernen:
+
+```bash
+sudo -u hideandseek sqlite3 /opt/hideandseek/backend/hideandseek.db \
+  "delete from participants where display_name='deploy-check';
+   delete from sessions where id not in (select session_id from participants);"
+```
+
+## Das Backend läuft unter systemd, nicht unter pm2
+
+**Nicht zusätzlich per pm2 starten.** Das Backend läuft als systemd-Unit `hideandseek-backend`. Eine zweite Instanz unter pm2 findet Port 3001 belegt, stirbt, wird neu gestartet, stirbt wieder. Bis Juli 2026 lief genau diese Schleife und hat eine Logdatei von 2,9 GB produziert, gut fünfzehn Millionen Zeilen `EADDRINUSE`.
+
+`MULTIPLAYER_SETUP.md` beschreibt die Erstinstallation und nennt pm2 dort als empfohlenen Weg. Für diesen Server gilt das nicht.
+
 ## Geheimnisse
 
 `HERE_API_KEY` liegt in `/etc/hideandseek-backend.env`, Rechte `600`, Eigentümer root, außerhalb von `/opt/hideandseek`. Kein Deploy fasst diese Datei an: `git reset --hard` und `rsync --delete` wirken beide nur innerhalb von `/opt/hideandseek`. Die systemd-Unit bindet sie über `EnvironmentFile=` ein.
+
+```
+EnvironmentFile=/etc/hideandseek-backend.env
+```
+
+Nicht ins Projektverzeichnis legen, auch nicht als `.env`. Und nicht als `Environment=`-Zeile in die Unit schreiben: Unit-Dateien sind für jeden lesbar, `systemctl cat` gibt den Wert ungefragt aus.
+
+Einen Schlüssel rotieren heißt dann:
+
+```bash
+sudo nano /etc/hideandseek-backend.env
+sudo systemctl restart hideandseek-backend
+```
+
+Eine Stelle, ein Neustart. Kein Deploy nötig, kein Build.
+
+### Die Falle: Umzug von pm2 auf systemd
+
+Beim Wechsel eines Dienstes von pm2 auf systemd wandern Umgebungsvariablen **nicht** mit. pm2 hält sie in seiner eigenen Konfiguration (`/root/.pm2/module_conf.json`, `backend/ecosystem.config.cjs`), systemd liest davon nichts.
+
+Genau das ist mit `HERE_API_KEY` passiert. Der Schlüssel lag nach dem Umzug nur noch als Überbleibsel in der pm2-Konfiguration, einem Pfad, den der systemd-Dienst gar nicht liest. Die HERE Browse API war damit monatelang abgeschaltet, ohne dass es jemand merkte.
+
+Warum es niemand merkte, ist der zweite Teil der Falle. `backend/src/routes/poi.ts` liest den Schlüssel so:
+
+```ts
+const HERE_API_KEY = process.env.HERE_API_KEY ?? "";
+...
+if (!HERE_API_KEY) return null;
+```
+
+Bei leerem Wert fällt die Route lautlos auf Overpass zurück. Keine Warnung im Log, kein Fehler, nur langsamere und schlechtere Ergebnisse. Ein fehlender Schlüssel sieht hier genauso aus wie ein funktionierender.
+
+Wer also einen Dienst umzieht: vorher die gesetzten Variablen der alten Umgebung auflisten und danach im laufenden Prozess nachsehen, ob sie angekommen sind.
+
+```bash
+PID=$(systemctl show -p MainPID --value hideandseek-backend)
+sudo cat /proc/$PID/environ | tr '\0' '\n' | cut -d= -f1 | sort
+```
+
+Der `cut` schneidet die Werte ab, ausgegeben werden nur die Namen.
 
 ## Was diese Strecke nicht fängt
 
