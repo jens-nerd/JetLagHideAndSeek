@@ -215,6 +215,78 @@ teste_w4() {
     fi
 }
 
+# ══ A2-1: fehler() stellt backend/dist zurueck ══════════════════════════════
+# `exit` loest keine ERR-Falle aus (weiter unten gemessen). Alle Pruefungen in
+# Schritt 6 enden aber auf `|| fehler`. Ohne Merkvariable liesse ein
+# durchgefallener Bau neuen Backend-Code stehen.
+
+# $1 = Wert der Merkvariablen beim Aufruf von fehler.
+fahre_fehler_mit_merker() {
+    local merker="$1" wurzel="$TMPDIR/fehlerfall" skript="$TMPDIR/fehlerfall.sh"
+    rm -rf "$wurzel"; mkdir -p "$wurzel/backend/dist" "$wurzel/backups"
+    echo "ALT" > "$wurzel/backend/dist/index.js"
+    cp -a "$wurzel/backend/dist" "$wurzel/backups/backend-20260918-120000"
+    echo "NEU" > "$wurzel/backend/dist/index.js"
+    touch -r "$wurzel/backups/backend-20260918-120000/index.js" "$wurzel/backend/dist/index.js"
+    {
+        echo '#!/usr/bin/env bash'
+        echo 'set -euo pipefail'
+        echo "PROJEKT='$wurzel'"
+        echo "BACKEND_SICHERUNG='$wurzel/backups/backend-20260918-120000'"
+        echo "BACKEND_ZURUECKSTELLEN=$merker"
+        echo 'log() { printf "%s\n" "$*"; }'
+        block_backend_zurueck
+        awk '/^fehler\(\) \{$/,/^\}$/' "$DEPLOY"
+        # Genau die Form aus Schritt 6 von deploy.sh.
+        echo '[ -f "$PROJEKT/gibt-es-nicht" ] || fehler "sw.js fehlt im Bau."'
+        echo 'echo "NIE ERREICHT"'
+    } > "$skript"
+    bash "$skript" >"$TMPDIR/fehlerfall.out" 2>&1
+    echo "  Exitcode: $?"
+}
+
+teste_a2_fehler() {
+    echo "── A2-1: fehler() stellt backend/dist zurueck ──"
+
+    echo "  Merkvariable auf 1 (Fenster offen, Schritt 6):"
+    fahre_fehler_mit_merker 1
+    sed 's/^/    | /' "$TMPDIR/fehlerfall.out"
+    if [ "$(cat "$TMPDIR/fehlerfall/backend/dist/index.js")" = "ALT" ]; then
+        ok "nach dem fehler()-Abbruch steht backend/dist wieder auf dem vorigen Stand."
+    else
+        nok "backend/dist steht auf '$(cat "$TMPDIR/fehlerfall/backend/dist/index.js")', erwartet 'ALT'."
+    fi
+    if grep -q 'FEHLER: sw.js fehlt im Bau.' "$TMPDIR/fehlerfall.out"; then
+        ok "die Fehlermeldung erscheint weiterhin."
+    else
+        nok "die Fehlermeldung fehlt."
+    fi
+
+    echo "  Merkvariable auf 0 (Fenster zu, z. B. Sperre belegt):"
+    fahre_fehler_mit_merker 0
+    sed 's/^/    | /' "$TMPDIR/fehlerfall.out"
+    if [ "$(cat "$TMPDIR/fehlerfall/backend/dist/index.js")" = "NEU" ]; then
+        ok "ausserhalb des Fensters fasst fehler() backend/dist nicht an."
+    else
+        nok "fehler() hat backend/dist angefasst, obwohl die Merkvariable 0 war."
+    fi
+
+    # Die Merkvariable ist nur dann eine Zusage, wenn sie im ganzen Fenster
+    # steht. Hier die Gegenprobe am echten Skript: zwischen dem Setzen auf 1
+    # und dem Loeschen auf 0 darf kein Abbruch ohne Netz liegen. Geprueft wird
+    # die Reihenfolge der drei Marken im Text.
+    local z_set z_frei z_falle
+    z_set=$(grep -n '^BACKEND_ZURUECKSTELLEN=1$' "$DEPLOY" | head -1 | cut -d: -f1)
+    z_frei=$(grep -n '^BACKEND_ZURUECKSTELLEN=0$' "$DEPLOY" | tail -1 | cut -d: -f1)
+    z_falle=$(grep -n "^trap 'trap - ERR INT TERM HUP; log \"Unerwarteter" "$DEPLOY" | head -1 | cut -d: -f1)
+    if [ -n "$z_set" ] && [ -n "$z_frei" ] && [ -n "$z_falle" ] \
+       && [ "$z_set" -lt "$z_frei" ] && [ "$z_frei" -lt "$z_falle" ]; then
+        ok "die Merkvariable steht von Zeile $z_set bis $z_frei, und erst danach (Zeile $z_falle) uebernimmt rueckweg_code."
+    else
+        nok "die Marken stehen in der falschen Reihenfolge: gesetzt $z_set, geloescht $z_frei, Falle $z_falle."
+    fi
+}
+
 # ══ K2/K3: backend/dist wird gesichert und zurueckgespielt ══════════════════
 # Befund K3: tsc schreibt direkt in backend/dist, also in die Dateien, die der
 # Dienst ausfuehrt. Ein abgebrochener Bau hinterliess bisher neuen Backend-Code
@@ -390,6 +462,7 @@ teste_w3; echo
 teste_w4; echo
 teste_k2_k3; echo
 teste_w2; echo
+teste_a2_fehler; echo
 
 if [ "$FEHLER" -eq 0 ]; then
     echo "Ergebnis: bestanden."

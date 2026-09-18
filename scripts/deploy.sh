@@ -16,6 +16,9 @@ SICHERUNGEN="$PROJEKT/backups"
 DIENST=hideandseek-backend
 MIN_FREE_MB="${MIN_FREE_MB:-2048}"
 DEPLOY_STOP_AFTER="${DEPLOY_STOP_AFTER:-}"
+# Merkvariable: steht auf 1, solange neuer Backend-Code auf der Platte liegt,
+# den bei einem Abbruch niemand sonst zurueckstellt. Nur fehler() liest sie.
+BACKEND_ZURUECKSTELLEN=0
 
 # Ohne root geht hier nichts: git in /opt, rsync ins Webroot, systemctl.
 # --preserve-env ist noetig, weil sudo die Umgebung sonst ausraeumt und alle
@@ -25,7 +28,19 @@ DEPLOY_STOP_AFTER="${DEPLOY_STOP_AFTER:-}"
     "$0" "$@"
 
 log() { printf '[%s] %s\n' "$(date -u +%H:%M:%S)" "$*"; }
-fehler() { printf '[%s] FEHLER: %s\n' "$(date -u +%H:%M:%S)" "$*" >&2; exit 1; }
+# `exit` loest keine ERR-Falle aus. Jeder Abbruch ueber fehler() in dem
+# Fenster, in dem neuer Backend-Code auf der Platte liegt, muss ihn deshalb
+# hier selbst zurueckstellen - sonst laeuft der Dienst beim naechsten Neustart
+# auf neuem Code gegen eine nicht migrierte Datenbank. backend_dist_zurueck
+# ist definiert, bevor die Merkvariable jemals auf 1 steht.
+fehler() {
+    printf '[%s] FEHLER: %s\n' "$(date -u +%H:%M:%S)" "$*" >&2
+    if [ "$BACKEND_ZURUECKSTELLEN" = "1" ]; then
+        BACKEND_ZURUECKSTELLEN=0
+        backend_dist_zurueck
+    fi
+    exit 1
+}
 
 # ── 1. Sperre ──────────────────────────────────────────────────────────
 exec 9>/var/lock/hideandseek-deploy.lock
@@ -99,6 +114,10 @@ if [ -d "$PROJEKT/backend/dist" ]; then
 else
     log "Kein voriger Backend-Bau vorhanden - nichts zu sichern."
 fi
+# Ab hier schreibt gleich der Bau nach backend/dist. Bis der Webroot getauscht
+# ist, stellt diesen Code bei einem Abbruch niemand ausser uns zurueck: die
+# Falle unten faengt Rueckgabewerte und Signale, fehler() alles Uebrige.
+BACKEND_ZURUECKSTELLEN=1
 
 # Ein abgebrochener Bau darf den Server nicht auf neuem Backend-Code stehen
 # lassen: der wuerde beim naechsten Dienstneustart gegen eine nicht migrierte
@@ -196,7 +215,8 @@ rueckweg_db() {
 # ── 7. Datenbank sichern ───────────────────────────────────────────────
 # .backup statt cp: atomar, nimmt den WAL-Stand mit.
 log "Datenbank sichern -> $DB_SICHERUNG"
-sqlite3 "file:$DB?mode=ro" ".backup '$DB_SICHERUNG'"
+sqlite3 "file:$DB?mode=ro" ".backup '$DB_SICHERUNG'" \
+    || fehler "Sicherung der Datenbank liess sich nicht anlegen. Abbruch vor der Migration."
 sqlite3 "$DB_SICHERUNG" "pragma integrity_check;" | grep -qx ok \
     || fehler "Sicherung der Datenbank ist nicht lesbar. Abbruch vor der Migration."
 # integrity_check beantwortet nur "ist das eine gueltige SQLite-Datei": eine
@@ -220,7 +240,13 @@ fi
 
 # ── 9. Webroot sichern, dann tauschen ──────────────────────────────────
 log "Webroot sichern -> $DIST_SICHERUNG"
-cp -a "$PROJEKT/dist" "$DIST_SICHERUNG"
+cp -a "$PROJEKT/dist" "$DIST_SICHERUNG" \
+    || fehler "Webroot-Sicherung liess sich nicht anlegen. Abbruch vor dem Tausch."
+
+# Ab hier uebernimmt rueckweg_code das Zurueckstellen von backend/dist. Die
+# Merkvariable wuerde von hier an nur einen zweiten, ueberfluessigen Durchlauf
+# ausloesen.
+BACKEND_ZURUECKSTELLEN=0
 
 # Ab hier ist ein Rueckweg moeglich, weil die Sicherung steht. Die Falle
 # faengt alles, was zwischen hier und der Gesundheitspruefung abbricht:
