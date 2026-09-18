@@ -6,6 +6,10 @@ Ein Push auf `master` reicht. GitHub Actions fährt zuerst die Prüfung (`.githu
 
 Der Deploy-Job baut nichts selbst und berührt den Server nicht direkt. Er verbindet sich per SSH mit einem Schlüssel, dem in `~deploy/.ssh/authorized_keys` ein erzwungenes Kommando zugewiesen ist: Dieser Schlüssel kann ausschließlich `/opt/hideandseek/scripts/deploy.sh` starten, sonst nichts.
 
+Welcher Stand ausgerollt wird, gibt der Job mit: Der `ssh`-Aufruf hängt den Commit an, der die Prüfung gerade bestanden hat. Das erzwungene Kommando verwirft ihn als Kommando und reicht ihn in `SSH_ORIGINAL_COMMAND` durch. `deploy.sh` nimmt ihn nur an, wenn er aus genau 40 Zeichen `0-9a-f` besteht, und rollt ihn nur aus, wenn er nach dem `git fetch` als Vorfahr von `origin/master` dasteht. Das ist der Zaun: Wer den Deploy-Schlüssel hat, bekommt damit keinen selbst gebauten Stand auf den Server, sondern höchstens einen, der ohnehin schon auf `master` liegt.
+
+Ohne diese Angabe zieht das Skript wie bisher die Spitze von `origin/master`. Im Protokoll steht deshalb entweder `Stand aus Actions: <sha>` oder `Kein Stand mitgegeben (Handbetrieb)`. Steht die zweite Zeile in einem Actions-Lauf, ist die Variable unterwegs verloren gegangen.
+
 Bei einem Pull Request läuft nur der Job `test`. Der Job `deploy` startet gar nicht erst.
 
 ## Der Handbetrieb
@@ -16,7 +20,7 @@ Für den Notfall, wenn Actions nicht erreichbar ist oder sofortiges Eingreifen n
 sudo /opt/hideandseek/scripts/deploy.sh
 ```
 
-Das tut genau dasselbe wie der Deploy-Job in Actions, weil beide dasselbe Skript aufrufen.
+Das ruft dasselbe Skript auf wie der Deploy-Job. Ein Unterschied bleibt: Ohne mitgegebenen Commit rollt der Handbetrieb die Spitze von `origin/master` aus, nicht einen bestimmten geprüften Stand.
 
 ## Die Schalter
 
@@ -31,7 +35,7 @@ sudo DEPLOY_STOP_AFTER=bau /opt/hideandseek/scripts/deploy.sh
 - **`HEALTH_URL`** (Vorgabe `https://hideandseek.vielhaben.com/`): Die Adresse, die die Gesundheitsprüfung nach dem Neustart abfragt. Erwartet wird HTTP 200.
 - **`DEPLOY_SKIP_RESET`** (auf `1` gesetzt): Umgeht `git fetch` und `git reset --hard` in Schritt 3. Nur für die Erprobung gedacht, etwa um einen absichtlich manipulierten Arbeitsbaum zu testen, ohne dass der Reset ihn sofort geradezieht.
 
-Das Skript ruft sich selbst per `sudo` erneut auf, wenn es nicht schon als root läuft. Dabei reicht es die vier Schalter ausdrücklich über `--preserve-env` durch. Ohne dieses Flag würde `sudo` die Umgebung leeren, und alle gesetzten Schalter wären beim eigentlichen Lauf spurlos verschwunden.
+Das Skript ruft sich selbst per `sudo` erneut auf, wenn es nicht schon als root läuft. Dabei reicht es die vier Schalter und `SSH_ORIGINAL_COMMAND` ausdrücklich über `--preserve-env` durch. Ohne dieses Flag würde `sudo` die Umgebung leeren, und alle gesetzten Schalter wären beim eigentlichen Lauf spurlos verschwunden.
 
 ## Eine Änderung an deploy.sh wirkt erst beim nächsten Deploy
 

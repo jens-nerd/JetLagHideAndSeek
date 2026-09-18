@@ -58,5 +58,10 @@ jobs:
                   chmod 600 ~/.ssh/id_ed25519
                   printf '%s\n' "${{ secrets.VPS_HOST_KEY }}" > ~/.ssh/known_hosts
 
+            # Der Commit, der gerade gruen geworden ist, wird mitgegeben.
+            # Das erzwungene Kommando in authorized_keys verwirft ihn als
+            # Kommando und reicht ihn in SSH_ORIGINAL_COMMAND durch; deploy.sh
+            # rollt genau diesen Stand aus statt der jeweiligen Spitze von
+            # master, die zwei Pushes spaeter eine andere sein kann.
             - name: Deploy auslösen
-              run: ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes deploy@91.98.85.53
+              run: ssh -i ~/.ssh/id_ed25519 -o IdentitiesOnly=yes deploy@91.98.85.53 "${{ github.sha }}"

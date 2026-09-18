@@ -23,8 +23,10 @@ BACKEND_ZURUECKSTELLEN=0
 # Ohne root geht hier nichts: git in /opt, rsync ins Webroot, systemctl.
 # --preserve-env ist noetig, weil sudo die Umgebung sonst ausraeumt und alle
 # Erprobungsschalter still verschwinden wuerden.
+# SSH_ORIGINAL_COMMAND traegt den auszurollenden Commit (Schritt 3) und muss
+# den Selbstaufruf genauso ueberleben wie die Schalter.
 [ "$(id -u)" -eq 0 ] || exec sudo -n \
-    --preserve-env=MIN_FREE_MB,DEPLOY_STOP_AFTER,DEPLOY_SKIP_RESET,HEALTH_URL \
+    --preserve-env=MIN_FREE_MB,DEPLOY_STOP_AFTER,DEPLOY_SKIP_RESET,HEALTH_URL,SSH_ORIGINAL_COMMAND \
     "$0" "$@"
 
 log() { printf '[%s] %s\n' "$(date -u +%H:%M:%S)" "$*"; }
@@ -61,16 +63,46 @@ log "Frei auf /: ${FREI_MB} MB (Mindestwert ${MIN_FREE_MB} MB)"
     || fehler "Zu wenig Platz: ${FREI_MB} MB frei, ${MIN_FREE_MB} MB verlangt."
 
 # ── 3. Stand ziehen ────────────────────────────────────────────────────
+# Welcher Stand ausgerollt wird, gibt der Actions-Job mit: das erzwungene
+# Kommando in authorized_keys verwirft das per ssh mitgegebene Kommando und
+# reicht es in SSH_ORIGINAL_COMMAND durch. Ohne Angabe - Handbetrieb - bleibt
+# es bei der Spitze von origin/$BRANCH.
+#
+# Der Wert kommt von aussen und gilt bis zur Formpruefung als feindlich: kein
+# eval, keine Einsetzung ohne Anfuehrungszeichen, und ins Protokoll nur
+# entschaerft.
+ZIEL_COMMIT="${SSH_ORIGINAL_COMMAND:-}"
+if [ -n "$ZIEL_COMMIT" ] && ! [[ "$ZIEL_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+    fehler "Mitgegebener Stand ist kein Commit: '$(printf '%s' "$ZIEL_COMMIT" | tr -c '0-9A-Za-z' '.' | cut -c1-64)' (${#ZIEL_COMMIT} Zeichen). Erlaubt sind genau 40 Zeichen aus 0-9a-f."
+fi
+
 # Bewusst KEIN git clean -fd: untracked liegen uploads/, backups/ und .env.
 # DEPLOY_SKIP_RESET dient ausschliesslich der Erprobung (Task 4): damit laesst
 # sich ein absichtlich manipulierter Arbeitsbaum testen, ohne dass der Reset
 # ihn sofort wieder geradezieht.
 if [ "${DEPLOY_SKIP_RESET:-}" = "1" ]; then
     log "DEPLOY_SKIP_RESET=1 - Stand wird nicht gezogen (nur fuer Erprobung)."
+    [ -z "$ZIEL_COMMIT" ] \
+        || log "Mitgegebener Commit $ZIEL_COMMIT wird deshalb ignoriert."
 else
     log "Hole origin/$BRANCH ..."
     git -C "$PROJEKT" fetch origin "$BRANCH"
-    git -C "$PROJEKT" reset --hard "origin/$BRANCH"
+    if [ -n "$ZIEL_COMMIT" ]; then
+        # Das ist der eigentliche Zaun. Die Formpruefung oben haelt nur Unfug
+        # fern; erst diese Pruefung begrenzt, WAS ausgerollt werden kann:
+        # ausschliesslich ein Commit, der bereits auf origin/$BRANCH liegt.
+        # Ein abhandengekommener Deploy-Schluessel kann damit keinen selbst
+        # gebauten Stand einschleusen, sondern hoechstens einen Stand noch
+        # einmal ausrollen, der ohnehin schon auf $BRANCH steht. Faellt die
+        # Pruefung durch, wird gar nichts ausgerollt.
+        git -C "$PROJEKT" merge-base --is-ancestor "$ZIEL_COMMIT" "origin/$BRANCH" \
+            || fehler "Commit $ZIEL_COMMIT liegt nicht auf origin/$BRANCH. Abbruch, es wird nichts ausgerollt."
+        log "Stand aus Actions: $ZIEL_COMMIT liegt auf origin/$BRANCH."
+        git -C "$PROJEKT" reset --hard "$ZIEL_COMMIT"
+    else
+        log "Kein Stand mitgegeben (Handbetrieb) - es wird die Spitze von origin/$BRANCH ausgerollt."
+        git -C "$PROJEKT" reset --hard "origin/$BRANCH"
+    fi
 fi
 COMMIT=$(git -C "$PROJEKT" rev-parse --short HEAD)
 log "Stand: $COMMIT $(git -C "$PROJEKT" log -1 --pretty=%s)"
