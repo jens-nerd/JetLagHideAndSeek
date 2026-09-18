@@ -97,6 +97,29 @@ gesundheit() {
     return 0
 }
 
+rueckweg_code() {
+    log "RUECKWEG: vorigen Webroot zurueckspielen ..."
+    rsync -a --delete "$DIST_SICHERUNG/" "$PROJEKT/dist/"
+    chmod -R 755 "$PROJEKT/dist"
+    systemctl restart "$DIENST"
+    sleep 3
+    if gesundheit; then
+        log "RUECKWEG erfolgreich. Voriger Stand ist wieder live."
+    else
+        log "RUECKWEG gescheitert - die Seite ist NICHT gesund. Handbetrieb noetig."
+    fi
+}
+
+rueckweg_db() {
+    log "RUECKWEG: Datenbank aus $DB_SICHERUNG zurueckspielen ..."
+    systemctl stop "$DIENST"
+    cp -a "$DB_SICHERUNG" "$DB"
+    chown hideandseek:hideandseek "$DB"
+    rm -f "$DB-wal" "$DB-shm"
+    systemctl start "$DIENST"
+    log "Datenbank zurueckgespielt."
+}
+
 # ── 7. Datenbank sichern ───────────────────────────────────────────────
 # .backup statt cp: atomar, nimmt den WAL-Stand mit.
 log "Datenbank sichern -> $DB_SICHERUNG"
@@ -105,12 +128,24 @@ sqlite3 "$DB_SICHERUNG" "pragma integrity_check;" | grep -qx ok \
     || fehler "Sicherung der Datenbank ist nicht lesbar. Abbruch vor der Migration."
 
 # ── 8. Migrationen ─────────────────────────────────────────────────────
+# Scheitert die Migration, ist das Schema ohnehin kaputt: Datenbank zurueck,
+# Code gar nicht erst tauschen.
 log "Migrationen fahren ..."
-( cd "$PROJEKT" && pnpm backend:migrate )
+if ! ( cd "$PROJEKT" && pnpm backend:migrate ); then
+    rueckweg_db
+    fehler "Migration gescheitert. Datenbank zurueckgespielt, Code NICHT getauscht."
+fi
 
 # ── 9. Webroot sichern, dann tauschen ──────────────────────────────────
 log "Webroot sichern -> $DIST_SICHERUNG"
 cp -a "$PROJEKT/dist" "$DIST_SICHERUNG"
+
+# Ab hier ist ein Rueckweg moeglich, weil die Sicherung steht. Die Falle
+# faengt alles, was zwischen hier und der Gesundheitspruefung abbricht:
+# ein mittendrin gescheitertes rsync ebenso wie ein fehlgeschlagener
+# systemctl restart. Ohne sie bliebe ein halb getauschtes Webroot liegen.
+trap 'log "Unerwarteter Abbruch nach dem Sicherungspunkt."; rueckweg_code; exit 1' ERR
+
 log "Webroot tauschen ..."
 rsync -a --delete "$STAGING/" "$PROJEKT/dist/"
 chmod -R 755 "$PROJEKT/dist"
@@ -121,8 +156,15 @@ systemctl restart "$DIENST"
 sleep 3
 
 # ── 11. Gesundheitspruefung ────────────────────────────────────────────
+# Nur der Code wird zurueckgerollt. Die Datenbank steht auf dem neuen
+# Schema und bleibt dort: ein automatisches Zurueckspielen wuerde alles
+# verwerfen, was seit Schritt 7 geschrieben wurde.
+trap - ERR   # ab hier wird von Hand entschieden, nicht mehr automatisch
 if gesundheit; then
     log "Gesundheitspruefung bestanden. Deploy $COMMIT ist live."
 else
-    fehler "Gesundheitspruefung gescheitert."
+    log "Gesundheitspruefung gescheitert."
+    rueckweg_code
+    log "ACHTUNG: Die Datenbank steht auf dem NEUEN Schema ($DB_SICHERUNG ist die Sicherung davor)."
+    exit 1
 fi
