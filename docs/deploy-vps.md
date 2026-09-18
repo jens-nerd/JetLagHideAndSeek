@@ -70,6 +70,8 @@ Das sind dieselben Befehle, die das Skript im Rückweg selbst verwendet, nur mit
 
 ## Der Rückweg
 
+Scheitert eine Migration (Schritt 8), spielt das Skript die eben angelegte Datenbanksicherung zurück und bricht ab. Der Webroot wurde zu diesem Zeitpunkt noch nicht getauscht, der Dienst noch nicht neu gestartet. Die Seite läuft also unverändert mit dem alten Stand weiter. Das ist der harmloseste der drei Fehlschläge.
+
 Scheitert der Dienst-Neustart oder alles, was direkt danach kommt, bevor die Gesundheitsprüfung läuft, fängt eine Falle das ab und spielt den vorigen Webroot automatisch zurück.
 
 Scheitert stattdessen die Gesundheitsprüfung selbst (Dienst nicht aktiv, `/health` antwortet nicht, oder die öffentliche URL liefert keine 200), rollt das Skript ebenfalls den Code zurück und beendet sich mit Fehler.
