@@ -3,6 +3,8 @@
 # Wird von GitHub Actions über ein erzwungenes SSH-Kommando gestartet
 # und laesst sich jederzeit von Hand ausfuehren:
 #   sudo /opt/hideandseek/scripts/deploy.sh
+# Klammer um den Rumpf: Schutz gegen Selbstaenderung durch git reset --hard in Schritt 3.
+{
 set -euo pipefail
 
 PROJEKT=/opt/hideandseek
@@ -206,3 +208,4 @@ else
     log "ACHTUNG: Die Datenbank steht auf dem NEUEN Schema ($DB_SICHERUNG ist die Sicherung davor)."
     exit 1
 fi
+}
