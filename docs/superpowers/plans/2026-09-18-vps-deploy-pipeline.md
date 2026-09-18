@@ -370,13 +370,32 @@ if ! ( cd "$PROJEKT" && pnpm backend:migrate ); then
 fi
 ```
 
-- [ ] **Schritt 3: Gesundheitsprüfung absichern** — Schritt 11 aus Task 3 ersetzen durch:
+- [ ] **Schritt 3: ERR-Falle scharfstellen** — Schritt 9 aus Task 3 ersetzen durch:
+
+```bash
+# ── 9. Webroot sichern, dann tauschen ──────────────────────────────────
+log "Webroot sichern -> $DIST_SICHERUNG"
+cp -a "$PROJEKT/dist" "$DIST_SICHERUNG"
+
+# Ab hier ist ein Rueckweg moeglich, weil die Sicherung steht. Die Falle
+# faengt alles, was zwischen hier und der Gesundheitspruefung abbricht:
+# ein mittendrin gescheitertes rsync ebenso wie ein fehlgeschlagener
+# systemctl restart. Ohne sie bliebe ein halb getauschtes Webroot liegen.
+trap 'log "Unerwarteter Abbruch nach dem Sicherungspunkt."; rueckweg_code; exit 1' ERR
+
+log "Webroot tauschen ..."
+rsync -a --delete "$STAGING/" "$PROJEKT/dist/"
+chmod -R 755 "$PROJEKT/dist"
+```
+
+- [ ] **Schritt 4: Gesundheitsprüfung absichern** — Schritt 11 aus Task 3 ersetzen durch:
 
 ```bash
 # ── 11. Gesundheitspruefung ────────────────────────────────────────────
 # Nur der Code wird zurueckgerollt. Die Datenbank steht auf dem neuen
 # Schema und bleibt dort: ein automatisches Zurueckspielen wuerde alles
 # verwerfen, was seit Schritt 7 geschrieben wurde.
+trap - ERR   # ab hier wird von Hand entschieden, nicht mehr automatisch
 if gesundheit; then
     log "Gesundheitspruefung bestanden. Deploy $COMMIT ist live."
 else
@@ -387,7 +406,7 @@ else
 fi
 ```
 
-- [ ] **Schritt 4: Committen und pushen**
+- [ ] **Schritt 5: Committen und pushen**
 
 ```bash
 cd ~/hideandseek
@@ -411,7 +430,7 @@ ssh deploy@91.98.85.53 'sudo git -C /opt/hideandseek fetch origin master && sudo
 
 Erwartet: „Oeffentliche URL liefert 404", dann „RUECKWEG: vorigen Webroot zurueckspielen", dann „RUECKWEG erfolgreich", Exitcode 1.
 
-- [ ] **Schritt 6: Nachweisen, dass die Seite danach gesund ist**
+- [ ] **Schritt 7: Nachweisen, dass die Seite danach gesund ist**
 
 ```bash
 curl -s -o /dev/null -w "HTTP %{http_code}\n" https://hideandseek.vielhaben.com/
@@ -420,7 +439,7 @@ ssh deploy@91.98.85.53 'systemctl is-active hideandseek-backend'
 
 Erwartet: HTTP 200 und `active`.
 
-- [ ] **Schritt 7: Scheiternde Migration nachstellen**
+- [ ] **Schritt 8: Scheiternde Migration nachstellen**
 
 Der zweite Fehlerfall aus der Spec. Migrationen laufen über `tsx src/db/migrate.ts`; scheitert der Prozess, muss die Datenbank zurückgespielt und der Code **nicht** getauscht werden. Nachgestellt, indem `migrate.ts` vorübergehend abbricht — auf dem Server, nicht im Repo:
 
@@ -432,7 +451,7 @@ ssh deploy@91.98.85.53 'sudo DEPLOY_SKIP_RESET=1 /opt/hideandseek/scripts/deploy
 
 Erwartet: „Migration gescheitert. Datenbank zurueckgespielt, Code NICHT getauscht.", Exitcode 1.
 
-- [ ] **Schritt 8: Nachweisen, dass der Code unberührt blieb**
+- [ ] **Schritt 9: Nachweisen, dass der Code unberührt blieb**
 
 ```bash
 ssh deploy@91.98.85.53 'sudo md5sum /opt/hideandseek/backend/hideandseek.db; sudo ls -1dt /opt/hideandseek/backups/dist-* | head -1; systemctl is-active hideandseek-backend'
@@ -441,7 +460,7 @@ curl -s -o /dev/null -w "HTTP %{http_code}\n" https://hideandseek.vielhaben.com/
 
 Erwartet: dieselbe Prüfsumme der Datenbank wie in Schritt 7 vor dem Lauf, **keine neue** `dist-*`-Sicherung (der Tausch fand nicht statt), Dienst `active`, HTTP 200.
 
-- [ ] **Schritt 9: Änderung an `migrate.ts` zurücknehmen**
+- [ ] **Schritt 10: Änderung an `migrate.ts` zurücknehmen**
 
 ```bash
 ssh deploy@91.98.85.53 'sudo cp /tmp/migrate.ts.orig /opt/hideandseek/backend/src/db/migrate.ts && sudo git -C /opt/hideandseek status --short'
@@ -449,7 +468,7 @@ ssh deploy@91.98.85.53 'sudo cp /tmp/migrate.ts.orig /opt/hideandseek/backend/sr
 
 Erwartet: keine Ausgabe von `git status` für getrackte Dateien.
 
-- [ ] **Schritt 10: Danach einen sauberen Deploy fahren**, damit der Server wieder auf dem aktuellen Stand steht:
+- [ ] **Schritt 11: Danach einen sauberen Deploy fahren**, damit der Server wieder auf dem aktuellen Stand steht:
 
 ```bash
 ssh deploy@91.98.85.53 'sudo /opt/hideandseek/scripts/deploy.sh'
