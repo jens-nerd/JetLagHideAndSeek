@@ -23,6 +23,7 @@ Wer trotzdem vom Mac übertragen muss: `--no-owner --no-group` mitgeben, oder di
 | Uploads | `/opt/hideandseek/uploads` (nginx liefert von dort aus) |
 | nginx-Site | `/etc/nginx/sites-available/hideandseek.vielhaben.com` |
 | Umgebung für den Frontend-Build | `/opt/hideandseek/.env`, gitignored, bleibt bei `git reset` liegen |
+| Geheimnisse fürs Backend | `/etc/hideandseek-backend.env`, `600 root:root`, außerhalb des Projekts |
 
 Zugang über `ssh deploy@<vps>`, der Benutzer hat passwortloses `sudo`.
 
@@ -62,6 +63,52 @@ journalctl -u hideandseek-backend -n 30 --no-pager
 ```
 
 **Nicht zusätzlich per pm2 starten.** Das Backend läuft als systemd-Unit. Eine zweite Instanz unter pm2 findet Port 3001 belegt, stirbt, wird neu gestartet, stirbt wieder. Bis Juli 2026 lief genau diese Schleife und hat eine Logdatei von 2,9 GB produziert, gut fünfzehn Millionen Zeilen `EADDRINUSE`. Die Anleitung in `MULTIPLAYER_SETUP.md` nennt pm2 noch als Option; für diesen Server gilt sie nicht.
+
+## Geheimnisse und Umgebungsvariablen
+
+Schlüssel gehören in `/etc/hideandseek-backend.env`, Modus `600`, Eigentümer `root:root`. Die Unit zieht sie über `EnvironmentFile=` nach:
+
+```
+EnvironmentFile=/etc/hideandseek-backend.env
+```
+
+Der Pfad liegt bewusst außerhalb von `/opt/hideandseek`. Damit fasst kein Deploy die Datei an, kein `git reset --hard`, kein `git clean`, kein `rsync --delete`. Sie überlebt schlicht alles, was mit dem Projektverzeichnis passiert.
+
+Nicht ins Projektverzeichnis legen, auch nicht als `.env`. Und nicht als `Environment=`-Zeile in die Unit schreiben: Unit-Dateien sind für jeden lesbar, `systemctl cat` gibt den Wert ungefragt aus.
+
+Einen Schlüssel rotieren heißt dann:
+
+```bash
+sudo nano /etc/hideandseek-backend.env
+sudo systemctl restart hideandseek-backend
+```
+
+Eine Stelle, ein Neustart. Kein Deploy nötig, kein Build.
+
+### Die Falle: Umzug von pm2 auf systemd
+
+Beim Wechsel eines Dienstes von pm2 auf systemd wandern Umgebungsvariablen **nicht** mit. pm2 hält sie in seiner eigenen Konfiguration (`/root/.pm2/module_conf.json`, `ecosystem.config.cjs`), systemd liest davon nichts.
+
+Genau das ist mit `HERE_API_KEY` passiert. Der Schlüssel lag nach dem Umzug nur noch als Überbleibsel in der pm2-Konfiguration, einem Pfad, den der systemd-Dienst gar nicht liest. Die HERE Browse API war damit monatelang abgeschaltet, ohne dass es jemand merkte.
+
+Warum es niemand merkte, ist der zweite Teil der Falle. `backend/src/routes/poi.ts` liest den Schlüssel so:
+
+```ts
+const HERE_API_KEY = process.env.HERE_API_KEY ?? "";
+...
+if (!HERE_API_KEY) return null;
+```
+
+Bei leerem Wert fällt die Route lautlos auf Overpass zurück. Keine Warnung im Log, kein Fehler, nur langsamere und schlechtere Ergebnisse. Ein fehlender Schlüssel sieht hier genauso aus wie ein funktionierender.
+
+Wer also einen Dienst umzieht: vorher die gesetzten Variablen der alten Umgebung auflisten und danach im laufenden Prozess nachsehen, ob sie angekommen sind.
+
+```bash
+PID=$(systemctl show -p MainPID --value hideandseek-backend)
+sudo cat /proc/$PID/environ | tr '\0' '\n' | cut -d= -f1 | sort
+```
+
+Der `cut` schneidet die Werte ab, ausgegeben werden nur die Namen.
 
 ## Nach dem Deploy prüfen
 
