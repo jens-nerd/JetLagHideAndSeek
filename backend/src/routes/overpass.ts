@@ -48,7 +48,7 @@ function evictExpired(): void {
 // `User-Agent: node` — set an explicit UA so the primary endpoint accepts
 // our POSTs. Overpass asks clients to identify themselves:
 // https://wiki.openstreetmap.org/wiki/Overpass_API#User-Agent
-const USER_AGENT =
+export const USER_AGENT =
     "JetLagHideAndSeek/0.0.1 (+https://github.com/jens-nerd/JetLagHideAndSeek)";
 
 async function fetchWithTimeout(

@@ -8,6 +8,10 @@
 import { createHash } from "node:crypto";
 import { Hono } from "hono";
 
+// Shared with the /api/overpass proxy: overpass-api.de rejects Node's
+// default UA with 406, which here costs a 60s timeout per endpoint.
+import { USER_AGENT } from "./overpass.js";
+
 // ── HERE category mapping ──────────────────────────────────────────────────
 
 const HERE_CATEGORIES: Record<string, string> = {
@@ -205,7 +209,10 @@ async function fetchOverpassEndpoint(endpoint: string, query: string): Promise<a
     try {
         let resp = await fetch(endpoint, {
             method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "User-Agent": USER_AGENT,
+            },
             body: `data=${encodeURIComponent(query)}`,
             signal: controller.signal,
         });
@@ -213,7 +220,10 @@ async function fetchOverpassEndpoint(endpoint: string, query: string): Promise<a
             await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
             resp = await fetch(endpoint, {
                 method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "User-Agent": USER_AGENT,
+                },
                 body: `data=${encodeURIComponent(query)}`,
                 signal: controller.signal,
             });
