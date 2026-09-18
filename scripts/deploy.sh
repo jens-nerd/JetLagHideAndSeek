@@ -190,6 +190,15 @@ log "Datenbank sichern -> $DB_SICHERUNG"
 sqlite3 "file:$DB?mode=ro" ".backup '$DB_SICHERUNG'"
 sqlite3 "$DB_SICHERUNG" "pragma integrity_check;" | grep -qx ok \
     || fehler "Sicherung der Datenbank ist nicht lesbar. Abbruch vor der Migration."
+# integrity_check beantwortet nur "ist das eine gueltige SQLite-Datei": eine
+# 0-Byte-Datei und ein abgeschnittener Torso bestehen sie ebenfalls mit ok.
+# rueckweg_db kopiert diese Sicherung ungeprueft ueber die Produktionsdatenbank,
+# darum zusaetzlich: nicht leer, und dieselbe Tabellenzahl wie die Quelle.
+TABELLEN_SQL="select count(*) from sqlite_master where type='table'"
+TABELLEN_QUELLE=$(sqlite3 "file:$DB?mode=ro" "$TABELLEN_SQL" || echo quelle-unlesbar)
+TABELLEN_SICHERUNG=$(sqlite3 "$DB_SICHERUNG" "$TABELLEN_SQL" || echo sicherung-unlesbar)
+[ -s "$DB_SICHERUNG" ] && [ "$TABELLEN_SICHERUNG" = "$TABELLEN_QUELLE" ] \
+    || fehler "Sicherung passt nicht zur Datenbank (Quelle: ${TABELLEN_QUELLE:-leer} Tabellen, Sicherung: ${TABELLEN_SICHERUNG:-leer}). Abbruch vor der Migration."
 
 # ── 8. Migrationen ─────────────────────────────────────────────────────
 # Scheitert die Migration, ist das Schema ohnehin kaputt: Datenbank zurueck,
