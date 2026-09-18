@@ -82,9 +82,10 @@ if [ -n "$ZIEL_COMMIT" ] && ! [[ "$ZIEL_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
     fehler "Mitgegebener Stand ist kein Commit: '$(printf '%s' "$ZIEL_COMMIT" | tr -c '0-9A-Za-z' '.' | cut -c1-64)' (${#ZIEL_COMMIT} Zeichen). Erlaubt sind genau 40 Zeichen aus 0-9a-f."
 fi
 
-# Bewusst KEIN git clean -fd: untracked liegen backups/ und .env. Die Uploads
-# lagen bis zum 18.09.2026 ebenfalls hier; seither stehen sie mit der Datenbank
-# unter $DATEN und waeren von einem clean gar nicht mehr betroffen.
+# Bewusst KEIN git clean -fd: untracked liegen backups/, build-deploy/ und
+# .env. Datenbank und Uploads lagen bis zum 18.09.2026 ebenfalls hier; seither
+# stehen sie unter $DATEN und waeren von einem clean nicht mehr betroffen. Der
+# Verzicht bleibt trotzdem richtig - in backups/ liegt der Rueckweg.
 # DEPLOY_SKIP_RESET dient ausschliesslich der Erprobung (Task 4): damit laesst
 # sich ein absichtlich manipulierter Arbeitsbaum testen, ohne dass der Reset
 # ihn sofort wieder geradezieht.
