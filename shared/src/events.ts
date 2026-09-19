@@ -1,4 +1,4 @@
-import type { HandKarte } from "./karten.js";
+import type { Fluch, HandKarte } from "./karten.js";
 import type { HidingZone, MapLocation, SessionQuestion, SessionStatus } from "./types.js";
 
 export interface SeekerPosition {
@@ -78,6 +78,18 @@ export type ServerToClientEvent =
           type: "hand_updated";
           hand: HandKarte[];
           deckRest: number;
+      }
+    | {
+          /** An alle: der Versteckende hat einen Fluch ausgespielt. */
+          type: "curse_played";
+          curse: Fluch;
+      }
+    | {
+          /** An alle: ein Fluch ist beendet — abgelaufen, erledigt oder aufgehoben. */
+          type: "curse_ended";
+          curseId: string;
+          endedBy: "ablauf" | "suchende" | "versteckender";
+          endedAt: string;
       };
 
 /**

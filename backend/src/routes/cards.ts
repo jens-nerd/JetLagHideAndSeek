@@ -5,9 +5,10 @@
  * 409 cards_disabled, wenn die Mechanik für diese Sitzung aus ist.
  */
 import type { HandKarte } from "@hideandseek/shared";
-import { getCardCost } from "@hideandseek/shared";
+import { findeKarte, getCardCost } from "@hideandseek/shared";
 import { and, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
+import { nanoid } from "nanoid";
 
 import { schema } from "../db/schema.js";
 import type { Db } from "../db/types.js";
@@ -18,6 +19,13 @@ import {
     getDeckRest,
     getHand,
 } from "../lib/deck.js";
+import {
+    berechneAblauf,
+    getAktiveFlueche,
+    planeAblauf,
+    toFluch,
+    verwirfAblauf,
+} from "../lib/curses.js";
 import { wsManager } from "../ws/manager.js";
 
 /** Token gegen participants auflösen — wie in routes/questions.ts. */
@@ -223,6 +231,120 @@ export function createCardsRouter(db: Db): Hono {
             sessionRow.id,
         );
         return c.json({ hand: neueHand, deckRest });
+    });
+
+    // ── POST /sessions/:code/curses ───────────────────────────────────────────
+
+    router.post("/sessions/:code/curses", async (c) => {
+        const code = c.req.param("code").toUpperCase();
+        const token = c.req.header("x-participant-token");
+        const body: { deckCardId?: string } = await c.req.json();
+
+        const sessionRow = await db.query.sessions.findFirst({
+            where: eq(schema.sessions.code, code),
+        });
+        if (!sessionRow) return c.json({ error: "Session not found" }, 404);
+        if (!sessionRow.cardsEnabled) {
+            return c.json({ error: "cards_disabled" }, 409);
+        }
+
+        const participant = await resolveParticipant(db, sessionRow.id, token);
+        if (!participant) return c.json({ error: "Invalid token" }, 403);
+        if (participant.role !== "hider") {
+            return c.json({ error: "Only the hider can play curses" }, 403);
+        }
+        if (!body.deckCardId) {
+            return c.json({ error: "deckCardId is required" }, 400);
+        }
+
+        const deckRow = await db.query.deckCards.findFirst({
+            where: and(
+                eq(schema.deckCards.id, body.deckCardId),
+                eq(schema.deckCards.sessionId, sessionRow.id),
+            ),
+        });
+        if (!deckRow || deckRow.state !== "hand") {
+            return c.json({ error: "not_in_hand" }, 400);
+        }
+
+        const karte = findeKarte(deckRow.cardId);
+        if (!karte) return c.json({ error: "unknown_card" }, 400);
+        if (karte.art !== "fluch") return c.json({ error: "not_a_curse" }, 400);
+
+        const curseId = nanoid();
+        const playedAt = new Date().toISOString();
+        const expiresAt = berechneAblauf(karte, sessionRow.gameSize as any);
+
+        await db.insert(schema.curses).values({
+            id: curseId,
+            sessionId: sessionRow.id,
+            cardId: deckRow.cardId,
+            playedByParticipantId: participant.id,
+            playedAt,
+            expiresAt,
+        });
+        await db
+            .update(schema.deckCards)
+            .set({ state: "gespielt" })
+            .where(eq(schema.deckCards.id, deckRow.id));
+
+        const curseRow = (await db.query.curses.findFirst({
+            where: eq(schema.curses.id, curseId),
+        }))!;
+        const curse = toFluch(curseRow);
+
+        wsManager.broadcast(sessionRow.code, { type: "curse_played", curse });
+        await sendeHand(db, sessionRow.code, sessionRow.id);
+
+        if (expiresAt) planeAblauf(db, sessionRow.code, curseId, expiresAt);
+
+        return c.json({ curse }, 201);
+    });
+
+    // ── POST /curses/:id/end ──────────────────────────────────────────────────
+
+    router.post("/curses/:id/end", async (c) => {
+        const curseId = c.req.param("id");
+        const token = c.req.header("x-participant-token");
+
+        const curseRow = await db.query.curses.findFirst({
+            where: eq(schema.curses.id, curseId),
+        });
+        if (!curseRow) return c.json({ error: "Curse not found" }, 404);
+        if (curseRow.endedAt) return c.json({ error: "already_ended" }, 409);
+
+        const sessionRow = await db.query.sessions.findFirst({
+            where: eq(schema.sessions.id, curseRow.sessionId),
+        });
+        if (!sessionRow) return c.json({ error: "Session not found" }, 404);
+        if (!sessionRow.cardsEnabled) {
+            return c.json({ error: "cards_disabled" }, 409);
+        }
+
+        const participant = await resolveParticipant(db, sessionRow.id, token);
+        if (!participant) return c.json({ error: "Invalid token" }, 403);
+
+        const endedBy =
+            participant.role === "hider" ? "versteckender" : "suchende";
+        const endedAt = new Date().toISOString();
+
+        await db
+            .update(schema.curses)
+            .set({ endedAt, endedBy })
+            .where(eq(schema.curses.id, curseId));
+        verwirfAblauf(curseId);
+
+        wsManager.broadcast(sessionRow.code, {
+            type: "curse_ended",
+            curseId,
+            endedBy,
+            endedAt,
+        });
+
+        const aktualisiert = (await db.query.curses.findFirst({
+            where: eq(schema.curses.id, curseId),
+        }))!;
+        return c.json({ curse: toFluch(aktualisiert) });
     });
 
     return router;
