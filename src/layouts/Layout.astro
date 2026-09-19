@@ -3,16 +3,52 @@ import "@/styles/globals.css";
 import { ToastContainer } from "react-toastify";
 // @ts-ignore
 import { pwaInfo } from "virtual:pwa-info";
+import type { Locale } from "@/i18n";
 
 export interface Props {
     className?: string;
+    lang?: Locale;
 }
 
-const { className } = Astro.props;
+const site = "https://hideandseek.vielhaben.com";
+
+// Texte: Hanna Vossberg, 19.09.2026. Bild und Bildmasse tauschen,
+// sobald Jonas' Share-Bild (1200x630) je Sprache vorliegt.
+const meta = {
+    de: {
+        url: `${site}/`,
+        ogLocale: "de_DE",
+        title: "Hide’n’Seek – in der ganzen Stadt",
+        description:
+            "…oder so groß, wie ihr euch traut. Runde per Code, Rollen, Fragen: Jede Antwort schneidet Gebiet weg. Hider ziehen Karten und spielen Flüche.",
+        ogTitle: "Hide’n’Seek – irgendwo in diesem Gebiet",
+        ogDescription:
+            "Eine Person hat sich abgesetzt, der Rest fragt sich ran. Jede Antwort schneidet ein Stück von der Karte, bis nur noch ein Fleck übrig ist.",
+        image: `${site}/JLIcon.png`,
+        imageAlt:
+            "Hide’n’Seek – in der ganzen Stadt, darunter die Zeile „…oder so groß, wie ihr euch traut.“",
+    },
+    en: {
+        url: `${site}/en/`,
+        ogLocale: "en_US",
+        title: "Hide’n’Seek – across a whole city",
+        description:
+            "…or as big as you dare. Open a round with a code, pick roles, ask questions: every answer cuts territory off the map. Hiders draw cards and play curses.",
+        ogTitle: "Hide’n’Seek – somewhere in this area",
+        ogDescription:
+            "One of you has gone to ground, the rest ask their way in. Every answer cuts a piece off the map until one patch is left.",
+        image: `${site}/JLIcon.png`,
+        imageAlt:
+            "Hide’n’Seek – across a whole city, above the line “…or as big as you dare.”",
+    },
+} as const;
+
+const { className, lang = "de" } = Astro.props;
+const m = meta[lang];
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang={lang}>
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width" />
@@ -45,29 +81,53 @@ const { className } = Astro.props;
         />
         <meta name="generator" content={Astro.generator} />
         <!-- HTML Meta Tags -->
-        <title>Map Generator for Jet Lag The Game: Hide and Seek</title>
+        <title>{m.title}</title>
         <meta
             name="description"
-            content="Automatically generate maps for Jet Lag The Game: Hide and Seek with ease! Simply name the questions and watch the map eliminate hundreds of possibilities in seconds."
+            content={m.description}
+        />
+
+        <!-- Sprachvarianten -->
+        <link
+            rel="alternate"
+            hreflang="de"
+            href={meta.de.url}
+        />
+        <link
+            rel="alternate"
+            hreflang="en"
+            href={meta.en.url}
+        />
+        <link
+            rel="alternate"
+            hreflang="x-default"
+            href={meta.de.url}
         />
 
         <!-- Facebook Meta Tags -->
         <meta
             property="og:url"
-            content="https://hideandseek.vielhaben.com/"
+            content={m.url}
         />
         <meta property="og:type" content="website" />
+        <meta property="og:locale" content={m.ogLocale} />
         <meta
             property="og:title"
-            content="Map Generator for Jet Lag The Game: Hide and Seek"
+            content={m.ogTitle}
         />
         <meta
             property="og:description"
-            content="Automatically generate maps for Jet Lag The Game: Hide and Seek with ease! Simply name the questions and watch the map eliminate hundreds of possibilities in seconds."
+            content={m.ogDescription}
         />
         <meta
             property="og:image"
-            content="https://hideandseek.vielhaben.com/JLIcon.png"
+            content={m.image}
+        />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta
+            property="og:image:alt"
+            content={m.imageAlt}
         />
 
         <!-- Twitter Meta Tags -->
@@ -75,19 +135,23 @@ const { className } = Astro.props;
         <meta property="twitter:domain" content="hideandseek.vielhaben.com" />
         <meta
             property="twitter:url"
-            content="https://hideandseek.vielhaben.com/"
+            content={m.url}
         />
         <meta
             name="twitter:title"
-            content="Map Generator for Jet Lag The Game: Hide and Seek"
+            content={m.ogTitle}
         />
         <meta
             name="twitter:description"
-            content="Automatically generate maps for Jet Lag The Game: Hide and Seek with ease! Simply name the questions and watch the map eliminate hundreds of possibilities in seconds."
+            content={m.ogDescription}
         />
         <meta
             name="twitter:image"
-            content="https://hideandseek.vielhaben.com/JLIcon.png"
+            content={m.image}
+        />
+        <meta
+            name="twitter:image:alt"
+            content={m.imageAlt}
         />
 
         {pwaInfo && <Fragment set:html={pwaInfo.webManifest.linkTag} />}

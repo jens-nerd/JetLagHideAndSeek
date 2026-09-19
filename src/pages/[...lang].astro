@@ -4,9 +4,21 @@ import { Map } from "@/components/Map";
 import { TutorialDialog } from "@/components/TutorialDialog";
 import { BottomSheetPanel } from "@/components/BottomSheetPanel";
 import { CreateSessionOverlay } from "@/components/session/CreateSessionOverlay";
+import type { Locale } from "@/i18n";
+
+// Eine Seite, zwei Routen: "/" liefert die deutschen, "/en/" die englischen
+// Meta-Werte. Der Inhalt unten steht nur hier, es gibt keine zweite Kopie.
+export function getStaticPaths() {
+    return [
+        { params: { lang: undefined }, props: { lang: "de" as Locale } },
+        { params: { lang: "en" }, props: { lang: "en" as Locale } },
+    ];
+}
+
+const { lang } = Astro.props;
 ---
 
-<Layout className="bg-jetlag">
+<Layout className="bg-jetlag" lang={lang}>
     <main class="flex flex-col flex-grow group">
         <div
             class="flex justify-center"
