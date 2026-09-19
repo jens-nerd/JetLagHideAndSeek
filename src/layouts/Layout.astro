@@ -12,8 +12,8 @@ export interface Props {
 
 const site = "https://hideandseek.vielhaben.com";
 
-// Texte: Hanna Vossberg, 19.09.2026. Bild und Bildmasse tauschen,
-// sobald Jonas' Share-Bild (1200x630) je Sprache vorliegt.
+// Texte: Hanna Vossberg, 19.09.2026. Share-Bilder: Jonas Reinhardt,
+// 1200x630 je Sprache.
 const meta = {
     de: {
         url: `${site}/`,
@@ -24,9 +24,9 @@ const meta = {
         ogTitle: "Hide’n’Seek – irgendwo in diesem Gebiet",
         ogDescription:
             "Ein Team setzt sich ab, das andere fragt sich ran. Jede Antwort schneidet ein Stück von der Karte, bis nur noch ein Fleck übrig ist. Gegen die Fragen helfen Karten und Flüche.",
-        image: `${site}/JLIcon.png`,
+        image: `${site}/share-de.png`,
         imageAlt:
-            "Hide’n’Seek – in der ganzen Stadt, darunter die Zeile „…oder so groß, wie ihr euch traut.“",
+            "Dunkler Stadtplan. Zwei rote Kreise und eine gerade rote Linie grenzen ein helles Restgebiet ein. Links daneben der Schriftzug Hide’n’Seek, in der ganzen Stadt.",
     },
     en: {
         url: `${site}/en/`,
@@ -37,9 +37,9 @@ const meta = {
         ogTitle: "Hide’n’Seek – somewhere in this area",
         ogDescription:
             "One team goes to ground, the other asks its way in. Every answer cuts a piece off the map until one patch is left. Cards and curses fight back.",
-        image: `${site}/JLIcon.png`,
+        image: `${site}/share-en.png`,
         imageAlt:
-            "Hide’n’Seek – across a whole city, above the line “…or as big as you dare.”",
+            "Dark city map. Two red circles and a straight red line close in on a lighter remaining area. To the left, the words Hide’n’Seek, across a whole city.",
     },
 } as const;
 

@@ -25,22 +25,25 @@ export default defineConfig({
                     "Runde per Code, Fragen mit GPS-Antwort, Kartenhand und Flüche. Das Spielgebiet legt ihr selbst fest.",
                 icons: [
                     {
-                        src: "/JLIcon.png",
-                        sizes: "1080x1080",
-                        type: "image/png",
-                    },
-                    {
                         src: "/android-chrome-192x192.png",
                         sizes: "192x192",
                         type: "image/png",
+                        purpose: "any",
                     },
                     {
                         src: "/android-chrome-512x512.png",
                         sizes: "512x512",
                         type: "image/png",
+                        purpose: "any",
+                    },
+                    {
+                        src: "/icon-maskable-512.png",
+                        sizes: "512x512",
+                        type: "image/png",
+                        purpose: "maskable",
                     },
                 ],
-                theme_color: "#1F2F3F",
+                theme_color: "#1E1E2A",
                 lang: "de",
             },
             workbox: {
