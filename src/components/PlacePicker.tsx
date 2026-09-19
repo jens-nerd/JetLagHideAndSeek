@@ -31,6 +31,7 @@ import {
     mapGeoLocation,
     polyGeoJSON,
     questions,
+    searchBias,
 } from "@/lib/context";
 import { cn } from "@/lib/utils";
 import {
@@ -60,7 +61,7 @@ export const PlacePicker = ({
     const [open, setOpen] = useState(false);
     const tr = useT();
     const [inputValue, setInputValue] = useState("");
-    const debouncedValue = useDebounce<string>(inputValue);
+    const debouncedValue = useDebounce<string>(inputValue, 400);
     const [results, setResults] = useState<OpenStreetMap[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(false);
@@ -72,7 +73,14 @@ export const PlacePicker = ({
         } else {
             setLoading(true);
             setResults([]);
-            geocode(debouncedValue, "en")
+            geocode(debouncedValue, locale.get(), true, {
+                // Großzügig abrufen und serverseitig auf Ortschaften/Gebiete
+                // eingrenzen: der Relationsfilter in geocode() läuft erst
+                // danach, ein knappes Limit würde sonst leere Listen erzeugen.
+                limit: 15,
+                osmTag: "place",
+                ...searchBias(),
+            })
                 .then((x) => {
                     setResults(x);
                     setLoading(false);
@@ -257,9 +265,7 @@ export const PlacePicker = ({
                 <Command shouldFilter={false}>
                     <CommandInput
                         placeholder={tr("placePicker.searchPlaceholder")}
-                        onKeyUp={(x) => {
-                            setInputValue(x.currentTarget.value);
-                        }}
+                        onValueChange={setInputValue}
                     />
                     <CommandList>
                         <CommandEmpty>

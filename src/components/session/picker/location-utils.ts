@@ -4,6 +4,10 @@
  * RadiusConfig, TentaclesConfig, ThermometerConfig.
  */
 
+import { locale } from "@/i18n";
+import { searchBias } from "@/lib/context";
+import { buildGeocodeUrl } from "@/maps/api";
+
 /** Format lat/lng as "51.3512° N, 10.4590° E" */
 export function formatCoord(lat: number, lng: number): string {
     const latDir = lat >= 0 ? "N" : "S";
@@ -31,11 +35,15 @@ export function parseClipboardCoords(text: string): { lat: number; lng: number }
     return null;
 }
 
-/** Search the Photon (Komoot) geocoding API */
+/**
+ * Search the Photon (Komoot) geocoding API.
+ * URL-Bau, Sprache und Nähe-Gewichtung teilt sich diese Suche mit dem
+ * PlacePicker im Spielgebiet-Schritt. Ohne Filter, deshalb bleibt limit=5.
+ */
 export async function searchPhoton(query: string): Promise<{ lat: number; lng: number; name: string }[]> {
     if (!query.trim()) return [];
     const resp = await fetch(
-        `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5`,
+        buildGeocodeUrl(query, locale.get(), { limit: 5, ...searchBias() }),
     );
     const data = await resp.json();
     return (data.features ?? []).map((f: any) => ({
