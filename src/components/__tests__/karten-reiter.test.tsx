@@ -141,4 +141,15 @@ describe("KartenReiter", () => {
         const alsSeeker = await render();
         expect(alsSeeker).toContain("data-curse=");
     });
+
+    it("zeichnet keine Karte, die nicht mehr auf der Hand liegt", async () => {
+        stores.hand.set([{ id: "d1", karte: FLUCHKARTE }]);
+        const mitKarte = await render();
+        expect(mitKarte).toContain('data-handcard="d1"');
+
+        vi.resetModules();
+        stores.hand.set([]);
+        const ohneKarte = await render();
+        expect(ohneKarte).not.toContain('data-handcard="d1"');
+    });
 });
