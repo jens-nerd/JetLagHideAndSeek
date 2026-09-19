@@ -51,4 +51,37 @@ describe("runMigrations", () => {
             .map((r: any) => r.name);
         expect(cols).toContain("hiding_zone");
     });
+
+    it("ergaenzt uses_left auf einer Datenbank mit Stand 7", () => {
+        const sqlite = new Database(":memory:");
+        runMigrations(sqlite);
+        // Auf Stand 7 zuruecksetzen und die Spalte wieder entfernen, damit die
+        // Migration wirklich etwas zu tun hat.
+        sqlite.exec("ALTER TABLE curses DROP COLUMN uses_left");
+        sqlite.pragma("user_version = 7");
+
+        // Ein Fluch aus der Zeit davor.
+        sqlite.exec(`
+            INSERT INTO sessions (id, code, expires_at)
+                VALUES ('s1', 'AAA111', '2099-01-01T00:00:00.000Z');
+            INSERT INTO participants (id, session_id, role, token, display_name)
+                VALUES ('p1', 's1', 'hider', 't1', 'Hider Hans');
+            INSERT INTO curses (id, session_id, card_id, played_by_participant_id, played_at)
+                VALUES ('c1', 's1', 'fluch-nachschlag', 'p1', '2026-01-01T00:00:00.000Z');
+        `);
+
+        runMigrations(sqlite);
+
+        const cols = sqlite
+            .prepare("PRAGMA table_info(curses)")
+            .all()
+            .map((r: any) => r.name);
+        expect(cols).toContain("uses_left");
+        expect(sqlite.pragma("user_version", { simple: true })).toBe(8);
+
+        const row = sqlite.prepare("SELECT uses_left FROM curses WHERE id = 'c1'").get() as any;
+        expect(row.uses_left).toBeNull();
+
+        expect(sqlite.pragma("integrity_check", { simple: true })).toBe("ok");
+    });
 });

@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 
-export const CURRENT_SCHEMA_VERSION = 7;
+export const CURRENT_SCHEMA_VERSION = 8;
 
 type ColumnRow = { name: string };
 
@@ -188,6 +188,17 @@ const MIGRATIONS: Migration[] = [
 
                 CREATE INDEX IF NOT EXISTS idx_curses_session ON curses(session_id);
             `);
+        },
+    },
+    {
+        // v8: Restanwendungen an curses — bisher braucht sie nur der Nachschlag,
+        // alle anderen Flueche lassen die Spalte auf NULL.
+        version: 8,
+        up: (db) => {
+            const cols = columnNames(db, "curses");
+            if (!cols.includes("uses_left")) {
+                db.exec("ALTER TABLE curses ADD COLUMN uses_left INTEGER");
+            }
         },
     },
     /* add future migrations here, in ascending version order */

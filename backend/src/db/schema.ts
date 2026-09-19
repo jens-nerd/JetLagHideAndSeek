@@ -123,6 +123,11 @@ export const curses = sqliteTable("curses", {
     endedBy: text("ended_by", {
         enum: ["ablauf", "suchende", "versteckender"],
     }),
+    /**
+     * Verbleibende Anwendungen. Nur der Nachschlag zaehlt herunter; jeder
+     * andere Fluch laesst die Spalte auf null.
+     */
+    usesLeft: integer("uses_left"),
 });
 
 // Grouped schema object for convenience imports
