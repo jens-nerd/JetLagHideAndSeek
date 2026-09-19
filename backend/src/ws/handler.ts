@@ -1,11 +1,14 @@
 import type { ClientToServerEvent } from "@hideandseek/shared";
 import { PHOTO_DEADLINE_MS, QUESTION_DEADLINE_MS } from "@hideandseek/shared";
+import { getCardCost } from "@hideandseek/shared";
 import { and, eq } from "drizzle-orm";
 import type { WSContext } from "hono/ws";
 import { nanoid } from "nanoid";
 
 import { db as globalDb, schema } from "../db/index.js";
 import type { Db } from "../db/types.js";
+import { getAktiveFlueche } from "../lib/curses.js";
+import { getDeckRest, getHand, getOffenerZug } from "../lib/deck.js";
 import { sendPushNotifications } from "../lib/push.js";
 import { buildParticipantsMap, toSessionQuestion } from "../routes/sessions.js";
 import { type ConnectedClient, wsManager } from "./manager.js";
@@ -154,6 +157,36 @@ export async function handleWsOpen(
         }
     }
 
+    // ── Kartenmechanik ────────────────────────────────────────────────────────
+    const kartenFelder: Record<string, unknown> = {
+        cardsEnabled: sessionRow.cardsEnabled,
+    };
+    if (sessionRow.cardsEnabled) {
+        kartenFelder.activeCurses = await getAktiveFlueche(db, sessionRow.id);
+        if (client.role === "hider") {
+            kartenFelder.hand = await getHand(db, sessionRow.id);
+            kartenFelder.deckRest = await getDeckRest(db, sessionRow.id);
+
+            const offen = await getOffenerZug(db, sessionRow.id);
+            if (offen) {
+                const frage = await db.query.questions.findFirst({
+                    where: eq(schema.questions.id, offen.questionId),
+                });
+                const kosten = frage ? getCardCost(frage.type) : null;
+                kartenFelder.pendingDraw = {
+                    questionId: offen.questionId,
+                    angeboten: offen.angeboten,
+                    behalten: Math.min(
+                        kosten?.keep ?? 1,
+                        offen.angeboten.length,
+                    ),
+                };
+            } else {
+                kartenFelder.pendingDraw = null;
+            }
+        }
+    }
+
     ws.send(
         JSON.stringify({
             type: "sync",
@@ -171,6 +204,7 @@ export async function handleWsOpen(
                 displayName: p.displayName,
             })),
             hidingZone,
+            ...kartenFelder,
         }),
     );
 

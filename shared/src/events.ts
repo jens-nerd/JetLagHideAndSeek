@@ -1,4 +1,4 @@
-import type { Fluch, HandKarte } from "./karten.js";
+import type { Fluch, HandKarte, PendingDraw } from "./karten.js";
 import type { HidingZone, MapLocation, SessionQuestion, SessionStatus } from "./types.js";
 
 export interface SeekerPosition {
@@ -57,6 +57,16 @@ export type ServerToClientEvent =
           gameSize: "S" | "M" | "L" | null;
           /** Hider's hiding zone — null for seekers unless revealed */
           hidingZone: HidingZone | null;
+          /** Kartenmechanik für diese Sitzung eingeschaltet */
+          cardsEnabled: boolean;
+          /** Laufende Flüche — nur gesetzt, wenn cardsEnabled */
+          activeCurses?: Fluch[];
+          /** Hand des Versteckenden — nur an den Versteckenden */
+          hand?: HandKarte[];
+          /** Verbleibende Karten im Deck — nur an den Versteckenden */
+          deckRest?: number;
+          /** Offener Ziehvorgang — nur an den Versteckenden */
+          pendingDraw?: PendingDraw | null;
       }
     | {
           /** Broadcast to hider only: current seeker positions */
