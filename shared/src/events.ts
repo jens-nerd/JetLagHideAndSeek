@@ -1,3 +1,4 @@
+import type { HandKarte } from "./karten.js";
 import type { HidingZone, MapLocation, SessionQuestion, SessionStatus } from "./types.js";
 
 export interface SeekerPosition {
@@ -71,6 +72,12 @@ export type ServerToClientEvent =
           /** Broadcast to all seekers when hider reveals their zone (endgame) */
           type: "hiding_zone_revealed";
           hidingZone: HidingZone;
+      }
+    | {
+          /** Nur an den Versteckenden: seine Hand hat sich geändert. */
+          type: "hand_updated";
+          hand: HandKarte[];
+          deckRest: number;
       };
 
 /**
