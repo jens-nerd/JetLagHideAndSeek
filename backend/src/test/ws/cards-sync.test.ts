@@ -118,6 +118,74 @@ describe("sync mit Kartenmechanik", () => {
         });
     });
 
+    it("behalten passt sich an, wenn das Deck weniger Karten hergibt als die Frage kostet", async () => {
+        await withTestApp(async ({ app, makeWsClient, db }) => {
+            const s = await sitzungMitKarten(app);
+            const { body: frage } = await req<any>(
+                app, "POST", `/api/sessions/${s.code}/questions`,
+                { body: { type: "tentacles", data: {} }, token: s.seekerToken, expectStatus: 201 },
+            );
+            await req<any>(app, "POST", `/api/questions/${frage.question.id}/answer`, {
+                body: { answerData: { ort: "Hbf" } }, token: s.hiderToken, expectStatus: 200,
+            });
+
+            // Deck auf eine einzige Karte verknappen, bevor gezogen wird.
+            const { buildDeck } = await import("../../lib/deck.js");
+            const { schema } = await import("../../db/schema.js");
+            const { inArray } = await import("drizzle-orm");
+            const sessionRow = await db.query.sessions.findFirst({
+                where: (t: any, { eq }: any) => eq(t.code, s.code),
+            });
+            await buildDeck(db, sessionRow!.id);
+            const deckRows = await db.query.deckCards.findMany({
+                where: (t: any, { and, eq }: any) =>
+                    and(eq(t.sessionId, sessionRow!.id), eq(t.state, "deck")),
+                orderBy: (d: any, { asc }: any) => [asc(d.position)],
+            });
+            const restIds = deckRows.slice(1).map((r: any) => r.id);
+            await db
+                .update(schema.deckCards)
+                .set({ state: "gespielt" })
+                .where(inArray(schema.deckCards.id, restIds));
+
+            await req<any>(app, "POST", `/api/questions/${frage.question.id}/draw`, {
+                token: s.hiderToken, expectStatus: 200,
+            });
+
+            const hider = await makeWsClient(s.code, s.hiderToken);
+            const hSync = await hider.waitFor((m) => m.type === "sync");
+
+            expect(hSync.pendingDraw.angeboten).toHaveLength(1);
+            expect(hSync.pendingDraw.behalten).toBe(1);
+        });
+    });
+
+    it("laesst pendingDraw weg, wenn die zugehoerige Frage nicht mehr existiert", async () => {
+        await withTestApp(async ({ app, makeWsClient, db }) => {
+            const s = await sitzungMitKarten(app);
+            const { body: frage } = await req<any>(
+                app, "POST", `/api/sessions/${s.code}/questions`,
+                { body: { type: "matching", data: {} }, token: s.seekerToken, expectStatus: 201 },
+            );
+            const qid = frage.question.id;
+            await req<any>(app, "POST", `/api/questions/${qid}/answer`, {
+                body: { answerData: { ja: true } }, token: s.hiderToken, expectStatus: 200,
+            });
+            await req<any>(app, "POST", `/api/questions/${qid}/draw`, {
+                token: s.hiderToken, expectStatus: 200,
+            });
+
+            const { schema } = await import("../../db/schema.js");
+            const { eq } = await import("drizzle-orm");
+            await db.delete(schema.questions).where(eq(schema.questions.id, qid));
+
+            const hider = await makeWsClient(s.code, s.hiderToken);
+            const hSync = await hider.waitFor((m) => m.type === "sync");
+
+            expect(hSync.pendingDraw).toBeNull();
+        });
+    });
+
     it("verteilt curse_played an beide Rollen", async () => {
         await withTestApp(async ({ app, makeWsClient, db }) => {
             const s = await sitzungMitKarten(app);
