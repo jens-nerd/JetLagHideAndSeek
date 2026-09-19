@@ -539,6 +539,7 @@ export const de = {
     "picker.questionDesc.matching": "Vergleicht Merkmale eures Standorts mit dem des Hiders",
     "picker.questionDesc.measuring": "Hider misst Distanzen und Strecken von einem Objekt.",
     "picker.questionDesc.photo": "Der Hider fotografiert ein markantes Objekt in seiner Nähe",
+    "picker.lockedCategory": "Das Glücksrad sperrt gerade {kategorie}. Diese Frage ist erst nach dem nächsten Los wieder möglich.",
 
     // ── Einstellungen (Settings redesign) ───────────────────────────────────
     "settings.title": "Einstellungen",
@@ -581,6 +582,8 @@ export const de = {
     "cards.bonusValue": "+{n} min",
     "cards.duration": "Laufzeit",
     "cards.durationValue": "{n} min",
+    "cards.lockedCategory": "Gerade gesperrt: {kategorie}",
+    "cards.lockedRejected": "Diese Kategorie ist gerade vom Glücksrad gesperrt. Nimm eine andere.",
 
     // ── Handansicht und Ausspielen (KartenReiter, KartenAnsicht) ───────────────
     "cards.handEmpty": "Deine Hand ist leer. Beantworte eine Frage, dann darfst du ziehen.",

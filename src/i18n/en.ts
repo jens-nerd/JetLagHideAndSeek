@@ -540,6 +540,7 @@ export const en: Record<TranslationKey, string> = {
     "picker.questionDesc.matching": "Compare features of your location with the hider's",
     "picker.questionDesc.measuring": "Hider measures distances and lengths from an object.",
     "picker.questionDesc.photo": "The hider photographs a distinctive object nearby",
+    "picker.lockedCategory": "The Glücksrad is locking {kategorie} right now. This question is possible again after the next draw.",
 
     // ── Settings (Settings redesign) ────────────────────────────────────────
     "settings.title": "Settings",
@@ -582,6 +583,8 @@ export const en: Record<TranslationKey, string> = {
     "cards.bonusValue": "+{n} min",
     "cards.duration": "Duration",
     "cards.durationValue": "{n} min",
+    "cards.lockedCategory": "Currently locked: {kategorie}",
+    "cards.lockedRejected": "That category is locked by the Glücksrad right now. Pick a different one.",
 
     // ── Hand view and playing cards (KartenReiter, KartenAnsicht) ──────────────
     "cards.handEmpty": "Your hand is empty. Answer a question, then you may draw.",
