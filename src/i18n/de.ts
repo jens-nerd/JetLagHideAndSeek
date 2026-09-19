@@ -574,6 +574,19 @@ export const de = {
     "cards.cost": "Kosten",
     "cards.proof": "Nachweis",
     "cards.fallback": "Ausweichregel",
+
+    // ── Handansicht und Ausspielen (KartenReiter, KartenAnsicht) ───────────────
+    "cards.handEmpty": "Deine Hand ist leer. Beantworte eine Frage, dann darfst du ziehen.",
+    "cards.handTitle": "Hand",
+    "cards.deckLeft": "{n} Karten im Deck",
+    "cards.bonusSum": "{n} Bonusminuten auf der Hand",
+    "cards.play": "Ausspielen",
+    "cards.discard": "Abwerfen",
+    "cards.back": "Zurück",
+    "cards.confirmPlay": "{name} jetzt ausspielen?",
+    "cards.confirmDiscard": "{name} abwerfen? Abgeworfene Zeitboni verfallen.",
+    "cards.activeCurses": "Laufende Flüche",
+    "cards.discardNotAvailable": "Abwerfen geht nur beim Ziehen, wenn die Hand über sechs käme.",
 } as const;
 
 export type Translations = typeof de;

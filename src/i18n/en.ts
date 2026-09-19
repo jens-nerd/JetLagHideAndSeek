@@ -575,4 +575,17 @@ export const en: Record<TranslationKey, string> = {
     "cards.cost": "Cost",
     "cards.proof": "Proof",
     "cards.fallback": "Fallback rule",
+
+    // ── Hand view and playing cards (KartenReiter, KartenAnsicht) ──────────────
+    "cards.handEmpty": "Your hand is empty. Answer a question, then you may draw.",
+    "cards.handTitle": "Hand",
+    "cards.deckLeft": "{n} cards left in the deck",
+    "cards.bonusSum": "{n} bonus minutes in hand",
+    "cards.play": "Play",
+    "cards.discard": "Discard",
+    "cards.back": "Back",
+    "cards.confirmPlay": "Play {name} now?",
+    "cards.confirmDiscard": "Discard {name}? Discarded time bonuses are lost.",
+    "cards.activeCurses": "Active curses",
+    "cards.discardNotAvailable": "Discarding only happens while drawing, when the hand would exceed six.",
 };
