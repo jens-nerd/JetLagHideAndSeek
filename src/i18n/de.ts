@@ -595,6 +595,7 @@ export const de = {
     "cards.drawTitle": "Karten ziehen",
     "cards.drawHint": "Sieh dir {draw} an, behalte {keep}.",
     "cards.drawOpen": "Karten ansehen",
+    "cards.continue": "Weiter",
     "cards.keepButton": "Behalten",
     "cards.keepCount": "{gewaehlt} von {noetig} gewählt",
     "cards.discardPrompt": "Deine Hand wäre zu voll. Wirf {n} ab.",

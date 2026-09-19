@@ -1,6 +1,5 @@
 import type { ClientToServerEvent } from "@hideandseek/shared";
 import { PHOTO_DEADLINE_MS, QUESTION_DEADLINE_MS } from "@hideandseek/shared";
-import { getCardCost } from "@hideandseek/shared";
 import { and, eq } from "drizzle-orm";
 import type { WSContext } from "hono/ws";
 import { nanoid } from "nanoid";
@@ -8,7 +7,7 @@ import { nanoid } from "nanoid";
 import { db as globalDb, schema } from "../db/index.js";
 import type { Db } from "../db/types.js";
 import { getAktiveFlueche } from "../lib/curses.js";
-import { getDeckRest, getHand, getOffenerZug } from "../lib/deck.js";
+import { ermittlePendingDraw, getDeckRest, getHand } from "../lib/deck.js";
 import { sendPushNotifications } from "../lib/push.js";
 import { buildParticipantsMap, toSessionQuestion } from "../routes/sessions.js";
 import { type ConnectedClient, wsManager } from "./manager.js";
@@ -166,27 +165,7 @@ export async function handleWsOpen(
         if (client.role === "hider") {
             kartenFelder.hand = await getHand(db, sessionRow.id);
             kartenFelder.deckRest = await getDeckRest(db, sessionRow.id);
-
-            const offen = await getOffenerZug(db, sessionRow.id);
-            let pendingDraw = null;
-            if (offen) {
-                const frage = await db.query.questions.findFirst({
-                    where: eq(schema.questions.id, offen.questionId),
-                });
-                const kosten = frage ? getCardCost(frage.type) : null;
-                // Ohne Frage oder ohne bekannte Ziehkosten laesst sich nicht
-                // sagen, wie viele Karten zu behalten sind. Dann lieber keinen
-                // Ziehschirm anbieten als eine geratene Zahl: der Server wuerde
-                // die Auswahl sonst spaeter mit wrong_keep_count ablehnen.
-                if (kosten) {
-                    pendingDraw = {
-                        questionId: offen.questionId,
-                        angeboten: offen.angeboten,
-                        behalten: Math.min(kosten.keep, offen.angeboten.length),
-                    };
-                }
-            }
-            kartenFelder.pendingDraw = pendingDraw;
+            kartenFelder.pendingDraw = await ermittlePendingDraw(db, sessionRow.id);
         }
     }
 

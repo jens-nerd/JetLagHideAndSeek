@@ -596,6 +596,7 @@ export const en: Record<TranslationKey, string> = {
     "cards.drawTitle": "Draw cards",
     "cards.drawHint": "Look at {draw}, keep {keep}.",
     "cards.drawOpen": "Look at the cards",
+    "cards.continue": "Continue",
     "cards.keepButton": "Keep",
     "cards.keepCount": "{gewaehlt} of {noetig} selected",
     "cards.discardPrompt": "Your hand would be too full. Discard {n}.",

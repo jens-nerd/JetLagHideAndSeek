@@ -233,4 +233,25 @@ describe("sync mit Kartenmechanik", () => {
             expect(hSync.activeCurses).toBeUndefined();
         });
     });
+
+    it("gibt dem Versteckenden seine Hand zurueck, wenn die Mechanik wieder angeht", async () => {
+        await withTestApp(async ({ app, makeWsClient }) => {
+            const s = await sitzungMitKarten(app);
+            await zieheEineKarte(app, s);
+
+            const hider = await makeWsClient(s.code, s.hiderToken);
+            await hider.waitFor((m) => m.type === "sync");
+
+            await req<any>(app, "PATCH", `/api/sessions/${s.code}/cards`,
+                { body: { cardsEnabled: false }, token: s.hiderToken, expectStatus: 200 });
+            await hider.waitFor((m) => m.type === "cards_toggled" && m.cardsEnabled === false);
+
+            await req<any>(app, "PATCH", `/api/sessions/${s.code}/cards`,
+                { body: { cardsEnabled: true }, token: s.hiderToken, expectStatus: 200 });
+
+            const zurueck = await hider.waitFor((m) => m.type === "hand_updated");
+            expect(zurueck.hand).toHaveLength(1);
+            expect(zurueck.deckRest).toBeGreaterThan(0);
+        });
+    });
 });

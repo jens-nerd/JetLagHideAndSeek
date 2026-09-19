@@ -1259,7 +1259,7 @@ export function SessionQuestionPanel() {
                         letterSpacing: "0.06em",
                     }}
                 >
-                    {tr("cards.drawOpen")}
+                    {cardsEnabled.get() ? tr("cards.drawOpen") : tr("cards.continue")}
                 </button>
             </div>
         );

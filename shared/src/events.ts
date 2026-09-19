@@ -88,6 +88,12 @@ export type ServerToClientEvent =
           type: "hand_updated";
           hand: HandKarte[];
           deckRest: number;
+          /**
+           * Offener Ziehvorgang. Fehlt das Feld, gibt es keinen — so ist es
+           * nach dem Behalten. Beim Wiedereinschalten der Mechanik steht hier
+           * der Zug, der vor dem Ausschalten offen war.
+           */
+          pendingDraw?: PendingDraw | null;
       }
     | {
           /** An alle: der Versteckende hat einen Fluch ausgespielt. */

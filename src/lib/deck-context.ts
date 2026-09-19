@@ -53,10 +53,11 @@ export function applyCardsSync(event: CardsSyncEvent): void {
 export function applyHandUpdated(event: {
     hand: HandKarte[];
     deckRest: number;
+    pendingDraw?: PendingDraw | null;
 }): void {
     hand.set(event.hand);
     deckRest.set(event.deckRest);
-    pendingDraw.set(null);
+    pendingDraw.set(event.pendingDraw ?? null);
 }
 
 export function applyCursePlayed(event: { curse: Fluch }): void {

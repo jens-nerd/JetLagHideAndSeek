@@ -5,8 +5,8 @@
  * Mischreihenfolge; gezogen wird immer die kleinste Position unter den Zeilen
  * mit state = 'deck'.
  */
-import type { HandKarte } from "@hideandseek/shared";
-import { KARTEN, findeKarte } from "@hideandseek/shared";
+import type { HandKarte, PendingDraw } from "@hideandseek/shared";
+import { KARTEN, findeKarte, getCardCost } from "@hideandseek/shared";
 import { and, eq, inArray } from "drizzle-orm";
 import { randomInt } from "node:crypto";
 import { nanoid } from "nanoid";
@@ -182,5 +182,28 @@ export async function getOffenerZug(
         angeboten: rows
             .filter((r) => r.drawForQuestionId === questionId)
             .map(toHandKarte),
+    };
+}
+
+/**
+ * Der offene Ziehvorgang einer Sitzung, fertig fuer die Uebertragung.
+ * Laesst sich die zugehoerige Frage oder ihre Ziehkosten nicht aufloesen,
+ * gibt es null: lieber keinen Ziehschirm als eine geratene Zahl.
+ */
+export async function ermittlePendingDraw(
+    db: Db,
+    sessionId: string,
+): Promise<PendingDraw | null> {
+    const offen = await getOffenerZug(db, sessionId);
+    if (!offen) return null;
+    const frage = await db.query.questions.findFirst({
+        where: eq(schema.questions.id, offen.questionId),
+    });
+    const kosten = frage ? getCardCost(frage.type) : null;
+    if (!kosten) return null;
+    return {
+        questionId: offen.questionId,
+        angeboten: offen.angeboten,
+        behalten: Math.min(kosten.keep, offen.angeboten.length),
     };
 }

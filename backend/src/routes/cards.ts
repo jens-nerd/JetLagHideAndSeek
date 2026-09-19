@@ -15,6 +15,7 @@ import type { Db } from "../db/types.js";
 import {
     buildDeck,
     drawTop,
+    ermittlePendingDraw,
     getAngeboten,
     getDeckRest,
     getHand,
@@ -49,10 +50,12 @@ export async function sendeHand(
 ): Promise<{ hand: HandKarte[]; deckRest: number }> {
     const hand = await getHand(db, sessionId);
     const deckRest = await getDeckRest(db, sessionId);
+    const pendingDraw = await ermittlePendingDraw(db, sessionId);
     wsManager.sendToRole(sessionCode, "hider", {
         type: "hand_updated",
         hand,
         deckRest,
+        pendingDraw,
     });
     return { hand, deckRest };
 }
@@ -401,6 +404,13 @@ export function createCardsRouter(db: Db): Hono {
             type: "cards_toggled",
             cardsEnabled,
         });
+
+        // Beim Einschalten bekommt der Versteckende seinen Kartenzustand
+        // zurueck. Ohne das zeigte sein Client weiter eine leere Hand, waehrend
+        // der Server die Karten noch haelt — bis er neu laedt.
+        if (cardsEnabled) {
+            await sendeHand(db, sessionRow.code, sessionRow.id);
+        }
 
         return c.json({ cardsEnabled });
     });

@@ -236,6 +236,7 @@ export function useSessionWebSocket({ code, token, onSync }: Options): void {
                         applyHandUpdated({
                             hand: event.hand,
                             deckRest: event.deckRest,
+                            pendingDraw: event.pendingDraw,
                         });
                         break;
 
