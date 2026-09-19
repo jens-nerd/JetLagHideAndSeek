@@ -8,7 +8,14 @@ import { describe, expect, it } from "vitest";
 
 import { createTestDb } from "./helpers.js";
 import { schema } from "../db/schema.js";
-import { buildDeck, drawTop, getDeckRest, getHand } from "../lib/deck.js";
+import {
+    buildDeck,
+    drawTop,
+    getAngeboten,
+    getDeckRest,
+    getHand,
+    getOffenerZug,
+} from "../lib/deck.js";
 
 type TestDb = ReturnType<typeof createTestDb>;
 
@@ -167,7 +174,14 @@ describe("drawTop", () => {
                 .where(eq(schema.deckCards.id, r.id));
         }
 
-        await drawTop(db, sessionId, "frage-1", 1);
+        await drawTop(db, sessionId, "frage-1", 2);
+
+        // Das Zurückmischen muss gelaufen sein: die Ablage ist leer,
+        // die sechs ausgespielten Karten sind nicht mit hineingeraten.
+        const ablage = await db.query.deckCards.findMany({
+            where: eq(schema.deckCards.state, "ablage"),
+        });
+        expect(ablage).toHaveLength(0);
 
         const gespielt = await db.query.deckCards.findMany({
             where: eq(schema.deckCards.state, "gespielt"),
@@ -211,5 +225,53 @@ describe("getHand", () => {
         expect(hand).toHaveLength(1);
         expect(hand[0].id).toBe(angeboten[0].id);
         expect(hand[0].karte.name.length).toBeGreaterThan(0);
+    });
+});
+
+describe("getAngeboten und getOffenerZug", () => {
+    it("getAngeboten liefert nur die Karten der eigenen Frage, nicht die einer zweiten offenen Frage", async () => {
+        const db = createTestDb();
+        const sessionId = await seedSession(db);
+        await buildDeck(db, sessionId);
+
+        const zugEins = await drawTop(db, sessionId, "frage-1", 2);
+        const zugZwei = await drawTop(db, sessionId, "frage-2", 3);
+
+        const angebotenEins = await getAngeboten(db, sessionId, "frage-1");
+        const angebotenZwei = await getAngeboten(db, sessionId, "frage-2");
+
+        expect(angebotenEins.map((k) => k.id).sort()).toEqual(
+            zugEins.map((k) => k.id).sort(),
+        );
+        expect(angebotenZwei.map((k) => k.id).sort()).toEqual(
+            zugZwei.map((k) => k.id).sort(),
+        );
+        expect(
+            angebotenEins.some((k) => angebotenZwei.some((z) => z.id === k.id)),
+        ).toBe(false);
+    });
+
+    it("getOffenerZug liefert null, wenn keine Karte auf angeboten steht", async () => {
+        const db = createTestDb();
+        const sessionId = await seedSession(db);
+        await buildDeck(db, sessionId);
+
+        expect(await getOffenerZug(db, sessionId)).toBeNull();
+    });
+
+    it("getOffenerZug liefert die Fragenkennung und die angebotenen Karten, nachdem gezogen wurde", async () => {
+        const db = createTestDb();
+        const sessionId = await seedSession(db);
+        await buildDeck(db, sessionId);
+
+        const gezogen = await drawTop(db, sessionId, "frage-1", 2);
+
+        const zug = await getOffenerZug(db, sessionId);
+
+        expect(zug).not.toBeNull();
+        expect(zug!.questionId).toBe("frage-1");
+        expect(zug!.angeboten.map((k) => k.id).sort()).toEqual(
+            gezogen.map((k) => k.id).sort(),
+        );
     });
 });
