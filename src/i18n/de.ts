@@ -564,6 +564,16 @@ export const de = {
     "settings.notificationsDesc": "Hinweise bei Spielereignissen",
     "settings.offlineMaps": "Offline-Karten",
     "settings.offlineMapsDesc": "Karten für Offline-Nutzung speichern",
+
+    // ── Fluchliste (FluchListe) ───────────────────────────────────────────────
+    "cards.noCurses": "Gerade läuft kein Fluch.",
+    "cards.done": "Erledigt",
+    "cards.lift": "Aufheben",
+    "cards.expired": "Abgelaufen",
+    "cards.noDuration": "Läuft, bis ihr erledigt meldet",
+    "cards.cost": "Kosten",
+    "cards.proof": "Nachweis",
+    "cards.fallback": "Ausweichregel",
 } as const;
 
 export type Translations = typeof de;

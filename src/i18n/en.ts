@@ -565,4 +565,14 @@ export const en: Record<TranslationKey, string> = {
     "settings.notificationsDesc": "Alerts for game events",
     "settings.offlineMaps": "Offline maps",
     "settings.offlineMapsDesc": "Save maps for offline use",
+
+    // ── Curse list (FluchListe) ────────────────────────────────────────────────
+    "cards.noCurses": "No curse is running right now.",
+    "cards.done": "Done",
+    "cards.lift": "Lift",
+    "cards.expired": "Expired",
+    "cards.noDuration": "Runs until you report it done",
+    "cards.cost": "Cost",
+    "cards.proof": "Proof",
+    "cards.fallback": "Fallback rule",
 };
