@@ -2537,22 +2537,25 @@ Vor dem `ws.send(JSON.stringify({ type: "sync", ... }))` (um Zeile 157) die Kart
             kartenFelder.deckRest = await getDeckRest(db, sessionRow.id);
 
             const offen = await getOffenerZug(db, sessionRow.id);
+            let pendingDraw = null;
             if (offen) {
                 const frage = await db.query.questions.findFirst({
                     where: eq(schema.questions.id, offen.questionId),
                 });
                 const kosten = frage ? getCardCost(frage.type) : null;
-                kartenFelder.pendingDraw = {
-                    questionId: offen.questionId,
-                    angeboten: offen.angeboten,
-                    behalten: Math.min(
-                        kosten?.keep ?? 1,
-                        offen.angeboten.length,
-                    ),
-                };
-            } else {
-                kartenFelder.pendingDraw = null;
+                // Ohne Frage oder ohne bekannte Ziehkosten laesst sich nicht
+                // sagen, wie viele Karten zu behalten sind. Dann lieber keinen
+                // Ziehschirm anbieten als eine geratene Zahl: der Server wuerde
+                // die Auswahl sonst spaeter mit wrong_keep_count ablehnen.
+                if (kosten) {
+                    pendingDraw = {
+                        questionId: offen.questionId,
+                        angeboten: offen.angeboten,
+                        behalten: Math.min(kosten.keep, offen.angeboten.length),
+                    };
+                }
             }
+            kartenFelder.pendingDraw = pendingDraw;
         }
     }
 ```
