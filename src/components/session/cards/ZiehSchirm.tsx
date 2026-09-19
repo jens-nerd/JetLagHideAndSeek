@@ -12,7 +12,7 @@ import { toast } from "react-toastify";
 
 import { useT, useTFmt } from "@/i18n";
 import { behalten as behaltenApi } from "@/lib/cards-api";
-import { applyHandUpdated, hand, pendingDraw } from "@/lib/deck-context";
+import { applyHandUpdated, hand, nachschlagZug, pendingDraw } from "@/lib/deck-context";
 import { gameSize, sessionParticipant } from "@/lib/session-context";
 
 import { kartenWert } from "./karten-wert";
@@ -24,6 +24,7 @@ export function ZiehSchirm() {
     const trf = useTFmt();
     const $participant = useStore(sessionParticipant);
     const $pendingDraw = useStore(pendingDraw);
+    const $nachschlag = useStore(nachschlagZug);
     const $hand = useStore(hand);
     const $gameSize = useStore(gameSize);
 
@@ -153,6 +154,16 @@ export function ZiehSchirm() {
                     keep: noetig,
                 })}
             </p>
+            {$nachschlag ? (
+                <p
+                    data-nachschlag
+                    style={{ color: "#F5C451", fontSize: 14, fontWeight: 600, margin: 0 }}
+                >
+                    {$nachschlag.rest === null
+                        ? tr("cards.extraDrawLast")
+                        : trf("cards.extraDrawHint", { n: $nachschlag.rest })}
+                </p>
+            ) : null}
 
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {$pendingDraw.angeboten.map((karte) =>

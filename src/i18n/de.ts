@@ -603,6 +603,8 @@ export const de = {
     "cards.keepButton": "Behalten",
     "cards.keepCount": "{gewaehlt} von {noetig} gewählt",
     "cards.discardPrompt": "Deine Hand wäre zu voll. Wirf {n} ab.",
+    "cards.extraDrawHint": "Nachschlag: eine Karte mehr aufgedeckt. Verbleibende Anwendungen: {n}.",
+    "cards.extraDrawLast": "Nachschlag: eine Karte mehr aufgedeckt. Das war die letzte Anwendung.",
     "cards.curseHit": "Fluch!",
     "cards.curseUnderstood": "Verstanden",
 } as const;
