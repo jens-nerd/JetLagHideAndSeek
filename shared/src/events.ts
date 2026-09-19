@@ -1,3 +1,4 @@
+import type { Fluch, Fragekategorie, HandKarte, PendingDraw } from "./karten.js";
 import type { HidingZone, MapLocation, SessionQuestion, SessionStatus } from "./types.js";
 
 export interface SeekerPosition {
@@ -56,6 +57,22 @@ export type ServerToClientEvent =
           gameSize: "S" | "M" | "L" | null;
           /** Hider's hiding zone — null for seekers unless revealed */
           hidingZone: HidingZone | null;
+          /** Kartenmechanik für diese Sitzung eingeschaltet */
+          cardsEnabled: boolean;
+          /** Laufende Flüche — nur gesetzt, wenn cardsEnabled */
+          activeCurses?: Fluch[];
+          /** Hand des Versteckenden — nur an den Versteckenden */
+          hand?: HandKarte[];
+          /** Verbleibende Karten im Deck — nur an den Versteckenden */
+          deckRest?: number;
+          /** Offener Ziehvorgang — nur an den Versteckenden */
+          pendingDraw?: PendingDraw | null;
+          /**
+           * Die vom Glücksrad gesperrte Fragekategorie, oder null ohne
+           * laufendes Glücksrad. Nur gesetzt, wenn cardsEnabled. Geht an
+           * beide Rollen — das Glücksrad ist keine geheime Karte.
+           */
+          gesperrteKategorie?: Fragekategorie | null;
       }
     | {
           /** Broadcast to hider only: current seeker positions */
@@ -71,6 +88,45 @@ export type ServerToClientEvent =
           /** Broadcast to all seekers when hider reveals their zone (endgame) */
           type: "hiding_zone_revealed";
           hidingZone: HidingZone;
+      }
+    | {
+          /** Nur an den Versteckenden: seine Hand hat sich geändert. */
+          type: "hand_updated";
+          hand: HandKarte[];
+          deckRest: number;
+          /**
+           * Offener Ziehvorgang. Fehlt das Feld, gibt es keinen — so ist es
+           * nach dem Behalten. Beim Wiedereinschalten der Mechanik steht hier
+           * der Zug, der vor dem Ausschalten offen war.
+           */
+          pendingDraw?: PendingDraw | null;
+      }
+    | {
+          /** An alle: der Versteckende hat einen Fluch ausgespielt. */
+          type: "curse_played";
+          curse: Fluch;
+      }
+    | {
+          /** An alle: ein Fluch ist beendet — abgelaufen, erledigt oder aufgehoben. */
+          type: "curse_ended";
+          curseId: string;
+          endedBy: "ablauf" | "suchende" | "versteckender";
+          endedAt: string;
+      }
+    | {
+          /** An alle: die Kartenmechanik wurde ein- oder ausgeschaltet. */
+          type: "cards_toggled";
+          cardsEnabled: boolean;
+      }
+    | {
+          /**
+           * An alle: das Glücksrad hat gelost. Kommt beim Ausspielen und nach
+           * jeder gestellten Frage — auch dann, wenn dieselbe Kategorie noch
+           * einmal gezogen wurde.
+           */
+          type: "locked_category";
+          curseId: string;
+          kategorie: Fragekategorie;
       };
 
 /**

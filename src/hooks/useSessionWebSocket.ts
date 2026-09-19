@@ -3,6 +3,16 @@ import { useEffect, useRef } from "react";
 import { toast } from "react-toastify";
 
 import {
+    applyCardsSync,
+    applyCurseEnded,
+    applyCursePlayed,
+    applyHandUpdated,
+    applyLockedCategory,
+    cardsEnabled,
+    eingeschlagenerFluch,
+    resetDeckState,
+} from "@/lib/deck-context";
+import {
     activeHidingZone,
     applyServerMapLocation,
     currentSession,
@@ -20,6 +30,7 @@ import {
     wsInstance,
     wsStatus,
 } from "@/lib/session-context";
+import { playSound } from "@/lib/sound";
 
 function getDefaultWsUrl(): string {
     if (typeof window !== "undefined") {
@@ -116,6 +127,14 @@ export function useSessionWebSocket({ code, token, onSync }: Options): void {
                                 activeHidingZone.set(null);
                             }
                         }
+                        applyCardsSync({
+                            cardsEnabled: event.cardsEnabled,
+                            hand: event.hand,
+                            deckRest: event.deckRest,
+                            pendingDraw: event.pendingDraw,
+                            activeCurses: event.activeCurses,
+                            gesperrteKategorie: event.gesperrteKategorie,
+                        });
                         break;
                     }
 
@@ -213,6 +232,46 @@ export function useSessionWebSocket({ code, token, onSync }: Options): void {
                     case "hiding_zone_revealed":
                         revealedHidingZone.set(event.hidingZone);
                         toast.info("Der Hider hat seine Versteckzone freigegeben!");
+                        break;
+
+                    case "hand_updated":
+                        applyHandUpdated({
+                            hand: event.hand,
+                            deckRest: event.deckRest,
+                            pendingDraw: event.pendingDraw,
+                        });
+                        break;
+
+                    case "curse_played":
+                        applyCursePlayed({ curse: event.curse });
+                        if (getRole() === "seeker") {
+                            eingeschlagenerFluch.set(event.curse);
+                            playSound("notification");
+                            navigator.vibrate?.([200, 100, 200]);
+                        }
+                        break;
+
+                    case "curse_ended":
+                        applyCurseEnded({
+                            curseId: event.curseId,
+                            endedBy: event.endedBy,
+                            endedAt: event.endedAt,
+                        });
+                        break;
+
+                    case "locked_category":
+                        applyLockedCategory({
+                            curseId: event.curseId,
+                            kategorie: event.kategorie,
+                        });
+                        break;
+
+                    case "cards_toggled":
+                        cardsEnabled.set(event.cardsEnabled);
+                        if (!event.cardsEnabled) {
+                            resetDeckState();
+                            cardsEnabled.set(false);
+                        }
                         break;
                 }
             };

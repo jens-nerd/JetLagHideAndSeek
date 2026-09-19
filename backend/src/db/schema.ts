@@ -10,6 +10,10 @@ export const sessions = sqliteTable("sessions", {
     mapLocation: text("map_location"), // JSON
     hidingZone: text("hiding_zone"), // JSON: HidingZone | null
     gameSize: text("game_size"), // "S" | "M" | "L" | null
+    /** Kartenmechanik für diese Sitzung eingeschaltet (0/1) */
+    cardsEnabled: integer("cards_enabled", { mode: "boolean" })
+        .notNull()
+        .default(false),
     createdAt: text("created_at")
         .notNull()
         .default(sql`(datetime('now'))`),
@@ -76,8 +80,63 @@ export const wsEvents = sqliteTable("ws_events", {
         .default(sql`(datetime('now'))`),
 });
 
+/**
+ * Ein Kartenexemplar im Deck einer Sitzung. Eine Zeile je Exemplar, nicht je
+ * Sorte: ein Zeitbonus mit anzahl 13 erzeugt 13 Zeilen mit derselben card_id.
+ * `position` ist die Mischreihenfolge; gezogen wird die kleinste Position
+ * unter den Zeilen mit state = 'deck'.
+ */
+export const deckCards = sqliteTable("deck_cards", {
+    id: text("id").primaryKey(),
+    sessionId: text("session_id")
+        .notNull()
+        .references(() => sessions.id, { onDelete: "cascade" }),
+    /** Kennung in KARTEN (shared/src/karten.ts) */
+    cardId: text("card_id").notNull(),
+    position: integer("position").notNull(),
+    state: text("state", {
+        enum: ["deck", "angeboten", "hand", "ablage", "gespielt"],
+    }).notNull(),
+    /** Gesetzt, solange state = 'angeboten' */
+    drawForQuestionId: text("draw_for_question_id"),
+    updatedAt: text("updated_at")
+        .notNull()
+        .default(sql`(datetime('now'))`),
+});
+
+/** Ein ausgespielter Fluch. */
+export const curses = sqliteTable("curses", {
+    id: text("id").primaryKey(),
+    sessionId: text("session_id")
+        .notNull()
+        .references(() => sessions.id, { onDelete: "cascade" }),
+    cardId: text("card_id").notNull(),
+    playedByParticipantId: text("played_by_participant_id")
+        .notNull()
+        .references(() => participants.id),
+    playedAt: text("played_at")
+        .notNull()
+        .default(sql`(datetime('now'))`),
+    /** ISO8601, null bei einem Aufgabenfluch */
+    expiresAt: text("expires_at"),
+    endedAt: text("ended_at"),
+    endedBy: text("ended_by", {
+        enum: ["ablauf", "suchende", "versteckender"],
+    }),
+    /**
+     * Verbleibende Anwendungen. Nur der Nachschlag zaehlt herunter; jeder
+     * andere Fluch laesst die Spalte auf null.
+     */
+    usesLeft: integer("uses_left"),
+    /**
+     * Die gerade gesperrte Fragekategorie. Nur das Gluecksrad fuehrt sie mit;
+     * jeder andere Fluch laesst die Spalte auf null.
+     */
+    gesperrteKategorie: text("locked_category"),
+});
+
 // Grouped schema object for convenience imports
-export const schema = { sessions, participants, questions, wsEvents };
+export const schema = { sessions, participants, questions, wsEvents, deckCards, curses };
 
 // Type helpers for Drizzle inference
 export type Session = typeof sessions.$inferSelect;
@@ -88,3 +147,7 @@ export type DbQuestion = typeof questions.$inferSelect;
 export type NewQuestion = typeof questions.$inferInsert;
 export type WsEvent = typeof wsEvents.$inferSelect;
 export type NewWsEvent = typeof wsEvents.$inferInsert;
+export type DbDeckCard = typeof deckCards.$inferSelect;
+export type NewDeckCard = typeof deckCards.$inferInsert;
+export type DbCurse = typeof curses.$inferSelect;
+export type NewCurse = typeof curses.$inferInsert;

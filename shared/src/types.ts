@@ -27,6 +27,8 @@ export interface Session {
     status: SessionStatus;
     mapLocation: MapLocation | null;
     gameSize: GameSize | null;
+    /** Kartenmechanik für diese Sitzung eingeschaltet */
+    cardsEnabled: boolean;
     createdAt: string;
     expiresAt: string;
 }
@@ -112,6 +114,8 @@ export interface CreateSessionRequest {
     displayName: string;
     mapLocation?: MapLocation;
     gameSize?: GameSize;
+    /** Kartenmechanik einschalten. Ohne Angabe: aus. */
+    cardsEnabled?: boolean;
 }
 
 export interface CreateSessionResponse {

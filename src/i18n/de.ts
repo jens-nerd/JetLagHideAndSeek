@@ -508,6 +508,8 @@ export const de = {
     "overlay.sizeS": "S — Stadtteil",
     "overlay.sizeM": "M — Stadt",
     "overlay.sizeL": "L — Region / Land",
+    "overlay.cardsLabel": "Kartenmechanik",
+    "overlay.cardsHint": "Der Versteckende zieht Karten für beantwortete Fragen und kann Flüche gegen euch spielen.",
     "overlay.codeTitle": "Dein Spielcode",
     "overlay.codeHint": "Teile diesen Code mit deinen Mitspielern!",
     "overlay.codeCopy": "Kopieren",
@@ -537,6 +539,7 @@ export const de = {
     "picker.questionDesc.matching": "Vergleicht Merkmale eures Standorts mit dem des Hiders",
     "picker.questionDesc.measuring": "Hider misst Distanzen und Strecken von einem Objekt.",
     "picker.questionDesc.photo": "Der Hider fotografiert ein markantes Objekt in seiner Nähe",
+    "picker.lockedCategory": "Das Glücksrad sperrt gerade {kategorie}. Diese Frage ist erst nach dem nächsten Los wieder möglich.",
 
     // ── Einstellungen (Settings redesign) ───────────────────────────────────
     "settings.title": "Einstellungen",
@@ -562,6 +565,55 @@ export const de = {
     "settings.notificationsDesc": "Hinweise bei Spielereignissen",
     "settings.offlineMaps": "Offline-Karten",
     "settings.offlineMapsDesc": "Karten für Offline-Nutzung speichern",
+    "settings.cards": "Kartenmechanik",
+    "settings.cardsDesc": "Karten ziehen und Flüche spielen. Ausschalten beendet alle laufenden Flüche.",
+    "settings.cardsConfirmOff": "Kartenmechanik ausschalten? Alle laufenden Flüche enden dabei.",
+
+    // ── Fluchliste (FluchListe) ───────────────────────────────────────────────
+    "cards.noCurses": "Gerade läuft kein Fluch.",
+    "cards.done": "Erledigt",
+    "cards.lift": "Aufheben",
+    "cards.expired": "Abgelaufen",
+    "cards.noDuration": "Läuft, bis ihr erledigt meldet",
+    "cards.cost": "Kosten",
+    "cards.proof": "Nachweis",
+    "cards.fallback": "Ausweichregel",
+    "cards.bonus": "Zeitbonus",
+    "cards.bonusValue": "+{n} min",
+    "cards.duration": "Laufzeit",
+    "cards.durationValue": "{n} min",
+    "cards.lockedCategory": "Gerade gesperrt: {kategorie}",
+    "cards.lockedRejected": "Diese Kategorie ist gerade vom Glücksrad gesperrt. Nimm eine andere.",
+
+    // ── Handansicht und Ausspielen (KartenReiter, KartenAnsicht) ───────────────
+    "cards.handEmpty": "Deine Hand ist leer. Beantworte eine Frage, dann darfst du ziehen.",
+    "cards.handTitle": "Hand",
+    "cards.deckLeft": "{n} Karten im Deck",
+    "cards.bonusSum": "{n} Bonusminuten auf der Hand",
+    "cards.play": "Ausspielen",
+    "cards.discard": "Abwerfen",
+    "cards.back": "Zurück",
+    "cards.confirmPlay": "{name} jetzt ausspielen?",
+    "cards.confirmDiscard": "{name} abwerfen? Abgeworfene Zeitboni verfallen.",
+    "cards.activeCurses": "Laufende Flüche",
+    "cards.discardNotAvailable": "Abwerfen geht nur beim Ziehen, wenn die Hand über sechs käme.",
+    "cards.tabHand": "Hand",
+    "cards.tabCurses": "Flüche",
+    "cards.drawTitle": "Karten ziehen",
+    "cards.drawHint": "Sieh dir {draw} an, behalte {keep}.",
+    "cards.drawOpen": "Karten ansehen",
+    "cards.continue": "Weiter",
+    "cards.keepButton": "Behalten",
+    "cards.keepCount": "{gewaehlt} von {noetig} gewählt",
+    "cards.discardPrompt": "Deine Hand wäre zu voll. Wirf {n} ab.",
+    "cards.extraDrawHint": "Nachschlag: eine Karte mehr aufgedeckt. Verbleibende Anwendungen: {n}.",
+    "cards.extraDrawLast": "Nachschlag: eine Karte mehr aufgedeckt. Das war die letzte Anwendung.",
+    "cards.curseHit": "Fluch!",
+    "cards.curseUnderstood": "Verstanden",
+
+    // ── Karte (Map) ───────────────────────────────────────────────────────────
+    "toast.map.refreshFailed":
+        "Kartendaten konnten nicht geladen werden. Die Ansicht ist nicht auf dem aktuellen Stand.",
 } as const;
 
 export type Translations = typeof de;

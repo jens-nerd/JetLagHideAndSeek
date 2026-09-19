@@ -15,13 +15,16 @@
  *
  * Visibility: controlled by the pickerOpen atom.
  */
+import type { Fragekategorie } from "@hideandseek/shared";
+import { kategorienFuerSpielgroesse } from "@hideandseek/shared";
 import { useStore } from "@nanostores/react";
 import { History, PlusCircle } from "lucide-react";
 import { useState } from "react";
 
-import { useT } from "@/i18n";
+import { useT, useTFmt } from "@/i18n";
 import { getCardCost } from "@/lib/card-costs";
 import { bottomSheetState, pendingPickerType, pickerOpen } from "@/lib/bottom-sheet-state";
+import { gesperrteKategorie } from "@/lib/deck-context";
 import {
     gameSize,
     leaveSession,
@@ -43,19 +46,37 @@ import { ThermometerConfig } from "./picker/ThermometerConfig";
 // ── Category definitions ──────────────────────────────────────────────────────
 
 type CategoryDef = {
-    type: string;
+    type: Fragekategorie;
     disabled?: boolean;
-    sizes: ("S" | "M" | "L")[];
 };
 
+/**
+ * Reihenfolge und Sonderfälle der Kategoriekarten. Welche davon in einer
+ * Spielgröße überhaupt zur Verfügung stehen, sagt allein
+ * kategorienFuerSpielgroesse aus @hideandseek/shared — dieselbe Funktion, aus
+ * der das Glücksrad lost.
+ */
 const CATEGORIES: CategoryDef[] = [
-    { type: "radius",      sizes: ["S", "M", "L"] },
-    { type: "thermometer", sizes: ["S", "M", "L"] },
-    { type: "tentacles",   sizes: ["S", "M", "L"] },
-    { type: "matching",    sizes: ["S", "M", "L"] },
-    { type: "measuring",   sizes: ["S", "M", "L"] },
-    { type: "photo",       sizes: ["S", "M", "L"] },
+    { type: "radius" },
+    { type: "thermometer" },
+    { type: "tentacles" },
+    { type: "matching" },
+    { type: "measuring" },
+    { type: "photo" },
 ];
+
+/**
+ * Welche Unteransicht offen bleibt. Sperrt das Glücksrad die gerade geöffnete
+ * Kategorie, klappt sie zu: der Server weist die Frage ohnehin ab, und in der
+ * Kategorieliste steht der Hinweis, warum. Die Auswahl bleibt erhalten, die
+ * Unteransicht kommt also samt Konfiguration zurück, sobald neu gelost wurde.
+ */
+export function offeneUnteransicht(
+    selectedType: string | null,
+    gesperrt: Fragekategorie | null,
+): string | null {
+    return selectedType === gesperrt ? null : selectedType;
+}
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -66,21 +87,26 @@ export function QuestionPickerSheet() {
     const $wsStatus = useStore(wsStatus);
     const $gameSize = useStore(gameSize);
     const $questions = useStore(sessionQuestions);
+    const $gesperrt = useStore(gesperrteKategorie);
 
     const [tab, setTab] = useState<"picker" | "history">("picker");
     const [optionsOpen, setOptionsOpen] = useState(false);
     const [selectedType, setSelectedType] = useState<string | null>(null);
 
     const tr = useT();
+    const trFmt = useTFmt();
 
     // Bail completely when not in a session — but NOT when picker is merely closed,
     // so that sub-configs (and their Leaflet markers) stay mounted while sheet is hidden.
     if (!$participant) return null;
 
-    // Filter categories by game size
+    // Die Spielgröße entscheidet, das Glücksrad nimmt davon noch eine weg.
+    const erlaubt = kategorienFuerSpielgroesse($gameSize);
     const visibleCategories = CATEGORIES.filter(
-        (c) => $gameSize === null || c.sizes.includes($gameSize),
+        (c) => erlaubt.includes(c.type) && c.type !== $gesperrt,
     );
+
+    const offen = offeneUnteransicht(selectedType, $gesperrt);
 
     function closePicker() {
         pickerOpen.set(false);
@@ -134,7 +160,7 @@ export function QuestionPickerSheet() {
                 }}
             >
                 {/* ── Tentacles config sub-view ──────────────────────────── */}
-                {selectedType === "tentacles" && (
+                {offen === "tentacles" && (
                     <TentaclesConfig
                         wsStatus={$wsStatus}
                         onBack={goBack}
@@ -145,7 +171,7 @@ export function QuestionPickerSheet() {
                 )}
 
                 {/* ── Radius config sub-view ─────────────────────────────── */}
-                {selectedType === "radius" && (
+                {offen === "radius" && (
                     <RadiusConfig
                         wsStatus={$wsStatus}
                         onBack={goBack}
@@ -156,7 +182,7 @@ export function QuestionPickerSheet() {
                 )}
 
                 {/* ── Thermometer config sub-view ────────────────────────── */}
-                {selectedType === "thermometer" && (
+                {offen === "thermometer" && (
                     <ThermometerConfig
                         wsStatus={$wsStatus}
                         onBack={goBack}
@@ -167,7 +193,7 @@ export function QuestionPickerSheet() {
                 )}
 
                 {/* ── Matching config sub-view ──────────────────────────── */}
-                {selectedType === "matching" && (
+                {offen === "matching" && (
                     <MatchingConfig
                         wsStatus={$wsStatus}
                         onBack={goBack}
@@ -178,7 +204,7 @@ export function QuestionPickerSheet() {
                 )}
 
                 {/* ── Measuring config sub-view ───────────────────────── */}
-                {selectedType === "measuring" && (
+                {offen === "measuring" && (
                     <MeasuringConfig
                         wsStatus={$wsStatus}
                         onBack={goBack}
@@ -189,7 +215,7 @@ export function QuestionPickerSheet() {
                 )}
 
                 {/* ── Photo config sub-view ────────────────────────────── */}
-                {selectedType === "photo" && (
+                {offen === "photo" && (
                     <PhotoConfig
                         wsStatus={$wsStatus}
                         onBack={goBack}
@@ -200,7 +226,7 @@ export function QuestionPickerSheet() {
                 )}
 
                 {/* ── Category list / history ────────────────────────────── */}
-                {selectedType === null && (
+                {offen === null && (
                     <>
                         <PickerHeader
                             title={tr("picker.title")}
@@ -286,6 +312,25 @@ export function QuestionPickerSheet() {
                                 ) : (
                                     /* Seeker: category cards */
                                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                        {$gesperrt && (
+                                            <p
+                                                data-gesperrt={$gesperrt}
+                                                style={{
+                                                    margin: 0,
+                                                    padding: "10px 14px",
+                                                    borderRadius: 10,
+                                                    background: "rgba(213,96,98,0.12)",
+                                                    borderLeft: "4px solid #D56062",
+                                                    color: "rgba(245,245,240,0.85)",
+                                                    fontSize: 13,
+                                                    lineHeight: 1.4,
+                                                }}
+                                            >
+                                                {trFmt("picker.lockedCategory", {
+                                                    kategorie: tr(`questionType.${$gesperrt}` as any),
+                                                })}
+                                            </p>
+                                        )}
                                         {visibleCategories.map((cat) => (
                                             <CategoryCard
                                                 key={cat.type}
@@ -375,6 +420,7 @@ function CategoryCard({
     return (
         <button
             type="button"
+            data-kategorie={cat.type}
             disabled={isDisabled}
             onClick={isDisabled ? undefined : () => onSelect(cat.type)}
             onMouseEnter={() => !isDisabled && setHovered(true)}

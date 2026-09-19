@@ -6,6 +6,8 @@ import { nanoid } from "nanoid";
 
 import { db as globalDb, schema } from "../db/index.js";
 import type { Db } from "../db/types.js";
+import { beendeAlleFlueche, findeGluecksrad, getAktiveFlueche } from "../lib/curses.js";
+import { ermittlePendingDraw, getDeckRest, getHand } from "../lib/deck.js";
 import { sendPushNotifications } from "../lib/push.js";
 import { buildParticipantsMap, toSessionQuestion } from "../routes/sessions.js";
 import { type ConnectedClient, wsManager } from "./manager.js";
@@ -154,6 +156,28 @@ export async function handleWsOpen(
         }
     }
 
+    // ── Kartenmechanik ────────────────────────────────────────────────────────
+    const kartenFelder: Record<string, unknown> = {
+        cardsEnabled: sessionRow.cardsEnabled,
+    };
+    if (sessionRow.cardsEnabled) {
+        const aktive = await getAktiveFlueche(db, sessionRow.id);
+        // Geheime Flueche stehen nicht in der Liste der Suchenden.
+        kartenFelder.activeCurses =
+            client.role === "seeker"
+                ? aktive.filter((f) => !f.karte.geheim)
+                : aktive;
+        // Die Sperre des Gluecksrads geht an beide Rollen — die Karte ist
+        // nicht geheim, und ohne sie verloere ein Neuladen den Stand.
+        const rad = await findeGluecksrad(db, sessionRow.id);
+        kartenFelder.gesperrteKategorie = rad?.gesperrteKategorie ?? null;
+        if (client.role === "hider") {
+            kartenFelder.hand = await getHand(db, sessionRow.id);
+            kartenFelder.deckRest = await getDeckRest(db, sessionRow.id);
+            kartenFelder.pendingDraw = await ermittlePendingDraw(db, sessionRow.id);
+        }
+    }
+
     ws.send(
         JSON.stringify({
             type: "sync",
@@ -171,6 +195,7 @@ export async function handleWsOpen(
                 displayName: p.displayName,
             })),
             hidingZone,
+            ...kartenFelder,
         }),
     );
 
@@ -339,6 +364,14 @@ export async function handleWsMessage(
             };
             wsManager.broadcast(code, statusEvent);
             void wsManager.persistEvent(client.db, client.sessionId, client.participantId, statusEvent);
+
+            // Rundenende beendet jeden laufenden Fluch. Als ended_by kommt nur
+            // "ablauf" in Frage: die Spalte hat eine CHECK-Bedingung auf die
+            // drei bekannten Werte, und es hat niemand den Fluch aufgehoben —
+            // seine Zeit ist um, wie bei "bis Rundenende" auf der Karte.
+            if (event.status === "finished") {
+                await beendeAlleFlueche(client.db, code, sessionRow.id, "ablauf");
+            }
             break;
         }
 
