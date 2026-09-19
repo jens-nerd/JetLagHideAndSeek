@@ -7,6 +7,7 @@ import {
     applyCurseEnded,
     applyCursePlayed,
     applyHandUpdated,
+    applyLockedCategory,
     cardsEnabled,
     eingeschlagenerFluch,
     resetDeckState,
@@ -132,6 +133,7 @@ export function useSessionWebSocket({ code, token, onSync }: Options): void {
                             deckRest: event.deckRest,
                             pendingDraw: event.pendingDraw,
                             activeCurses: event.activeCurses,
+                            gesperrteKategorie: event.gesperrteKategorie,
                         });
                         break;
                     }
@@ -254,6 +256,13 @@ export function useSessionWebSocket({ code, token, onSync }: Options): void {
                             curseId: event.curseId,
                             endedBy: event.endedBy,
                             endedAt: event.endedAt,
+                        });
+                        break;
+
+                    case "locked_category":
+                        applyLockedCategory({
+                            curseId: event.curseId,
+                            kategorie: event.kategorie,
                         });
                         break;
 
