@@ -40,10 +40,31 @@ describe("Kartensatz", () => {
         }
     });
 
-    it("gibt jedem Zeitbonus einen Minutenwert", () => {
+    it("gibt jedem Zeitbonus einen Minutenwert je Spielgröße", () => {
         for (const z of KARTEN.filter((k) => k.art === "zeitbonus")) {
-            expect(z.bonusMin, `${z.id} ohne Minutenwert`).toBeGreaterThan(0);
+            expect(z.bonusMin, `${z.id} ohne Minutenwerte`).toBeDefined();
+            expect(z.bonusMin!.S).toBeGreaterThan(0);
+            expect(z.bonusMin!.M).toBeGreaterThan(0);
+            expect(z.bonusMin!.L).toBeGreaterThan(0);
         }
+    });
+
+    it("summiert die Zeitboni-Deckzeit auf 198 / 297 / 495 Minuten", () => {
+        const zeitboni = KARTEN.filter((k) => k.art === "zeitbonus");
+        const summe = (groesse: "S" | "M" | "L") =>
+            zeitboni.reduce((n, z) => n + z.bonusMin![groesse] * z.anzahl, 0);
+        expect(summe("S")).toBe(198);
+        expect(summe("M")).toBe(297);
+        expect(summe("L")).toBe(495);
+    });
+
+    it("gibt genau drei Flüchen eine wörtliche Dauer-Angabe", () => {
+        const mitDauerText = KARTEN.filter((k) => k.art === "fluch" && k.dauerText !== undefined);
+        expect(mitDauerText.map((k) => k.id).sort()).toEqual([
+            "fluch-gluecksrad",
+            "fluch-nicht-waehrend-der-fahrt",
+            "fluch-ohne-gewaehr",
+        ]);
     });
 
     it("gibt jeder Karte einen nichtleeren Text", () => {

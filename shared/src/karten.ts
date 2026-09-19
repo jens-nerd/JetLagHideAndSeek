@@ -27,8 +27,14 @@ export interface Karte {
      * `undefined` ist ein Fehler und wird vom Test abgefangen.
      */
     dauerMin?: { S: number; M: number; L: number } | null;
-    /** nur bei art === "zeitbonus" */
-    bonusMin?: number;
+    /**
+     * Wörtliche Dauer-Angabe der Karte, wenn sie sich nicht in Minuten
+     * ausdrücken lässt ("bis Rundenende", "drei beantwortete Fragen").
+     * Die Oberfläche zeigt sie statt der allgemeinen Beschriftung.
+     */
+    dauerText?: string;
+    /** nur bei art === "zeitbonus": Minutenwert je Spielgröße */
+    bonusMin?: { S: number; M: number; L: number };
     /** Exemplare im Deck */
     anzahl: number;
 }
@@ -77,43 +83,43 @@ export function getCardCost(type: string): { draw: number; keep: number } | null
 export const KARTEN: Karte[] = [
     // Zeitboni
     {
-        id: "zeitbonus-5",
+        id: "zeitbonus-tuerstoerung",
         art: "zeitbonus",
         name: "Türstörung",
         text: "Du kannst diese Karte nicht ausspielen. Liegt sie am Rundenende noch auf deiner Hand, zählt die Zeit zu deiner Versteckzeit. Wirfst du sie ab, ist sie weg.\n\nDie kleinste Münze im Spiel. Kommt ständig, wiegt wenig, summiert sich trotzdem.",
-        bonusMin: 5,
+        bonusMin: { S: 2, M: 3, L: 5 },
         anzahl: 22,
     },
     {
-        id: "zeitbonus-10",
+        id: "zeitbonus-anschluss-weg",
         art: "zeitbonus",
         name: "Anschluss weg",
         text: "Du kannst diese Karte nicht ausspielen. Liegt sie am Rundenende noch auf deiner Hand, zählt die Zeit zu deiner Versteckzeit. Wirfst du sie ab, ist sie weg.\n\nZwei Minuten zu spät am Gleis, und der Rest des Tages verschiebt sich.",
-        bonusMin: 10,
+        bonusMin: { S: 4, M: 6, L: 10 },
         anzahl: 13,
     },
     {
-        id: "zeitbonus-15",
+        id: "zeitbonus-signalstoerung",
         art: "zeitbonus",
         name: "Signalstörung",
         text: "Du kannst diese Karte nicht ausspielen. Liegt sie am Rundenende noch auf deiner Hand, zählt die Zeit zu deiner Versteckzeit. Wirfst du sie ab, ist sie weg.\n\nNiemand weiß, wie lange es dauert. Die Durchsage sagt auch nichts.",
-        bonusMin: 15,
+        bonusMin: { S: 6, M: 9, L: 15 },
         anzahl: 9,
     },
     {
-        id: "zeitbonus-20",
+        id: "zeitbonus-schienenersatzverkehr",
         art: "zeitbonus",
         name: "Schienenersatzverkehr",
         text: "Du kannst diese Karte nicht ausspielen. Liegt sie am Rundenende noch auf deiner Hand, zählt die Zeit zu deiner Versteckzeit. Wirfst du sie ab, ist sie weg.\n\nDer Bus steht irgendwo hinter dem Bahnhof. Wo genau, findet jeder selbst heraus.",
-        bonusMin: 20,
+        bonusMin: { S: 8, M: 12, L: 20 },
         anzahl: 3,
     },
     {
-        id: "zeitbonus-30",
+        id: "zeitbonus-stellwerk-ausgefallen",
         art: "zeitbonus",
         name: "Stellwerk ausgefallen",
         text: "Du kannst diese Karte nicht ausspielen. Liegt sie am Rundenende noch auf deiner Hand, zählt die Zeit zu deiner Versteckzeit. Wirfst du sie ab, ist sie weg.\n\nZwei Stück, und beide bringen nichts, sobald du sie abwerfen musst.",
-        bonusMin: 30,
+        bonusMin: { S: 12, M: 18, L: 30 },
         anzahl: 2,
     },
 
@@ -364,9 +370,10 @@ export const KARTEN: Karte[] = [
         art: "fluch",
         gruppe: "information",
         name: "Ohne Gewähr",
-        text: "Bei deinen nächsten drei Antworten darfst du lügen. Musst du nicht.\n\nDie Suchenden erfahren, dass die Karte im Spiel ist. Welche Antwort erfunden war, erfahren sie nicht, und herausbekommen können sie es auch nicht. Die Frage gilt als gestellt, du ziehst normal dafür, und eine Lüge sieht aus wie jede andere Antwort.\n\nWas du tust, schreibst du beim Antworten auf einen Zettel, eine Zeile pro Frage, wahr oder erfunden. Am Rundenende zeigst du den Zettel vor. Was dort nicht steht, war die Wahrheit, auch wenn du hinterher großspurig etwas anderes behauptest.\n\nFotofragen sind ausgenommen. Ein erfundenes Foto hieße, irgendwo anders eins zu machen, und so viel kann diese Karte nicht verlangen.\n\nIm Endgame ist sie zu Ende, auch wenn noch Antworten offen wären. Wer gefunden werden kann, lügt nicht mehr über seinen Standort.\n\nDauer: drei beantwortete Fragen.\n\nSie wirkt auch dann, wenn du sie nie ziehst. Sobald alle wissen, dass sie im Deck liegt, hat jede Antwort im Spiel einen Rand von Zweifel. Der Zettel ist deshalb Pflicht: Am Ende weiß der Tisch, was passiert ist, und niemand fährt mit einem ungeklärten Verdacht nach Hause.",
+        text: "Bei deinen nächsten drei Antworten darfst du lügen. Musst du nicht.\n\nDie Suchenden erfahren, dass die Karte im Spiel ist. Welche Antwort erfunden war, erfahren sie nicht, und herausbekommen können sie es auch nicht. Die Frage gilt als gestellt, du ziehst normal dafür, und eine Lüge sieht aus wie jede andere Antwort.\n\nWas du tust, schreibst du beim Antworten auf einen Zettel, eine Zeile pro Frage, wahr oder erfunden. Am Rundenende zeigst du den Zettel vor. Was dort nicht steht, war die Wahrheit, auch wenn du hinterher großspurig etwas anderes behauptest.\n\nFotofragen sind ausgenommen. Ein erfundenes Foto hieße, irgendwo anders eins zu machen, und so viel kann diese Karte nicht verlangen.\n\nIm Endgame ist sie zu Ende, auch wenn noch Antworten offen wären. Wer gefunden werden kann, lügt nicht mehr über seinen Standort.\n\nSie wirkt auch dann, wenn du sie nie ziehst. Sobald alle wissen, dass sie im Deck liegt, hat jede Antwort im Spiel einen Rand von Zweifel. Der Zettel ist deshalb Pflicht: Am Ende weiß der Tisch, was passiert ist, und niemand fährt mit einem ungeklärten Verdacht nach Hause.",
         kosten: "2 Karten.",
         dauerMin: null,
+        dauerText: "drei beantwortete Fragen",
         anzahl: 1,
     },
     {
@@ -396,9 +403,10 @@ export const KARTEN: Karte[] = [
         art: "fluch",
         gruppe: "fragensperre",
         name: "Glücksrad",
-        text: "Ab sofort ist immer genau eine Fragekategorie gesperrt. Nach jeder gestellten Frage wird neu gewürfelt, welche.\n\nVor dem ersten Wurf ordnen die Suchenden jeder Kategorie eine Würfelzahl zu und sagen dir die Zuordnung. In kleinen Spielen gibt es nur fünf Kategorien, weil Tentacle-Fragen dort wegfallen. Eine gewürfelte Sechs bedeutet dann Neuwurf. Dieselbe Kategorie kann mehrmals hintereinander dran sein.\n\nDauer: bis Rundenende.",
+        text: "Ab sofort ist immer genau eine Fragekategorie gesperrt. Nach jeder gestellten Frage wird neu gewürfelt, welche.\n\nVor dem ersten Wurf ordnen die Suchenden jeder Kategorie eine Würfelzahl zu und sagen dir die Zuordnung. In kleinen Spielen gibt es nur fünf Kategorien, weil Tentacle-Fragen dort wegfallen. Eine gewürfelte Sechs bedeutet dann Neuwurf. Dieselbe Kategorie kann mehrmals hintereinander dran sein.",
         kosten: "ein Zeitbonus von deiner Hand.",
         dauerMin: null,
+        dauerText: "bis Rundenende",
         anzahl: 1,
     },
     {
@@ -406,9 +414,10 @@ export const KARTEN: Karte[] = [
         art: "fluch",
         gruppe: "fragensperre",
         name: "Nicht während der Fahrt",
-        text: "Die Suchenden dürfen nicht fragen, solange sie in einem Verkehrsmittel sitzen oder sich in einer Station aufhalten.\n\nWas zur Station gehört, steht oben bei den Begriffen. Fahren dürfen sie weiter wie bisher, und eine Frage, die schon gestellt war, beantwortest du trotzdem.\n\nDauer: bis Rundenende.",
+        text: "Die Suchenden dürfen nicht fragen, solange sie in einem Verkehrsmittel sitzen oder sich in einer Station aufhalten.\n\nWas zur Station gehört, steht oben bei den Begriffen. Fahren dürfen sie weiter wie bisher, und eine Frage, die schon gestellt war, beantwortest du trotzdem.",
         kosten: "2 Karten.",
         dauerMin: null,
+        dauerText: "bis Rundenende",
         anzahl: 1,
     },
 
