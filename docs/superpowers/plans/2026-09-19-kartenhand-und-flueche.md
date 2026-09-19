@@ -3887,7 +3887,7 @@ Erstelle `src/components/session/cards/KartenReiter.tsx`:
  */
 import type { HandKarte } from "@hideandseek/shared";
 import { useStore } from "@nanostores/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useT, useTFmt } from "@/i18n";
 import { fluchSpielen } from "@/lib/cards-api";
@@ -3921,6 +3921,16 @@ export function KartenReiter() {
         // sonst über sechs käme. Der Knopf bleibt deshalb ohne Wirkung.
         throw new Error(tr("cards.discardNotAvailable"));
     }
+
+    // Faellt die gewaehlte Karte aus der Hand — etwa weil ein hand_updated
+    // eintrifft, waehrend ihre Ansicht offen ist —, schliesst sich die Ansicht.
+    // Sonst stuende dort eine Karte, die es nicht mehr gibt, und ein Druck auf
+    // Ausspielen braechte nur ein not_in_hand vom Server.
+    useEffect(() => {
+        if (offen && !$hand.some((k) => k.id === offen.id)) {
+            setOffen(null);
+        }
+    }, [offen, $hand]);
 
     if (offen) {
         return (
