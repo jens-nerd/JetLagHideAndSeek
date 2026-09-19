@@ -9,8 +9,10 @@ import {
     applyCurseEnded,
     applyCursePlayed,
     applyHandUpdated,
+    applyLockedCategory,
     cardsEnabled,
     deckRest,
+    gesperrteKategorie,
     hand,
     nachschlagZug,
     pendingDraw,
@@ -46,6 +48,7 @@ describe("deck-context", () => {
         expect(pendingDraw.get()).toBeNull();
         expect(nachschlagZug.get()).toBeNull();
         expect(activeCurses.get()).toEqual([]);
+        expect(gesperrteKategorie.get()).toBeNull();
     });
 
     it("übernimmt die Kartenfelder aus dem sync-Ereignis", () => {
@@ -142,5 +145,71 @@ describe("deck-context", () => {
         });
 
         expect(activeCurses.get()).toHaveLength(1);
+    });
+
+    it("übernimmt die gesperrte Kategorie aus dem sync-Ereignis", () => {
+        applyCardsSync({
+            cardsEnabled: true,
+            activeCurses: [],
+            gesperrteKategorie: "radius",
+        });
+
+        expect(gesperrteKategorie.get()).toBe("radius");
+    });
+
+    it("leert die gesperrte Kategorie, wenn sync sie weglässt", () => {
+        applyLockedCategory({ curseId: "c1", kategorie: "photo" });
+        applyCardsSync({ cardsEnabled: true, activeCurses: [] });
+
+        expect(gesperrteKategorie.get()).toBeNull();
+    });
+
+    it("setzt die gesperrte Kategorie beim locked_category-Ereignis", () => {
+        applyLockedCategory({ curseId: "c1", kategorie: "matching" });
+
+        expect(gesperrteKategorie.get()).toBe("matching");
+    });
+
+    it("überschreibt die gesperrte Kategorie beim nächsten Los", () => {
+        applyLockedCategory({ curseId: "c1", kategorie: "matching" });
+        applyLockedCategory({ curseId: "c1", kategorie: "measuring" });
+
+        expect(gesperrteKategorie.get()).toBe("measuring");
+    });
+
+    it("hebt die Sperre auf, wenn das Glücksrad endet", () => {
+        const rad = { ...FLUCH, id: "c-rad", karte: { ...KARTE, id: "fluch-gluecksrad" } };
+        applyCursePlayed({ curse: rad });
+        applyLockedCategory({ curseId: "c-rad", kategorie: "photo" });
+
+        applyCurseEnded({
+            curseId: "c-rad",
+            endedBy: "suchende",
+            endedAt: "2026-09-19T10:05:00.000Z",
+        });
+
+        expect(gesperrteKategorie.get()).toBeNull();
+    });
+
+    it("lässt die Sperre stehen, wenn ein anderer Fluch endet", () => {
+        const rad = { ...FLUCH, id: "c-rad", karte: { ...KARTE, id: "fluch-gluecksrad" } };
+        applyCursePlayed({ curse: rad });
+        applyCursePlayed({ curse: FLUCH });
+        applyLockedCategory({ curseId: "c-rad", kategorie: "photo" });
+
+        applyCurseEnded({
+            curseId: "c1",
+            endedBy: "suchende",
+            endedAt: "2026-09-19T10:05:00.000Z",
+        });
+
+        expect(gesperrteKategorie.get()).toBe("photo");
+    });
+
+    it("räumt die gesperrte Kategorie beim Zurücksetzen ab", () => {
+        applyLockedCategory({ curseId: "c1", kategorie: "thermometer" });
+        resetDeckState();
+
+        expect(gesperrteKategorie.get()).toBeNull();
     });
 });

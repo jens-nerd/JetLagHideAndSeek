@@ -5,7 +5,8 @@
  * sync-Ereignis beim Verbinden stellt den Zustand wieder her. Ein Neuladen
  * mitten im Spiel verliert also nichts.
  */
-import type { Fluch, HandKarte, PendingDraw } from "@hideandseek/shared";
+import type { Fluch, Fragekategorie, HandKarte, PendingDraw } from "@hideandseek/shared";
+import { GLUECKSRAD_ID } from "@hideandseek/shared";
 import { atom } from "nanostores";
 
 /** Kartenmechanik in dieser Sitzung eingeschaltet. */
@@ -31,6 +32,12 @@ export const nachschlagZug = atom<{ rest: number | null } | null>(null);
 export const activeCurses = atom<Fluch[]>([]);
 
 /**
+ * Die vom Glücksrad gesperrte Fragekategorie, oder null ohne laufende Sperre.
+ * Beide Rollen sehen sie — das Glücksrad ist keine geheime Karte.
+ */
+export const gesperrteKategorie = atom<Fragekategorie | null>(null);
+
+/**
  * Der zuletzt eingeschlagene Fluch, solange das Overlay ihn zeigt.
  * Wird vom Overlay selbst wieder auf null gesetzt.
  */
@@ -42,6 +49,7 @@ interface CardsSyncEvent {
     deckRest?: number;
     pendingDraw?: PendingDraw | null;
     activeCurses?: Fluch[];
+    gesperrteKategorie?: Fragekategorie | null;
 }
 
 /**
@@ -59,6 +67,7 @@ export function applyCardsSync(event: CardsSyncEvent): void {
     // zu raten — die vierte Karte liegt sichtbar da, nur unkommentiert.
     nachschlagZug.set(null);
     activeCurses.set(event.activeCurses ?? []);
+    gesperrteKategorie.set(event.gesperrteKategorie ?? null);
 }
 
 export function applyHandUpdated(event: {
@@ -83,7 +92,21 @@ export function applyCurseEnded(event: {
     endedBy: string;
     endedAt: string;
 }): void {
+    const beendet = activeCurses.get().find((f) => f.id === event.curseId);
     activeCurses.set(activeCurses.get().filter((f) => f.id !== event.curseId));
+    // Das Ende des Glücksrads hebt die Sperre auf. Der Server schickt dazu kein
+    // eigenes Ereignis, also lösen wir es hier am Kartentyp ab.
+    if (beendet?.karte.id === GLUECKSRAD_ID) {
+        gesperrteKategorie.set(null);
+    }
+}
+
+/** Das Glücksrad hat gelost — beim Ausspielen und nach jeder gestellten Frage. */
+export function applyLockedCategory(event: {
+    curseId: string;
+    kategorie: Fragekategorie;
+}): void {
+    gesperrteKategorie.set(event.kategorie);
 }
 
 /** Alles zurücksetzen — beim Verlassen der Sitzung. */
@@ -94,6 +117,7 @@ export function resetDeckState(): void {
     pendingDraw.set(null);
     nachschlagZug.set(null);
     activeCurses.set([]);
+    gesperrteKategorie.set(null);
     eingeschlagenerFluch.set(null);
 }
 
