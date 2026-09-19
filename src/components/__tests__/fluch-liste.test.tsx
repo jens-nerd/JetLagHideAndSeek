@@ -20,6 +20,7 @@ const stores = vi.hoisted(() => {
     }
     return {
         activeCurses: box<any[]>([]),
+        gesperrteKategorie: box<string | null>(null),
         sessionParticipant: box<any>({ role: "seeker", token: "t" }),
         sessionCode: box<string | null>("ABCDEF"),
     };
@@ -31,6 +32,7 @@ vi.mock("@nanostores/react", () => ({
 
 vi.mock("@/lib/deck-context", () => ({
     activeCurses: stores.activeCurses,
+    gesperrteKategorie: stores.gesperrteKategorie,
 }));
 
 vi.mock("@/lib/session-context", () => ({
@@ -44,6 +46,8 @@ vi.mock("@/lib/cards-api", () => ({
 
 vi.mock("@/i18n", () => ({
     useT: () => (key: string) => key,
+    useTFmt: () => (key: string, vars?: Record<string, string | number>) =>
+        vars ? `${key}|${Object.values(vars).join(",")}` : key,
     locale: { get: () => "de" },
 }));
 
@@ -63,6 +67,16 @@ const KARTE_OHNE_DAUER = {
     name: "Brückenzoll",
     text: "Unter eine Brücke.",
     gruppe: "aufgabe",
+    dauerMin: null,
+    anzahl: 1,
+};
+
+const GLUECKSRAD = {
+    id: "fluch-gluecksrad",
+    art: "fluch",
+    name: "Glücksrad",
+    text: "Eine Kategorie ist gesperrt.",
+    gruppe: "fragen",
     dauerMin: null,
     anzahl: 1,
 };
@@ -87,6 +101,7 @@ describe("FluchListe", () => {
     beforeEach(() => {
         stores.activeCurses.set([]);
         stores.sessionParticipant.set({ role: "seeker", token: "t" });
+        stores.gesperrteKategorie.set(null);
         vi.resetModules();
     });
 
@@ -165,5 +180,41 @@ describe("FluchListe", () => {
         const markup = await render();
 
         expect(markup.match(/data-curse=/g)?.length).toBe(2);
+    });
+
+    it("nennt am Glücksrad die gerade gesperrte Kategorie", async () => {
+        stores.activeCurses.set([fluch(GLUECKSRAD, null)]);
+        stores.gesperrteKategorie.set("radius");
+
+        const markup = await render();
+
+        expect(markup).toContain("cards.lockedCategory|questionType.radius");
+    });
+
+    it("zeigt dem Versteckenden dieselbe Sperre", async () => {
+        stores.sessionParticipant.set({ role: "hider", token: "t" });
+        stores.activeCurses.set([fluch(GLUECKSRAD, null)]);
+        stores.gesperrteKategorie.set("photo");
+
+        const markup = await render();
+
+        expect(markup).toContain("cards.lockedCategory|questionType.photo");
+    });
+
+    it("hängt die Sperre nicht an einen anderen Fluch", async () => {
+        stores.activeCurses.set([fluch(KARTE_OHNE_DAUER, null)]);
+        stores.gesperrteKategorie.set("radius");
+
+        const markup = await render();
+
+        expect(markup).not.toContain("cards.lockedCategory");
+    });
+
+    it("schreibt nichts ans Glücksrad, solange nichts gesperrt ist", async () => {
+        stores.activeCurses.set([fluch(GLUECKSRAD, null)]);
+
+        const markup = await render();
+
+        expect(markup).not.toContain("cards.lockedCategory");
     });
 });

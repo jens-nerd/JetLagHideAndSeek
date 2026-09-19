@@ -6,13 +6,14 @@
  * laufen, bis ein Suchender "erledigt" meldet.
  */
 import type { Fluch } from "@hideandseek/shared";
+import { GLUECKSRAD_ID } from "@hideandseek/shared";
 import { useStore } from "@nanostores/react";
 import { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 
-import { useT } from "@/i18n";
+import { useT, useTFmt } from "@/i18n";
 import { fluchBeenden } from "@/lib/cards-api";
-import { activeCurses } from "@/lib/deck-context";
+import { activeCurses, gesperrteKategorie } from "@/lib/deck-context";
 import { sessionParticipant } from "@/lib/session-context";
 
 /** MM:SS aus einem ISO-Zeitstempel, jede Sekunde neu. */
@@ -67,8 +68,10 @@ function Countdown({ curseId, expiresAt }: { curseId: string; expiresAt: string 
 
 export function FluchListe() {
     const tr = useT();
+    const trFmt = useTFmt();
     const $participant = useStore(sessionParticipant);
     const $curses = useStore(activeCurses);
+    const $gesperrt = useStore(gesperrteKategorie);
     const [laufend, setLaufend] = useState<string | null>(null);
 
     const istHider = $participant?.role === "hider";
@@ -126,6 +129,17 @@ export function FluchListe() {
                     <p style={{ color: "rgba(245,245,240,0.8)", fontSize: 13, lineHeight: 1.5, margin: 0, whiteSpace: "pre-line" }}>
                         {curse.karte.text}
                     </p>
+
+                    {curse.karte.id === GLUECKSRAD_ID && $gesperrt ? (
+                        <p
+                            data-gesperrt={$gesperrt}
+                            style={{ color: "#F37748", fontSize: 13, fontWeight: 700, margin: 0 }}
+                        >
+                            {trFmt("cards.lockedCategory", {
+                                kategorie: tr(`questionType.${$gesperrt}` as any),
+                            })}
+                        </p>
+                    ) : null}
 
                     {curse.karte.nachweis ? (
                         <p style={{ color: "rgba(245,245,240,0.55)", fontSize: 12, margin: 0 }}>

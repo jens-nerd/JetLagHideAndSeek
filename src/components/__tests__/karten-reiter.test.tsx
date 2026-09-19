@@ -21,6 +21,7 @@ const stores = vi.hoisted(() => {
         hand: box<any[]>([]),
         deckRest: box(70),
         activeCurses: box<any[]>([]),
+        gesperrteKategorie: box<string | null>(null),
         sessionParticipant: box<any>({ role: "hider", token: "t" }),
         sessionCode: box<string | null>("ABCDEF"),
         gameSize: box<"S" | "M" | "L" | null>("M"),
@@ -33,6 +34,7 @@ vi.mock("@/lib/deck-context", () => ({
     hand: stores.hand,
     deckRest: stores.deckRest,
     activeCurses: stores.activeCurses,
+    gesperrteKategorie: stores.gesperrteKategorie,
     bonusMinutenAufDerHand: (karten: any[], g: string) =>
         karten.reduce((n: number, k: any) => n + (k.karte.bonusMin?.[g ?? "M"] ?? 0), 0),
 }));
