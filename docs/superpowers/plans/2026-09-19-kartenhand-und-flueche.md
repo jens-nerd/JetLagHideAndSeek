@@ -615,6 +615,8 @@ Claude-Session: https://claude.ai/code/session_01FyNQKwGJJYxVZrmyEh4GfF"
   - `getHand(db, sessionId): Promise<HandKarte[]>`
   - `getDeckRest(db, sessionId): Promise<number>`
   - `toHandKarte(row): HandKarte`
+  - `getAngeboten(db, sessionId, questionId): Promise<HandKarte[]>`
+  - `getOffenerZug(db, sessionId): Promise<{ questionId, angeboten } | null>`
 
 - [ ] **Schritt 1: Den scheiternden Test schreiben**
 
@@ -790,7 +792,15 @@ describe("drawTop", () => {
                 .where(eq(schema.deckCards.id, r.id));
         }
 
-        await drawTop(db, sessionId, "frage-1", 1);
+        // n = 2 bei einer Karte im Deck: erst damit greift `deckRest < n`
+        // und das Zurückmischen läuft überhaupt an. Mit n = 1 wäre der Test
+        // trivial wahr, auch ohne den Filter für ausgespielte Karten.
+        await drawTop(db, sessionId, "frage-1", 2);
+
+        const ablage = await db.query.deckCards.findMany({
+            where: eq(schema.deckCards.state, "ablage"),
+        });
+        expect(ablage).toHaveLength(0);
 
         const gespielt = await db.query.deckCards.findMany({
             where: eq(schema.deckCards.state, "gespielt"),
