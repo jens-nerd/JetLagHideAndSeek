@@ -19,6 +19,7 @@ const stores = vi.hoisted(() => {
     }
     return {
         pendingDraw: box<any>(null),
+        nachschlagZug: box<any>(null),
         hand: box<any[]>([]),
         sessionParticipant: box<any>({ role: "hider", token: "t" }),
         gameSize: box<"S" | "M" | "L" | null>("M"),
@@ -29,6 +30,7 @@ vi.mock("@nanostores/react", () => ({ useStore: (s: any) => s.get() }));
 
 vi.mock("@/lib/deck-context", () => ({
     pendingDraw: stores.pendingDraw,
+    nachschlagZug: stores.nachschlagZug,
     hand: stores.hand,
 }));
 
@@ -91,6 +93,7 @@ async function render() {
 describe("ZiehSchirm", () => {
     beforeEach(() => {
         stores.pendingDraw.set(null);
+        stores.nachschlagZug.set(null);
         stores.hand.set([]);
         stores.sessionParticipant.set({ role: "hider", token: "t" });
         stores.gameSize.set("M");
@@ -194,5 +197,65 @@ describe("ZiehSchirm", () => {
 
         expect(markup).toContain("cards.discardPrompt");
         expect(markup.match(/data-handcard=/g)?.length).toBe(6);
+    });
+
+    it("weist auf den Nachschlag hin und nennt die Restanwendungen", async () => {
+        stores.nachschlagZug.set({ rest: 2 });
+        stores.pendingDraw.set({
+            questionId: "q1",
+            angeboten: [KARTE("d1", "Eins"), KARTE("d2", "Zwei")],
+            behalten: 1,
+        });
+
+        const markup = await render();
+
+        expect(markup).toContain("cards.extraDrawHint|2");
+        expect(markup).not.toContain("cards.extraDrawLast");
+    });
+
+    it("sagt beim letzten Zug, dass der Nachschlag aufgebraucht ist", async () => {
+        stores.nachschlagZug.set({ rest: null });
+        stores.pendingDraw.set({
+            questionId: "q1",
+            angeboten: [KARTE("d1", "Eins"), KARTE("d2", "Zwei")],
+            behalten: 1,
+        });
+
+        const markup = await render();
+
+        expect(markup).toContain("cards.extraDrawLast");
+        expect(markup).not.toContain("cards.extraDrawHint");
+    });
+
+    it("zeigt ohne Nachschlag keinen Hinweis", async () => {
+        stores.pendingDraw.set({
+            questionId: "q1",
+            angeboten: [KARTE("d1", "Eins"), KARTE("d2", "Zwei")],
+            behalten: 1,
+        });
+
+        const markup = await render();
+
+        expect(markup).not.toContain("cards.extraDraw");
+    });
+
+    it("zeigt nach einem Neuladen die vierte Karte, aber keinen Hinweis", async () => {
+        // sync traegt die Nachschlagfelder nicht, nachschlagZug bleibt null.
+        stores.nachschlagZug.set(null);
+        stores.pendingDraw.set({
+            questionId: "q1",
+            angeboten: [
+                KARTE("d1", "Eins"),
+                KARTE("d2", "Zwei"),
+                KARTE("d3", "Drei"),
+                KARTE("d4", "Vier"),
+            ],
+            behalten: 1,
+        });
+
+        const markup = await render();
+
+        expect(markup.match(/data-angeboten=/g)?.length).toBe(4);
+        expect(markup).not.toContain("cards.extraDraw");
     });
 });

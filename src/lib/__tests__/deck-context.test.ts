@@ -12,6 +12,7 @@ import {
     cardsEnabled,
     deckRest,
     hand,
+    nachschlagZug,
     pendingDraw,
     resetDeckState,
 } from "../deck-context";
@@ -43,6 +44,7 @@ describe("deck-context", () => {
         expect(hand.get()).toEqual([]);
         expect(deckRest.get()).toBe(0);
         expect(pendingDraw.get()).toBeNull();
+        expect(nachschlagZug.get()).toBeNull();
         expect(activeCurses.get()).toEqual([]);
     });
 
@@ -105,6 +107,30 @@ describe("deck-context", () => {
         });
 
         expect(activeCurses.get()).toEqual([]);
+    });
+
+    it("lässt den Nachschlag beim sync leer, weil das Ereignis ihn nicht trägt", () => {
+        nachschlagZug.set({ rest: 2 });
+        applyCardsSync({
+            cardsEnabled: true,
+            pendingDraw: {
+                questionId: "q1",
+                angeboten: [{ id: "d1", karte: KARTE }],
+                behalten: 1,
+            },
+            activeCurses: [],
+        });
+
+        expect(pendingDraw.get()).not.toBeNull();
+        expect(nachschlagZug.get()).toBeNull();
+    });
+
+    it("räumt den Nachschlag zusammen mit dem Ziehvorgang ab", () => {
+        nachschlagZug.set({ rest: 1 });
+        applyHandUpdated({ hand: [], deckRest: 60 });
+
+        expect(pendingDraw.get()).toBeNull();
+        expect(nachschlagZug.get()).toBeNull();
     });
 
     it("ignoriert das Ende eines unbekannten Fluchs", () => {
