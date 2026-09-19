@@ -596,4 +596,6 @@ export const en: Record<TranslationKey, string> = {
     "cards.keepButton": "Keep",
     "cards.keepCount": "{gewaehlt} of {noetig} selected",
     "cards.discardPrompt": "Your hand would be too full. Discard {n}.",
+    "cards.curseHit": "Curse!",
+    "cards.curseUnderstood": "Got it",
 };

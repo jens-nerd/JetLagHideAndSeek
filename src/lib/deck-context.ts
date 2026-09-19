@@ -23,6 +23,12 @@ export const pendingDraw = atom<PendingDraw | null>(null);
 /** Laufende Flüche. Beide Rollen sehen dieselbe Liste. */
 export const activeCurses = atom<Fluch[]>([]);
 
+/**
+ * Der zuletzt eingeschlagene Fluch, solange das Overlay ihn zeigt.
+ * Wird vom Overlay selbst wieder auf null gesetzt.
+ */
+export const eingeschlagenerFluch = atom<Fluch | null>(null);
+
 interface CardsSyncEvent {
     cardsEnabled: boolean;
     hand?: HandKarte[];
@@ -74,6 +80,7 @@ export function resetDeckState(): void {
     deckRest.set(0);
     pendingDraw.set(null);
     activeCurses.set([]);
+    eingeschlagenerFluch.set(null);
 }
 
 /**

@@ -7,6 +7,7 @@ import {
     applyCurseEnded,
     applyCursePlayed,
     applyHandUpdated,
+    eingeschlagenerFluch,
 } from "@/lib/deck-context";
 import {
     activeHidingZone,
@@ -239,6 +240,7 @@ export function useSessionWebSocket({ code, token, onSync }: Options): void {
                     case "curse_played":
                         applyCursePlayed({ curse: event.curse });
                         if (getRole() === "seeker") {
+                            eingeschlagenerFluch.set(event.curse);
                             playSound("notification");
                             navigator.vibrate?.([200, 100, 200]);
                         }

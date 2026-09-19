@@ -29,6 +29,7 @@ import { QuestionPickerSheet } from "./session/QuestionPickerSheet";
 import { ZoneSidebar } from "./ZoneSidebar";
 import { AnswerOverlay, overlayTapped } from "./AnswerOverlay";
 import { ZiehSchirm } from "@/components/session/cards/ZiehSchirm";
+import { FluchOverlay } from "@/components/session/cards/FluchOverlay";
 
 // ── Category icons for the Fragen tab countdown ─────────────────────────────
 const QUESTION_ICONS: Record<string, string> = {
@@ -191,6 +192,7 @@ export const BottomSheetPanel = () => {
             <QuestionPickerSheet />
             <AnswerOverlay />
             <ZiehSchirm />
+            <FluchOverlay />
         </>
     );
 };

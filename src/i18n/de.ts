@@ -595,6 +595,8 @@ export const de = {
     "cards.keepButton": "Behalten",
     "cards.keepCount": "{gewaehlt} von {noetig} gewählt",
     "cards.discardPrompt": "Deine Hand wäre zu voll. Wirf {n} ab.",
+    "cards.curseHit": "Fluch!",
+    "cards.curseUnderstood": "Verstanden",
 } as const;
 
 export type Translations = typeof de;
