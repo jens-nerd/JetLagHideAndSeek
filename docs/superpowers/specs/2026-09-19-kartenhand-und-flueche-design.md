@@ -273,6 +273,11 @@ Prüfungen:
 - Jede Kennung in `behalten` gehört zu einer Zeile mit `state = 'angeboten'` und
   `draw_for_question_id = :id`.
 - Jede Kennung in `abwerfen` liegt derzeit auf `state = 'hand'`.
+- Beide Listen enthalten keine doppelte Kennung. Sonst 400 `duplicate_cards`.
+  Der Grund ist nicht Pedanterie: Die Handlimit-Rechnung zählt Listeneinträge,
+  das Datenbank-Update trifft aber nur die eindeutigen Zeilen — fünfmal
+  dieselbe Karte im Abwurf wären fünf Abwürfe in der Rechnung und einer in
+  Wirklichkeit.
 - Nach Anwendung liegen höchstens **6** Karten auf `state = 'hand'`. Sonst 409
   `hand_limit` mit `{ ueberzaehlig: n }`, und es wird nichts verändert.
 

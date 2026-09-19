@@ -19,7 +19,7 @@ Diese Punkte gelten für **jede** Aufgabe:
 - **Migrationen** kommen als neuer Eintrag ans Ende des `MIGRATIONS`-Arrays in `backend/src/db/migrator.ts`, in aufsteigender Reihenfolge, idempotent über `columnNames()` bzw. `CREATE TABLE IF NOT EXISTS`. `CURRENT_SCHEMA_VERSION` wird mitgezogen.
 - **Deckumfang: genau 77 Karten** — 28 Flüche (je ein Exemplar) und 49 Zeitboni. Powerups und Stationsfallen gehören **nicht** ins Deck.
 - **Handlimit: 6 Karten.**
-- **Fehlerkennungen** sind wörtlich einzuhalten: `cards_disabled` (409), `hand_limit` (409), `already_kept` (409), `already_ended` (409).
+- **Fehlerkennungen** sind wörtlich einzuhalten: `cards_disabled` (409), `hand_limit` (409), `already_kept` (409), `already_ended` (409), `duplicate_cards` (400).
 - **Oberflächentexte** laufen über `tr("schlüssel")`. Jeder neue Schlüssel kommt in `src/i18n/de.ts` **und** `src/i18n/en.ts`. Fehlt er in einer der beiden Dateien, ist die Aufgabe nicht fertig.
 - **Kartentexte bleiben deutsch**, auch bei englischer Oberfläche. Sie werden nicht durch `tr()` geschleust.
 - **Stil neuer Sitzungs-Bauteile:** Inline-Stile wie in `src/components/session/SessionQuestionPanel.tsx` und `src/components/AnswerOverlay.tsx`, mit den CSS-Variablen `--color-primary`, `--color-panel`, `--radius-default`, `--radius-pill`. Keine neuen Tailwind-Utility-Klassen-Kaskaden in diesen Dateien.
