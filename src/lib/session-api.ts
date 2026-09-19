@@ -91,7 +91,7 @@ function toTypedError(status: number, serverMessage?: string): ApiError {
 
 // ── Core fetch wrapper ───────────────────────────────────────────────────────
 
-async function apiFetch<T>(
+export async function apiFetch<T>(
     path: string,
     options: RequestInit & { token?: string } = {},
 ): Promise<T> {

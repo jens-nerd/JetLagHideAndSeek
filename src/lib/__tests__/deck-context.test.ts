@@ -1,0 +1,120 @@
+/**
+ * Prüft die Zustandsübergänge des Kartenstores. Reine Datenlogik, kein React.
+ */
+import { beforeEach, describe, expect, it } from "vitest";
+
+import {
+    activeCurses,
+    applyCardsSync,
+    applyCurseEnded,
+    applyCursePlayed,
+    applyHandUpdated,
+    cardsEnabled,
+    deckRest,
+    hand,
+    pendingDraw,
+    resetDeckState,
+} from "../deck-context";
+
+const KARTE = {
+    id: "fluch-test",
+    art: "fluch" as const,
+    name: "Testfluch",
+    text: "Tu etwas.",
+    gruppe: "aufgabe" as const,
+    dauerMin: null,
+    anzahl: 1,
+};
+
+const FLUCH = {
+    id: "c1",
+    karte: KARTE,
+    playedAt: "2026-09-19T10:00:00.000Z",
+    expiresAt: null,
+    endedAt: null,
+    endedBy: null,
+};
+
+describe("deck-context", () => {
+    beforeEach(() => resetDeckState());
+
+    it("startet leer und ausgeschaltet", () => {
+        expect(cardsEnabled.get()).toBe(false);
+        expect(hand.get()).toEqual([]);
+        expect(deckRest.get()).toBe(0);
+        expect(pendingDraw.get()).toBeNull();
+        expect(activeCurses.get()).toEqual([]);
+    });
+
+    it("übernimmt die Kartenfelder aus dem sync-Ereignis", () => {
+        applyCardsSync({
+            cardsEnabled: true,
+            hand: [{ id: "d1", karte: KARTE }],
+            deckRest: 70,
+            pendingDraw: null,
+            activeCurses: [FLUCH],
+        });
+
+        expect(cardsEnabled.get()).toBe(true);
+        expect(hand.get()).toHaveLength(1);
+        expect(deckRest.get()).toBe(70);
+        expect(activeCurses.get()).toHaveLength(1);
+    });
+
+    it("leert die Kartenfelder, wenn sync sie weglässt", () => {
+        applyCardsSync({
+            cardsEnabled: true,
+            hand: [{ id: "d1", karte: KARTE }],
+            deckRest: 70,
+            activeCurses: [FLUCH],
+        });
+        // Zweites sync, etwa nach einem Rollenwechsel: keine Handfelder mehr
+        applyCardsSync({ cardsEnabled: true, activeCurses: [] });
+
+        expect(hand.get()).toEqual([]);
+        expect(deckRest.get()).toBe(0);
+        expect(activeCurses.get()).toEqual([]);
+    });
+
+    it("ersetzt die Hand bei hand_updated", () => {
+        applyHandUpdated({ hand: [{ id: "d2", karte: KARTE }], deckRest: 69 });
+
+        expect(hand.get().map((k) => k.id)).toEqual(["d2"]);
+        expect(deckRest.get()).toBe(69);
+    });
+
+    it("hängt einen gespielten Fluch an", () => {
+        applyCursePlayed({ curse: FLUCH });
+
+        expect(activeCurses.get()).toHaveLength(1);
+    });
+
+    it("spielt denselben Fluch nicht doppelt ein", () => {
+        applyCursePlayed({ curse: FLUCH });
+        applyCursePlayed({ curse: FLUCH });
+
+        expect(activeCurses.get()).toHaveLength(1);
+    });
+
+    it("entfernt einen beendeten Fluch", () => {
+        applyCursePlayed({ curse: FLUCH });
+        applyCurseEnded({
+            curseId: "c1",
+            endedBy: "suchende",
+            endedAt: "2026-09-19T10:05:00.000Z",
+        });
+
+        expect(activeCurses.get()).toEqual([]);
+    });
+
+    it("ignoriert das Ende eines unbekannten Fluchs", () => {
+        applyCursePlayed({ curse: FLUCH });
+        applyCurseEnded({
+            curseId: "gibt-es-nicht",
+            endedBy: "ablauf",
+            endedAt: "2026-09-19T10:05:00.000Z",
+        });
+
+        expect(activeCurses.get()).toHaveLength(1);
+    });
+});

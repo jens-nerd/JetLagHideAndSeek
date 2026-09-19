@@ -12,6 +12,7 @@ import type {
     SessionQuestion,
 } from "@hideandseek/shared";
 import { atom } from "nanostores";
+import { resetDeckState } from "./deck-context";
 import { clearCache } from "@/maps/api/cache";
 import { CacheType } from "@/maps/api/types";
 // Static import from context.ts is safe: context.ts does not import
@@ -184,6 +185,7 @@ export function leaveSession(): void {
     activeHidingZone.set(null);
     revealedHidingZone.set(null);
     gameSize.set(null);
+    resetDeckState();
 
     // ── Map cache – fully clear all session-specific cached data ──────────
     clearCache(CacheType.CACHE);
