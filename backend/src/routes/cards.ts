@@ -6,6 +6,7 @@
  */
 import type { HandKarte, ServerToClientEvent, ZiehErgebnis } from "@hideandseek/shared";
 import {
+    GLUECKSRAD_ID,
     NACHSCHLAG_ANWENDUNGEN,
     NACHSCHLAG_ID,
     findeKarte,
@@ -27,6 +28,7 @@ import {
 } from "../lib/deck.js";
 import {
     berechneAblauf,
+    dreheGluecksrad,
     findeNachschlag,
     getAktiveFlueche,
     planeAblauf,
@@ -335,6 +337,17 @@ export function createCardsRouter(db: Db): Hono {
             wsManager.broadcast(sessionRow.code, ereignis);
         }
         await sendeHand(db, sessionRow.code, sessionRow.id);
+
+        // Das Gluecksrad lost sofort beim Ausspielen: ab diesem Augenblick ist
+        // eine Kategorie zu, nicht erst nach der naechsten Frage.
+        if (karte.id === GLUECKSRAD_ID) {
+            await dreheGluecksrad(
+                db,
+                sessionRow.code,
+                curseRow,
+                sessionRow.gameSize as "S" | "M" | "L" | null,
+            );
+        }
 
         if (expiresAt) planeAblauf(db, sessionRow.code, curseId, expiresAt);
 

@@ -11,6 +11,7 @@ import { nanoid } from "nanoid";
 
 import { schema } from "../db/schema.js";
 import type { Db } from "../db/types.js";
+import { dreheGluecksrad, findeGluecksrad } from "../lib/curses.js";
 import { wsManager } from "../ws/manager.js";
 import { buildParticipantsMap, toSessionQuestion } from "./sessions.js";
 
@@ -44,6 +45,19 @@ export function createQuestionsRouter(db: Db): Hono {
             return c.json({ error: "type and data are required" }, 400);
         }
 
+        // Glücksrad: die ausgeloste Kategorie ist gesperrt. Abgewiesen wird
+        // ohne Neuwurf — ein abgelehnter Versuch ist keine gestellte Frage.
+        const gluecksrad = await findeGluecksrad(db, sessionRow.id);
+        if (gluecksrad && gluecksrad.gesperrteKategorie === body.type) {
+            return c.json(
+                {
+                    error: "kategorie_gesperrt",
+                    kategorie: gluecksrad.gesperrteKategorie,
+                },
+                409,
+            );
+        }
+
         const questionId = nanoid();
         const deadlineMs = body.type === "photo" ? PHOTO_DEADLINE_MS : QUESTION_DEADLINE_MS;
         const deadline = new Date(Date.now() + deadlineMs).toISOString();
@@ -70,6 +84,16 @@ export function createQuestionsRouter(db: Db): Hono {
             type: "question_added",
             question,
         });
+
+        // Nach jeder gestellten Frage wird neu gelost.
+        if (gluecksrad) {
+            await dreheGluecksrad(
+                db,
+                sessionRow.code,
+                gluecksrad,
+                sessionRow.gameSize as "S" | "M" | "L" | null,
+            );
+        }
 
         const response: AddQuestionResponse = { question };
         return c.json(response, 201);

@@ -7,9 +7,15 @@
  * einem Dienstneustart), stimmt die Anzeige trotzdem, weil jeder Client seinen
  * Countdown selbst aus expiresAt rechnet.
  */
-import type { Fluch, Karte } from "@hideandseek/shared";
-import { NACHSCHLAG_ID, findeKarte } from "@hideandseek/shared";
+import type { Fluch, Fragekategorie, Karte } from "@hideandseek/shared";
+import {
+    GLUECKSRAD_ID,
+    NACHSCHLAG_ID,
+    findeKarte,
+    kategorienFuerSpielgroesse,
+} from "@hideandseek/shared";
 import { and, eq, gt, isNull } from "drizzle-orm";
+import { randomInt } from "node:crypto";
 
 import { schema } from "../db/schema.js";
 import type { DbCurse } from "../db/schema.js";
@@ -128,6 +134,89 @@ export async function verbraucheAnwendung(
         wsManager.broadcast(sessionCode, ereignis);
     }
     return rest;
+}
+
+/**
+ * Das laufende Glücksrad einer Sitzung, oder null.
+ *
+ * Ausdrücklich das älteste: im Deck liegt nur ein Exemplar, zwei gleichzeitige
+ * kann es im echten Spiel also nicht geben. Läge doch eines zu viel, soll die
+ * Sperre an einem Rad hängen bleiben, statt bei jeder Frage zwischen zweien
+ * hin und her zu springen.
+ */
+export async function findeGluecksrad(
+    db: Db,
+    sessionId: string,
+): Promise<DbCurse | null> {
+    const row = await db.query.curses.findFirst({
+        where: and(
+            eq(schema.curses.sessionId, sessionId),
+            eq(schema.curses.cardId, GLUECKSRAD_ID),
+            isNull(schema.curses.endedAt),
+        ),
+        orderBy: (c, { asc }) => [asc(c.playedAt)],
+    });
+    return row ?? null;
+}
+
+/**
+ * Eine Kategorie auslosen, am Fluch festhalten und an alle verteilen — das
+ * Glücksrad trägt kein `geheim`, beide Rollen sehen die Sperre.
+ *
+ * Gelost wird unabhängig, ohne Wiederholungssperre: dieselbe Kategorie darf
+ * mehrmals hintereinander kommen, so steht es auf der Karte.
+ */
+export async function dreheGluecksrad(
+    db: Db,
+    sessionCode: string,
+    row: DbCurse,
+    gameSize: "S" | "M" | "L" | null,
+): Promise<Fragekategorie> {
+    const kategorien = kategorienFuerSpielgroesse(gameSize);
+    const kategorie = kategorien[randomInt(kategorien.length)];
+    await db
+        .update(schema.curses)
+        .set({ gesperrteKategorie: kategorie })
+        .where(eq(schema.curses.id, row.id));
+    wsManager.broadcast(sessionCode, {
+        type: "locked_category",
+        curseId: row.id,
+        kategorie,
+    });
+    return kategorie;
+}
+
+/**
+ * Beendet alle laufenden Flüche einer Sitzung: ended_at nachtragen, geplante
+ * Ablauf-Stupse verwerfen, curse_ended verteilen. Geheime Flüche gehen dabei
+ * weiterhin nur an die Versteckenden.
+ */
+export async function beendeAlleFlueche(
+    db: Db,
+    sessionCode: string,
+    sessionId: string,
+    endedBy: "ablauf" | "suchende" | "versteckender",
+): Promise<void> {
+    const laufende = await getAktiveFlueche(db, sessionId);
+    const endedAt = new Date().toISOString();
+    for (const fluch of laufende) {
+        await db
+            .update(schema.curses)
+            .set({ endedAt, endedBy })
+            .where(eq(schema.curses.id, fluch.id));
+        verwirfAblauf(fluch.id);
+        const ende = {
+            type: "curse_ended" as const,
+            curseId: fluch.id,
+            endedBy,
+            endedAt,
+        };
+        if (fluch.karte.geheim) {
+            wsManager.sendToRole(sessionCode, "hider", ende);
+        } else {
+            wsManager.broadcast(sessionCode, ende);
+        }
+    }
 }
 
 /** In-Memory-Register der geplanten Stupse, damit nichts doppelt läuft. */
