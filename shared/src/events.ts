@@ -1,4 +1,4 @@
-import type { Fluch, HandKarte, PendingDraw } from "./karten.js";
+import type { Fluch, Fragekategorie, HandKarte, PendingDraw } from "./karten.js";
 import type { HidingZone, MapLocation, SessionQuestion, SessionStatus } from "./types.js";
 
 export interface SeekerPosition {
@@ -67,6 +67,12 @@ export type ServerToClientEvent =
           deckRest?: number;
           /** Offener Ziehvorgang — nur an den Versteckenden */
           pendingDraw?: PendingDraw | null;
+          /**
+           * Die vom Glücksrad gesperrte Fragekategorie, oder null ohne
+           * laufendes Glücksrad. Nur gesetzt, wenn cardsEnabled. Geht an
+           * beide Rollen — das Glücksrad ist keine geheime Karte.
+           */
+          gesperrteKategorie?: Fragekategorie | null;
       }
     | {
           /** Broadcast to hider only: current seeker positions */
@@ -111,6 +117,16 @@ export type ServerToClientEvent =
           /** An alle: die Kartenmechanik wurde ein- oder ausgeschaltet. */
           type: "cards_toggled";
           cardsEnabled: boolean;
+      }
+    | {
+          /**
+           * An alle: das Glücksrad hat gelost. Kommt beim Ausspielen und nach
+           * jeder gestellten Frage — auch dann, wenn dieselbe Kategorie noch
+           * einmal gezogen wurde.
+           */
+          type: "locked_category";
+          curseId: string;
+          kategorie: Fragekategorie;
       };
 
 /**

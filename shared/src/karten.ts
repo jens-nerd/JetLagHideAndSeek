@@ -78,6 +78,12 @@ export const NACHSCHLAG_ID = "fluch-nachschlag";
 /** So viele beantwortete Fragen lang wirkt der Nachschlag. */
 export const NACHSCHLAG_ANWENDUNGEN = 3;
 
+/**
+ * Kennung des Glücksrads. Es sperrt laufend eine Fragekategorie; welche,
+ * führt der Server in curses.locked_category mit.
+ */
+export const GLUECKSRAD_ID = "fluch-gluecksrad";
+
 /** Antwort auf POST /questions/:id/draw. */
 export interface ZiehErgebnis {
     angeboten: HandKarte[];
@@ -105,6 +111,34 @@ export const CARD_COSTS: Record<string, { draw: number; keep: number }> = {
 
 export function getCardCost(type: string): { draw: number; keep: number } | null {
     return CARD_COSTS[type] ?? null;
+}
+
+/** Die Fragekategorien des Spiels — dieselben Kennungen wie in CARD_COSTS. */
+export const FRAGEKATEGORIEN = [
+    "radius",
+    "matching",
+    "measuring",
+    "thermometer",
+    "photo",
+    "tentacles",
+] as const;
+
+export type Fragekategorie = (typeof FRAGEKATEGORIEN)[number];
+
+/**
+ * Die Kategorien, die in einer Spielgröße zur Verfügung stehen: bei S fünf,
+ * weil Tentacle-Fragen dort wegfallen, sonst alle sechs.
+ *
+ * Eine unbekannte oder fehlende Spielgröße gilt als "M" — dieselbe Regel wie
+ * in berechneAblauf, denn sessions.game_size ist freier Text ohne Prüfung.
+ */
+export function kategorienFuerSpielgroesse(
+    gameSize: "S" | "M" | "L" | null | undefined,
+): Fragekategorie[] {
+    const g = gameSize === "S" || gameSize === "L" ? gameSize : "M";
+    return g === "S"
+        ? FRAGEKATEGORIEN.filter((k) => k !== "tentacles")
+        : [...FRAGEKATEGORIEN];
 }
 
 export const KARTEN: Karte[] = [
