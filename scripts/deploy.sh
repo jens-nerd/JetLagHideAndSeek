@@ -139,6 +139,13 @@ log "pnpm install ..."
 # mit. Ohne diesen Rebuild startet das Backend nicht.
 ( cd "$PROJEKT" && pnpm rebuild better-sqlite3 )
 
+# shared/dist ist gitignored und kommt hier sonst noch vom vorigen Deploy:
+# der Frontend-Bau liest shared/dist direkt, aber pnpm backend:build baut es
+# erst weiter unten neu. Ohne diesen Schritt haengt der Frontend-Bau einen
+# Stand hinterher und bricht, sobald shared neue Exporte bekommt.
+log "Geteiltes Paket bauen ..."
+( cd "$PROJEKT" && pnpm shared:build )
+
 # ── 5. Bauen ───────────────────────────────────────────────────────────
 # Das Ausgabeverzeichnis MUSS innerhalb des Projekts liegen, sonst legt das
 # PWA-Plugin sw.js an die falsche Stelle und die Precache-Liste bricht ein.
