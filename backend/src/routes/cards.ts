@@ -21,7 +21,6 @@ import {
 } from "../lib/deck.js";
 import {
     berechneAblauf,
-    getAktiveFlueche,
     planeAblauf,
     toFluch,
     verwirfAblauf,
