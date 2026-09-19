@@ -43,6 +43,24 @@ import { ThermometerGpsLayer } from "./ThermometerGpsLayer";
 import { HidingTimerOverlay } from "./HidingTimerOverlay";
 
 /**
+ * Kachel-URL der CARTO-Grundkarte.
+ *
+ * CARTO verlangt fuer die Raster-Kacheln einen Schluessel. Ohne ihn kommt die
+ * Kachel weiterhin mit HTTP 200 und als gueltiges PNG zurueck, nur mit
+ * "API KEY REQUIRED" ueber dem Bild - Leaflet hat also nichts, woran es sich
+ * stoeren koennte, und es gibt nichts abzufangen.
+ *
+ * Der Schluessel kommt zur Bauzeit aus PUBLIC_CARTO_API_KEY (siehe
+ * .env.example). Ist er nicht gesetzt, bleibt es bei der URL ohne Parameter,
+ * damit ein Bau ohne .env durchlaeuft.
+ */
+const CARTO_TILE_URL =
+    "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" +
+    (import.meta.env.PUBLIC_CARTO_API_KEY
+        ? `?key=${import.meta.env.PUBLIC_CARTO_API_KEY}`
+        : "");
+
+/**
  * Collapses the bottom sheet when the user left-clicks on the map.
  * Must be rendered inside a <MapContainer> to use useMapEvents.
  */
@@ -218,7 +236,7 @@ export const Map = ({ className }: { className?: string }) => {
                 {!($highlightTrainLines && $thunderforestApiKey) && (
                     <TileLayer
                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors; &copy; <a href="https://carto.com/attributions">CARTO</a>; &copy; <a href="http://www.thunderforest.com/">Thunderforest</a>; Powered by Esri and Turf.js'
-                        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                        url={CARTO_TILE_URL}
                         subdomains="abcd"
                         maxZoom={20} // This technically should be 6, but once the ratelimiting starts this can take over
                         minZoom={2}
