@@ -19,28 +19,51 @@ export default defineConfig({
         }),
         AstroPWA({
             manifest: {
-                name: "Jet Lag Hide and Seek Map Generator",
-                short_name: "Map Generator",
+                name: "Hide’n’Seek – auf der echten Karte",
+                short_name: "Hide’n’Seek",
                 description:
-                    "Automatically generate maps for Jet Lag The Game: Hide and Seek with ease! Simply name the questions and watch the map eliminate hundreds of possibilities in seconds.",
+                    "Runde per Code, Fragen mit GPS-Antwort, Kartenhand und Flüche. Das Spielgebiet legt ihr selbst fest.",
                 icons: [
-                    {
-                        src: "/JLIcon.png",
-                        sizes: "1080x1080",
-                        type: "image/png",
-                    },
                     {
                         src: "/android-chrome-192x192.png",
                         sizes: "192x192",
                         type: "image/png",
+                        purpose: "any",
                     },
                     {
                         src: "/android-chrome-512x512.png",
                         sizes: "512x512",
                         type: "image/png",
+                        purpose: "any",
+                    },
+                    {
+                        src: "/icon-maskable-512.png",
+                        sizes: "512x512",
+                        type: "image/png",
+                        purpose: "maskable",
                     },
                 ],
-                theme_color: "#1F2F3F",
+                theme_color: "#1E1E2A",
+                lang: "de",
+            },
+            workbox: {
+                // @vite-pwa/astro wuerde "en/index.html" auf "en" kuerzen,
+                // ausgeliefert wird die Seite aber unter "/en/". Der Precache
+                // greift dann nicht und der Navigations-Fallback schiebt der
+                // englischen Route das deutsche Dokument unter. Diese
+                // Transformation ersetzt die des Adapters und haengt den
+                // Schraegstrich an. Setzt der Adapter das selbst um, kann sie
+                // ersatzlos weg.
+                manifestTransforms: [
+                    (entries) => {
+                        entries
+                            .filter((entry) => entry.url.endsWith("index.html"))
+                            .forEach((entry) => {
+                                entry.url = `/${entry.url.slice(0, -"index.html".length)}`;
+                            });
+                        return { manifest: entries, warnings: [] };
+                    },
+                ],
             },
         }),
     ],
