@@ -73,6 +73,12 @@ describe("Kartensatz", () => {
         }
     });
 
+    it("markiert genau den Nachschlag als geheim", () => {
+        const geheime = KARTEN.filter((k) => k.geheim);
+        expect(geheime.map((k) => k.id)).toEqual(["fluch-nachschlag"]);
+        expect(findeKarte("fluch-nachschlag")!.geheim).toBe(true);
+    });
+
     it("findet Karten über findeKarte", () => {
         const erste = KARTEN[0];
         expect(findeKarte(erste.id)).toEqual(erste);

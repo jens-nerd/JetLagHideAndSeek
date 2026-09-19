@@ -35,6 +35,12 @@ export interface Karte {
     dauerText?: string;
     /** nur bei art === "zeitbonus": Minutenwert je Spielgröße */
     bonusMin?: { S: number; M: number; L: number };
+    /**
+     * Karten mit "Die Suchenden musst du nicht informieren": Ausspielen und
+     * Beenden bleiben vor den Suchenden verborgen, sie stehen auch nicht in
+     * deren Fluchliste.
+     */
+    geheim?: boolean;
     /** Exemplare im Deck */
     anzahl: number;
 }
@@ -430,6 +436,7 @@ export const KARTEN: Karte[] = [
         text: "Bei deinen nächsten drei beantworteten Fragen ziehst du jeweils eine Karte mehr. Behalten darfst du gleich viele wie sonst. Du siehst also mehr und suchst besser aus.\n\n| Kategorie | normal | mit Nachschlag |\n|---|---|---|\n| Matching | 3 ziehen, 1 behalten | 4 ziehen, 1 behalten |\n| Measuring | 3 ziehen, 1 behalten | 4 ziehen, 1 behalten |\n| Thermometer | 2 ziehen, 1 behalten | 3 ziehen, 1 behalten |\n| Radar | 2 ziehen, 1 behalten | 3 ziehen, 1 behalten |\n| Foto | 1 ziehen, 1 behalten | 2 ziehen, 1 behalten |\n| Tentacle | 4 ziehen, 2 behalten | 5 ziehen, 2 behalten |\n\nDie Suchenden musst du nicht informieren.",
         kosten: "1 Karte.",
         dauerMin: null,
+        geheim: true,
         anzahl: 1,
     },
 ];
