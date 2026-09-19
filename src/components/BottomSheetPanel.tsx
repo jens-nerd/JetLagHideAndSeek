@@ -14,6 +14,9 @@ import type { BottomSheetTab } from "@/components/ui/BottomSheet";
 import { OptionDrawersInline } from "@/components/OptionDrawers";
 import { sessionCode, sessionParticipant, sessionQuestions } from "@/lib/session-context";
 import { bottomSheetState, pickerOpen } from "@/lib/bottom-sheet-state";
+import { activeCurses, cardsEnabled, hand } from "@/lib/deck-context";
+import { KartenReiter } from "@/components/session/cards/KartenReiter";
+import { kartenReiter } from "@/components/session/cards/karten-reiter-tab";
 import { useSessionMapSync } from "@/hooks/useSessionMapSync";
 import { useSessionInit } from "@/hooks/useSessionInit";
 import { useMapLocationSync } from "@/hooks/useMapLocationSync";
@@ -65,6 +68,9 @@ export const BottomSheetPanel = () => {
     const $participant = useStore(sessionParticipant);
     const $code = useStore(sessionCode);
     const sqList = useStore(sessionQuestions);
+    const $cardsEnabled = useStore(cardsEnabled);
+    const $hand = useStore(hand);
+    const $activeCurses = useStore(activeCurses);
 
     // WS hook lives here (always mounted) so the connection survives sheet collapse.
     useSessionWebSocket(
@@ -125,10 +131,20 @@ export const BottomSheetPanel = () => {
         return { id: "fragen", label: "Fragen" };
     }, [isHider, pendingQuestion, now]);
 
-    const tabs: BottomSheetTab[] = useMemo(
-        () => [fragenTab, { id: "zonen", label: "Versteckzonen", icon: ZONE_ICON }],
-        [fragenTab],
-    );
+    const tabs: BottomSheetTab[] = useMemo(() => {
+        const basis: BottomSheetTab[] = [
+            fragenTab,
+            { id: "zonen", label: "Versteckzonen", icon: ZONE_ICON },
+        ];
+        const karten = kartenReiter({
+            cardsEnabled: $cardsEnabled,
+            istHider: $participant ? isHider : null,
+            handAnzahl: $hand.length,
+            fluchAnzahl: $activeCurses.length,
+            tr,
+        });
+        return karten ? [...basis, karten] : basis;
+    }, [fragenTab, $cardsEnabled, $participant, isHider, $hand.length, $activeCurses.length, tr]);
 
     function handleTabChange(tabId: string) {
         // Seeker: tapping "Fragen" opens the question picker
@@ -161,6 +177,11 @@ export const BottomSheetPanel = () => {
                     ) : (
                         <ZoneSidebar />
                     )}
+                </div>
+                <div style={{ display: activeTab === "karten" ? "block" : "none" }}>
+                    <div className="px-3 py-2">
+                        {$participant && $cardsEnabled ? <KartenReiter /> : null}
+                    </div>
                 </div>
                 <div style={{ display: activeTab === "settings" ? "block" : "none" }}>
                     <OptionDrawersInline />

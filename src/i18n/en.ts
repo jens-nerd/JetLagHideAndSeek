@@ -588,4 +588,6 @@ export const en: Record<TranslationKey, string> = {
     "cards.confirmDiscard": "Discard {name}? Discarded time bonuses are lost.",
     "cards.activeCurses": "Active curses",
     "cards.discardNotAvailable": "Discarding only happens while drawing, when the hand would exceed six.",
+    "cards.tabHand": "Hand",
+    "cards.tabCurses": "Curses",
 };

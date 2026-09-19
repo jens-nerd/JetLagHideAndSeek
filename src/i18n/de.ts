@@ -587,6 +587,8 @@ export const de = {
     "cards.confirmDiscard": "{name} abwerfen? Abgeworfene Zeitboni verfallen.",
     "cards.activeCurses": "Laufende Flüche",
     "cards.discardNotAvailable": "Abwerfen geht nur beim Ziehen, wenn die Hand über sechs käme.",
+    "cards.tabHand": "Hand",
+    "cards.tabCurses": "Flüche",
 } as const;
 
 export type Translations = typeof de;
