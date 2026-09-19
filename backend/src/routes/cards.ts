@@ -167,6 +167,13 @@ export function createCardsRouter(db: Db): Hono {
             return c.json({ error: "not_offered" }, 400);
         }
 
+        // Doppelte Kennungen wuerden die Handlimit-Rechnung verfaelschen:
+        // sie zaehlen als mehrere Karten, treffen in der Datenbank aber nur
+        // eine Zeile. Deshalb ausdruecklich ablehnen statt still entdoppeln.
+        if (new Set(body.behalten).size !== body.behalten.length) {
+            return c.json({ error: "duplicate_cards" }, 400);
+        }
+
         const hand = await getHand(db, sessionRow.id);
         const handIds = new Set(hand.map((k) => k.id));
         const abwerfen = body.abwerfen ?? [];
@@ -174,7 +181,12 @@ export function createCardsRouter(db: Db): Hono {
             return c.json({ error: "not_in_hand" }, 400);
         }
 
-        const nachher = hand.length - abwerfen.length + body.behalten.length;
+        if (new Set(abwerfen).size !== abwerfen.length) {
+            return c.json({ error: "duplicate_cards" }, 400);
+        }
+
+        const nachher =
+            hand.length - new Set(abwerfen).size + new Set(body.behalten).size;
         if (nachher > 6) {
             return c.json(
                 { error: "hand_limit", ueberzaehlig: nachher - 6 },
