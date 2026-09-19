@@ -77,6 +77,24 @@ export const questionModified = (..._: any[]) => {
 
 export const leafletMapContext = atom<Map | null>(null);
 
+/**
+ * Nähe-Gewichtung für die Ortssuche: Mitte des sichtbaren Kartenausschnitts.
+ * Photon sortiert Treffer ohne diese Angabe rein nach Textähnlichkeit, was bei
+ * kurzen Eingaben weltweite Namensvettern vor den naheliegenden Ort schiebt.
+ * Fällt die Karte aus (noch nicht gemountet), greift der gespeicherte
+ * Spielgebiet-Mittelpunkt.
+ */
+export const searchBias = (): { lat: number; lon: number } | undefined => {
+    const center = leafletMapContext.get()?.getCenter();
+    if (center) return { lat: center.lat, lon: center.lng };
+
+    const coordinates = mapGeoLocation.get()?.geometry?.coordinates;
+    if (Array.isArray(coordinates) && coordinates.length === 2) {
+        return { lat: coordinates[0] as number, lon: coordinates[1] as number };
+    }
+    return undefined;
+};
+
 export const defaultUnit = persistentAtom<Units>("defaultUnit", "kilometers");
 export const highlightTrainLines = persistentAtom<boolean>(
     "highlightTrainLines",
