@@ -5,6 +5,7 @@
  * backend reports 404 (session no longer exists).
  */
 import { toast } from "react-toastify";
+import { locale, t } from "@/i18n";
 import { SessionNotFoundError, SessionFinishedError, NetworkError, ApiError } from "./session-api";
 import { leaveSession } from "./session-context";
 
@@ -16,6 +17,7 @@ import { leaveSession } from "./session-context";
  *   - SessionFinishedError → tells user session is done
  *   - NetworkError         → offline / server down hint
  *   - ForbiddenError       → permission issue
+ *   - 409 kategorie_gesperrt → Glücksrad blockt diese Kategorie gerade
  *   - Other ApiError       → server-side message
  *   - Unknown              → generic fallback
  */
@@ -35,6 +37,18 @@ export function handleSubmitError(error: unknown): void {
 
     if (error instanceof NetworkError) {
         toast.error("Server nicht erreichbar — prüfe deine Internetverbindung.");
+        return;
+    }
+
+    // Die Kategorie war beim Absenden gesperrt. Die Karte ist im Wähler zwar
+    // ausgeblendet, zwei Suchende können aber gleichzeitig tippen — dann kommt
+    // die Abweisung trotzdem, und "kategorie_gesperrt" sagt niemandem etwas.
+    if (
+        error instanceof ApiError &&
+        error.status === 409 &&
+        error.message === "kategorie_gesperrt"
+    ) {
+        toast.error(t("cards.lockedRejected", locale.get()));
         return;
     }
 
