@@ -77,11 +77,55 @@ describe("runMigrations", () => {
             .all()
             .map((r: any) => r.name);
         expect(cols).toContain("uses_left");
-        expect(sqlite.pragma("user_version", { simple: true })).toBe(8);
+        expect(sqlite.pragma("user_version", { simple: true })).toBeGreaterThanOrEqual(8);
 
         const row = sqlite.prepare("SELECT uses_left FROM curses WHERE id = 'c1'").get() as any;
         expect(row.uses_left).toBeNull();
 
         expect(sqlite.pragma("integrity_check", { simple: true })).toBe("ok");
+    });
+
+    it("ergaenzt locked_category auf einer Datenbank mit Stand 8", () => {
+        const sqlite = new Database(":memory:");
+        runMigrations(sqlite);
+        // Auf Stand 8 zuruecksetzen und die Spalte wieder entfernen, damit die
+        // Migration wirklich etwas zu tun hat.
+        sqlite.exec("ALTER TABLE curses DROP COLUMN locked_category");
+        sqlite.pragma("user_version = 8");
+
+        // Ein Fluch aus der Zeit davor.
+        sqlite.exec(`
+            INSERT INTO sessions (id, code, expires_at)
+                VALUES ('s1', 'AAA111', '2099-01-01T00:00:00.000Z');
+            INSERT INTO participants (id, session_id, role, token, display_name)
+                VALUES ('p1', 's1', 'hider', 't1', 'Hider Hans');
+            INSERT INTO curses (id, session_id, card_id, played_by_participant_id, played_at)
+                VALUES ('c1', 's1', 'fluch-tabu', 'p1', '2026-01-01T00:00:00.000Z');
+        `);
+
+        runMigrations(sqlite);
+
+        const cols = sqlite
+            .prepare("PRAGMA table_info(curses)")
+            .all()
+            .map((r: any) => r.name);
+        expect(cols).toContain("locked_category");
+        expect(sqlite.pragma("user_version", { simple: true })).toBeGreaterThanOrEqual(9);
+
+        const row = sqlite
+            .prepare("SELECT locked_category FROM curses WHERE id = 'c1'")
+            .get() as any;
+        expect(row.locked_category).toBeNull();
+
+        expect(sqlite.pragma("integrity_check", { simple: true })).toBe("ok");
+
+        // Zweiter Lauf: aendert nichts und wirft nicht.
+        runMigrations(sqlite);
+        expect(sqlite.pragma("user_version", { simple: true })).toBe(CURRENT_SCHEMA_VERSION);
+        expect(
+            sqlite.prepare("PRAGMA table_info(curses)").all().filter(
+                (r: any) => r.name === "locked_category",
+            ),
+        ).toHaveLength(1);
     });
 });

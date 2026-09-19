@@ -128,6 +128,11 @@ export const curses = sqliteTable("curses", {
      * andere Fluch laesst die Spalte auf null.
      */
     usesLeft: integer("uses_left"),
+    /**
+     * Die gerade gesperrte Fragekategorie. Nur das Gluecksrad fuehrt sie mit;
+     * jeder andere Fluch laesst die Spalte auf null.
+     */
+    gesperrteKategorie: text("locked_category"),
 });
 
 // Grouped schema object for convenience imports

@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 
-export const CURRENT_SCHEMA_VERSION = 8;
+export const CURRENT_SCHEMA_VERSION = 9;
 
 type ColumnRow = { name: string };
 
@@ -198,6 +198,17 @@ const MIGRATIONS: Migration[] = [
             const cols = columnNames(db, "curses");
             if (!cols.includes("uses_left")) {
                 db.exec("ALTER TABLE curses ADD COLUMN uses_left INTEGER");
+            }
+        },
+    },
+    {
+        // v9: gesperrte Fragekategorie an curses — bisher braucht sie nur das
+        // Gluecksrad, alle anderen Flueche lassen die Spalte auf NULL.
+        version: 9,
+        up: (db) => {
+            const cols = columnNames(db, "curses");
+            if (!cols.includes("locked_category")) {
+                db.exec("ALTER TABLE curses ADD COLUMN locked_category TEXT");
             }
         },
     },
