@@ -4,7 +4,7 @@
  * Alle Endpunkte prüfen zuerst sessions.cards_enabled und antworten mit
  * 409 cards_disabled, wenn die Mechanik für diese Sitzung aus ist.
  */
-import type { HandKarte } from "@hideandseek/shared";
+import type { HandKarte, ServerToClientEvent } from "@hideandseek/shared";
 import { findeKarte, getCardCost } from "@hideandseek/shared";
 import { and, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
@@ -296,7 +296,13 @@ export function createCardsRouter(db: Db): Hono {
         }))!;
         const curse = toFluch(curseRow);
 
-        wsManager.broadcast(sessionRow.code, { type: "curse_played", curse });
+        // Geheime Karten erfahren die Suchenden nicht.
+        const ereignis = { type: "curse_played" as const, curse };
+        if (karte.geheim) {
+            wsManager.sendToRole(sessionRow.code, "hider", ereignis);
+        } else {
+            wsManager.broadcast(sessionRow.code, ereignis);
+        }
         await sendeHand(db, sessionRow.code, sessionRow.id);
 
         if (expiresAt) planeAblauf(db, sessionRow.code, curseId, expiresAt);
@@ -337,12 +343,17 @@ export function createCardsRouter(db: Db): Hono {
             .where(eq(schema.curses.id, curseId));
         verwirfAblauf(curseId);
 
-        wsManager.broadcast(sessionRow.code, {
+        const endeEreignis: ServerToClientEvent = {
             type: "curse_ended",
             curseId,
             endedBy,
             endedAt,
-        });
+        };
+        if (findeKarte(curseRow.cardId)?.geheim) {
+            wsManager.sendToRole(sessionRow.code, "hider", endeEreignis);
+        } else {
+            wsManager.broadcast(sessionRow.code, endeEreignis);
+        }
 
         const aktualisiert = (await db.query.curses.findFirst({
             where: eq(schema.curses.id, curseId),
@@ -391,12 +402,17 @@ export function createCardsRouter(db: Db): Hono {
                     .set({ endedAt, endedBy: "versteckender" })
                     .where(eq(schema.curses.id, fluch.id));
                 verwirfAblauf(fluch.id);
-                wsManager.broadcast(sessionRow.code, {
-                    type: "curse_ended",
+                const ende = {
+                    type: "curse_ended" as const,
                     curseId: fluch.id,
-                    endedBy: "versteckender",
+                    endedBy: "versteckender" as const,
                     endedAt,
-                });
+                };
+                if (fluch.karte.geheim) {
+                    wsManager.sendToRole(sessionRow.code, "hider", ende);
+                } else {
+                    wsManager.broadcast(sessionRow.code, ende);
+                }
             }
         }
 

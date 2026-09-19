@@ -96,12 +96,17 @@ export function planeAblauf(
                 .update(schema.curses)
                 .set({ endedAt, endedBy: "ablauf" })
                 .where(eq(schema.curses.id, curseId));
-            wsManager.broadcast(sessionCode, {
-                type: "curse_ended",
+            const ereignis = {
+                type: "curse_ended" as const,
                 curseId,
-                endedBy: "ablauf",
+                endedBy: "ablauf" as const,
                 endedAt,
-            });
+            };
+            if (findeKarte(row.cardId)?.geheim) {
+                wsManager.sendToRole(sessionCode, "hider", ereignis);
+            } else {
+                wsManager.broadcast(sessionCode, ereignis);
+            }
         })();
     }, ms);
     // Der Stups darf den Prozess nicht am Beenden hindern (wichtig für Tests).

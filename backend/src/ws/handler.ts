@@ -161,7 +161,12 @@ export async function handleWsOpen(
         cardsEnabled: sessionRow.cardsEnabled,
     };
     if (sessionRow.cardsEnabled) {
-        kartenFelder.activeCurses = await getAktiveFlueche(db, sessionRow.id);
+        const aktive = await getAktiveFlueche(db, sessionRow.id);
+        // Geheime Flueche stehen nicht in der Liste der Suchenden.
+        kartenFelder.activeCurses =
+            client.role === "seeker"
+                ? aktive.filter((f) => !f.karte.geheim)
+                : aktive;
         if (client.role === "hider") {
             kartenFelder.hand = await getHand(db, sessionRow.id);
             kartenFelder.deckRest = await getDeckRest(db, sessionRow.id);

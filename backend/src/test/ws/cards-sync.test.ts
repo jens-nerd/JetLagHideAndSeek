@@ -4,7 +4,31 @@
  */
 import { describe, expect, it } from "vitest";
 
+import { KARTEN } from "@hideandseek/shared";
+import { nanoid } from "nanoid";
+
+import { schema } from "../../db/schema.js";
 import { req, withTestApp } from "../helpers.js";
+
+/** Die eine geheime Karte und eine offene Fluchkarte zum Vergleich. */
+const GEHEIM = KARTEN.find((k) => k.geheim)!;
+const OFFEN = KARTEN.find((k) => k.art === "fluch" && !k.geheim)!;
+
+/** Legt eine Karte unmittelbar auf die Hand und gibt die Exemplarkennung zurueck. */
+async function aufDieHand(db: any, code: string, cardId: string): Promise<string> {
+    const sessionRow = await db.query.sessions.findFirst({
+        where: (t: any, { eq }: any) => eq(t.code, code),
+    });
+    const id = nanoid();
+    await db.insert(schema.deckCards).values({
+        id,
+        sessionId: sessionRow!.id,
+        cardId,
+        position: 0,
+        state: "hand",
+    });
+    return id;
+}
 
 async function sitzungMitKarten(app: any, cardsEnabled = true) {
     const { body: created } = await req<any>(app, "POST", "/api/sessions", {
@@ -218,6 +242,93 @@ describe("sync mit Kartenmechanik", () => {
             const beimSuchenden = await seeker.waitFor((m) => m.type === "curse_played");
             expect(beimSuchenden.curse.karte.name).toBe(fluch.name);
             await hider.waitFor((m) => m.type === "curse_played");
+        });
+    });
+
+    it("schickt curse_played einer geheimen Karte nicht an Suchende", async () => {
+        await withTestApp(async ({ app, makeWsClient, db }) => {
+            const s = await sitzungMitKarten(app);
+            const hider = await makeWsClient(s.code, s.hiderToken);
+            const seeker = await makeWsClient(s.code, s.seekerToken);
+            await hider.waitFor((m) => m.type === "sync");
+            await seeker.waitFor((m) => m.type === "sync");
+
+            const deckCardId = await aufDieHand(db, s.code, GEHEIM.id);
+            await req<any>(app, "POST", `/api/sessions/${s.code}/curses`, {
+                body: { deckCardId }, token: s.hiderToken, expectStatus: 201,
+            });
+
+            const beimVersteckenden = await hider.waitFor((m) => m.type === "curse_played");
+            expect(beimVersteckenden.curse.karte.id).toBe(GEHEIM.id);
+            await expect(
+                seeker.waitFor((m) => m.type === "curse_played", { timeoutMs: 500 }),
+            ).rejects.toThrow(/timed out/);
+        });
+    });
+
+    it("schickt curse_played einer offenen Fluchkarte weiterhin an beide", async () => {
+        await withTestApp(async ({ app, makeWsClient, db }) => {
+            const s = await sitzungMitKarten(app);
+            const hider = await makeWsClient(s.code, s.hiderToken);
+            const seeker = await makeWsClient(s.code, s.seekerToken);
+            await hider.waitFor((m) => m.type === "sync");
+            await seeker.waitFor((m) => m.type === "sync");
+
+            const deckCardId = await aufDieHand(db, s.code, OFFEN.id);
+            await req<any>(app, "POST", `/api/sessions/${s.code}/curses`, {
+                body: { deckCardId }, token: s.hiderToken, expectStatus: 201,
+            });
+
+            const beimSuchenden = await seeker.waitFor((m) => m.type === "curse_played");
+            expect(beimSuchenden.curse.karte.id).toBe(OFFEN.id);
+            await hider.waitFor((m) => m.type === "curse_played");
+        });
+    });
+
+    it("schickt curse_ended einer geheimen Karte nicht an Suchende", async () => {
+        await withTestApp(async ({ app, makeWsClient, db }) => {
+            const s = await sitzungMitKarten(app);
+            const hider = await makeWsClient(s.code, s.hiderToken);
+            const seeker = await makeWsClient(s.code, s.seekerToken);
+            await hider.waitFor((m) => m.type === "sync");
+            await seeker.waitFor((m) => m.type === "sync");
+
+            const deckCardId = await aufDieHand(db, s.code, GEHEIM.id);
+            const { body: gespielt } = await req<any>(
+                app, "POST", `/api/sessions/${s.code}/curses`,
+                { body: { deckCardId }, token: s.hiderToken, expectStatus: 201 },
+            );
+            await req<any>(app, "POST", `/api/curses/${gespielt.curse.id}/end`, {
+                token: s.hiderToken, expectStatus: 200,
+            });
+
+            await hider.waitFor((m) => m.type === "curse_ended");
+            await expect(
+                seeker.waitFor((m) => m.type === "curse_ended", { timeoutMs: 500 }),
+            ).rejects.toThrow(/timed out/);
+        });
+    });
+
+    it("haelt geheime Flueche aus dem sync der Suchenden heraus", async () => {
+        await withTestApp(async ({ app, makeWsClient, db }) => {
+            const s = await sitzungMitKarten(app);
+            const geheimId = await aufDieHand(db, s.code, GEHEIM.id);
+            const offenId = await aufDieHand(db, s.code, OFFEN.id);
+            await req<any>(app, "POST", `/api/sessions/${s.code}/curses`, {
+                body: { deckCardId: geheimId }, token: s.hiderToken, expectStatus: 201,
+            });
+            await req<any>(app, "POST", `/api/sessions/${s.code}/curses`, {
+                body: { deckCardId: offenId }, token: s.hiderToken, expectStatus: 201,
+            });
+
+            const hider = await makeWsClient(s.code, s.hiderToken);
+            const seeker = await makeWsClient(s.code, s.seekerToken);
+            const hSync = await hider.waitFor((m) => m.type === "sync");
+            const sSync = await seeker.waitFor((m) => m.type === "sync");
+
+            const ids = (sync: any) => sync.activeCurses.map((f: any) => f.karte.id).sort();
+            expect(ids(hSync)).toEqual([GEHEIM.id, OFFEN.id].sort());
+            expect(ids(sSync)).toEqual([OFFEN.id]);
         });
     });
 
