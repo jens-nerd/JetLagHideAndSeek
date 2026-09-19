@@ -25,7 +25,11 @@ export function berechneAblauf(
     gameSize: "S" | "M" | "L" | null,
 ): string | null {
     if (!karte.dauerMin) return null;
-    const minuten = karte.dauerMin[gameSize ?? "M"];
+    // Die Spalte sessions.game_size ist freier Text ohne CHECK, und beim
+    // Anlegen einer Sitzung wird der Wert nicht geprueft. Ein unbekannter
+    // Wert darf hier nicht zu NaN und einem 500er fuehren.
+    const g = gameSize === "S" || gameSize === "L" ? gameSize : "M";
+    const minuten = karte.dauerMin[g];
     return new Date(Date.now() + minuten * 60_000).toISOString();
 }
 

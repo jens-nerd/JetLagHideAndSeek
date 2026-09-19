@@ -110,6 +110,38 @@ describe("POST /api/sessions/:code/curses", () => {
         expect(row!.state).toBe("gespielt");
     });
 
+    it("faellt bei einer unbekannten Spielgroesse auf M zurueck, statt abzustuerzen", async () => {
+        const db = createTestDb();
+        const app = createTestApp(db);
+
+        // Die Gruendungsroute prueft gameSize nicht — hier kommt bewusst ein
+        // Wert an, der nicht "S" | "M" | "L" ist.
+        const { body: created } = await req<any>(app, "POST", "/api/sessions", {
+            body: { displayName: "Hider Hans", gameSize: "XL", cardsEnabled: true },
+            expectStatus: 201,
+        });
+        const code = created.session.code as string;
+
+        const deckCardId = nanoid();
+        await db.insert(schema.deckCards).values({
+            id: deckCardId,
+            sessionId: created.session.id,
+            cardId: MIT_DAUER.id,
+            position: 0,
+            state: "hand",
+        });
+
+        const { body } = await req<any>(
+            app, "POST", `/api/sessions/${code}/curses`,
+            { body: { deckCardId }, token: created.participant.token, expectStatus: 201 },
+        );
+
+        const erwarteteMinuten = MIT_DAUER.dauerMin!.M;
+        const gespielt = new Date(body.curse.playedAt).getTime();
+        const ablauf = new Date(body.curse.expiresAt).getTime();
+        expect(Math.round((ablauf - gespielt) / 60_000)).toBe(erwarteteMinuten);
+    });
+
     it("lehnt einen Zeitbonus ab", async () => {
         const db = createTestDb();
         const app = createTestApp(db);
