@@ -2882,7 +2882,7 @@ export function ziehen(
 ): Promise<ZiehAntwort> {
     return apiFetch(`/api/questions/${questionId}/draw`, {
         method: "POST",
-        headers: { "x-participant-token": token },
+        token,
     });
 }
 
@@ -2893,7 +2893,7 @@ export function behalten(
 ): Promise<HandAntwort> {
     return apiFetch(`/api/questions/${questionId}/keep`, {
         method: "POST",
-        headers: { "x-participant-token": token },
+        token,
         body: JSON.stringify(body),
     });
 }
@@ -2905,7 +2905,7 @@ export function fluchSpielen(
 ): Promise<{ curse: Fluch }> {
     return apiFetch(`/api/sessions/${code}/curses`, {
         method: "POST",
-        headers: { "x-participant-token": token },
+        token,
         body: JSON.stringify({ deckCardId }),
     });
 }
@@ -2916,12 +2916,20 @@ export function fluchBeenden(
 ): Promise<{ curse: Fluch }> {
     return apiFetch(`/api/curses/${curseId}/end`, {
         method: "POST",
-        headers: { "x-participant-token": token },
+        token,
     });
 }
 ```
 
-**Prüfe vorher, wie `apiFetch` den Token setzt.** In `src/lib/session-api.ts` gibt es bereits Funktionen mit Token (etwa `addQuestion`); übernimm deren Aufrufform wörtlich, statt die oben geratene zu benutzen, falls sie abweicht.
+`apiFetch` nimmt den Token als **Option**, nicht als Header: seine Signatur ist
+`apiFetch<T>(path, options: RequestInit & { token?: string })`, und es setzt
+`x-participant-token` selbst. Das ist die Form, die `addQuestion` und
+`answerQuestion` schon benutzen. `apiFetch` ist bisher nicht exportiert —
+ändere `async function apiFetch` in `export async function apiFetch`.
+
+Fehler kommen aus `apiFetch` bereits als getippte `ApiError` mit `code` aus dem
+Antwortkörper; `handleSubmitError` in `src/lib/handle-submit-error.ts` zeigt sie
+als Toast. Baue keine eigene Fehlerbehandlung daneben.
 
 - [ ] **Schritt 6: WebSocket verdrahten**
 
@@ -5287,7 +5295,7 @@ export function kartenmechanikSchalten(
 ): Promise<{ cardsEnabled: boolean }> {
     return apiFetch(`/api/sessions/${code}/cards`, {
         method: "PATCH",
-        headers: { "x-participant-token": token },
+        token,
         body: JSON.stringify({ cardsEnabled }),
     });
 }
