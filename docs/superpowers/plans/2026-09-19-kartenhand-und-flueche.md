@@ -24,6 +24,11 @@ Diese Punkte gelten für **jede** Aufgabe:
 - **Kartentexte bleiben deutsch**, auch bei englischer Oberfläche. Sie werden nicht durch `tr()` geschleust.
 - **Stil neuer Sitzungs-Bauteile:** Inline-Stile wie in `src/components/session/SessionQuestionPanel.tsx` und `src/components/AnswerOverlay.tsx`, mit den CSS-Variablen `--color-primary`, `--color-panel`, `--radius-default`, `--radius-pill`. Keine neuen Tailwind-Utility-Klassen-Kaskaden in diesen Dateien.
 - **Vor jedem Commit laufen:** `pnpm backend:build` und `pnpm run check`. Beides muss mit 0 enden.
+- **Backend-Tests laufen über den Workspace-Filter**, nicht über die Wurzel:
+  `pnpm --filter @hideandseek/backend test <pfad relativ zu backend/>`. Die
+  Wurzel-`vitest.config.ts` schließt `backend/**` ausdrücklich aus — ein
+  `pnpm vitest run backend/…` findet **keine** Testdatei und endet still mit 1.
+  Frontend-Tests laufen dagegen über die Wurzel: `pnpm vitest run src/…`.
 - **Commit-Nachrichten auf Deutsch**, ohne Umlaute im Betreff (das Repo schreibt `Flueche`, `pruefen`), und enden mit:
   ```
   Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
@@ -410,7 +415,7 @@ describe("cardsEnabled bei der Sitzungsgründung", () => {
 - [ ] **Schritt 2: Test laufen lassen, er muss scheitern**
 
 ```bash
-cd ~/hideandseek && pnpm vitest run backend/src/test/rest/cards-schalter.test.ts
+cd ~/hideandseek && pnpm --filter @hideandseek/backend test src/test/rest/cards-schalter.test.ts
 ```
 
 Erwartet: FAIL, „expected undefined to be false".
@@ -575,7 +580,7 @@ Der Vergleich auf `=== true` ist Absicht: Ein fehlendes Feld, `null` oder ein St
 - [ ] **Schritt 7: Tests laufen lassen**
 
 ```bash
-cd ~/hideandseek && pnpm vitest run backend/src/test/rest/cards-schalter.test.ts && pnpm vitest run backend/src/db/migrator.test.ts
+cd ~/hideandseek && pnpm --filter @hideandseek/backend test src/test/rest/cards-schalter.test.ts && pnpm --filter @hideandseek/backend test src/db/migrator.test.ts
 ```
 
 Erwartet: beide PASS. Der vorhandene Migrator-Test prüft den Aufstieg über alle Versionen und muss weiter bestehen.
@@ -836,7 +841,7 @@ describe("getHand", () => {
 - [ ] **Schritt 2: Test laufen lassen, er muss scheitern**
 
 ```bash
-cd ~/hideandseek && pnpm vitest run backend/src/test/deck.test.ts
+cd ~/hideandseek && pnpm --filter @hideandseek/backend test src/test/deck.test.ts
 ```
 
 Erwartet: FAIL, „Cannot find module '../lib/deck.js'".
@@ -1037,7 +1042,7 @@ export async function getOffenerZug(
 - [ ] **Schritt 4: Test laufen lassen, er muss bestehen**
 
 ```bash
-cd ~/hideandseek && pnpm vitest run backend/src/test/deck.test.ts
+cd ~/hideandseek && pnpm --filter @hideandseek/backend test src/test/deck.test.ts
 ```
 
 Erwartet: PASS, elf Fälle.
@@ -1425,7 +1430,7 @@ describe("POST /api/questions/:id/keep", () => {
 - [ ] **Schritt 3: Test laufen lassen, er muss scheitern**
 
 ```bash
-cd ~/hideandseek && pnpm vitest run backend/src/test/rest/cards-ziehen.test.ts
+cd ~/hideandseek && pnpm --filter @hideandseek/backend test src/test/rest/cards-ziehen.test.ts
 ```
 
 Erwartet: FAIL, 404 auf `/draw`.
@@ -1673,7 +1678,7 @@ und unter den übrigen `app.route`-Aufrufen:
 - [ ] **Schritt 6: Test laufen lassen, er muss bestehen**
 
 ```bash
-cd ~/hideandseek && pnpm vitest run backend/src/test/rest/cards-ziehen.test.ts
+cd ~/hideandseek && pnpm --filter @hideandseek/backend test src/test/rest/cards-ziehen.test.ts
 ```
 
 Erwartet: PASS, 14 Fälle.
@@ -1992,7 +1997,7 @@ describe("Ablauf ohne Timer", () => {
 - [ ] **Schritt 3: Test laufen lassen, er muss scheitern**
 
 ```bash
-cd ~/hideandseek && pnpm vitest run backend/src/test/rest/cards-flueche.test.ts
+cd ~/hideandseek && pnpm --filter @hideandseek/backend test src/test/rest/cards-flueche.test.ts
 ```
 
 Erwartet: FAIL, 404 auf `/curses`.
@@ -2256,7 +2261,7 @@ und vor `return router;` einfügen:
 - [ ] **Schritt 6: Test laufen lassen, er muss bestehen**
 
 ```bash
-cd ~/hideandseek && pnpm vitest run backend/src/test/rest/cards-flueche.test.ts
+cd ~/hideandseek && pnpm --filter @hideandseek/backend test src/test/rest/cards-flueche.test.ts
 ```
 
 Erwartet: PASS, elf Fälle.
@@ -2467,7 +2472,7 @@ describe("sync mit Kartenmechanik", () => {
 - [ ] **Schritt 2: Test laufen lassen, er muss scheitern**
 
 ```bash
-cd ~/hideandseek && pnpm vitest run backend/src/test/ws/cards-sync.test.ts
+cd ~/hideandseek && pnpm --filter @hideandseek/backend test src/test/ws/cards-sync.test.ts
 ```
 
 Erwartet: FAIL, „expected undefined to be true".
@@ -2553,7 +2558,7 @@ Und die Felder in das `sync`-Objekt hineinstreuen, direkt nach `hidingZone`:
 - [ ] **Schritt 5: Test laufen lassen, er muss bestehen**
 
 ```bash
-cd ~/hideandseek && pnpm vitest run backend/src/test/ws/cards-sync.test.ts
+cd ~/hideandseek && pnpm --filter @hideandseek/backend test src/test/ws/cards-sync.test.ts
 ```
 
 Erwartet: PASS, sechs Fälle.
@@ -5165,7 +5170,7 @@ describe("PATCH /api/sessions/:code/cards", () => {
 - [ ] **Schritt 2: Test laufen lassen, er muss scheitern**
 
 ```bash
-cd ~/hideandseek && pnpm vitest run backend/src/test/rest/cards-schalten.test.ts
+cd ~/hideandseek && pnpm --filter @hideandseek/backend test src/test/rest/cards-schalten.test.ts
 ```
 
 Erwartet: FAIL, 404 auf `PATCH`.
@@ -5249,7 +5254,7 @@ In `backend/src/routes/cards.ts` vor `return router;`:
 - [ ] **Schritt 5: Test laufen lassen, er muss bestehen**
 
 ```bash
-cd ~/hideandseek && pnpm vitest run backend/src/test/rest/cards-schalten.test.ts
+cd ~/hideandseek && pnpm --filter @hideandseek/backend test src/test/rest/cards-schalten.test.ts
 ```
 
 Erwartet: PASS, sieben Fälle.
