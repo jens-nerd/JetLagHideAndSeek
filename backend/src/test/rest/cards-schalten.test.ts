@@ -13,6 +13,7 @@ import { schema } from "../../db/schema.js";
 type TestDb = ReturnType<typeof createTestDb>;
 
 const FLUCHKARTE = KARTEN.find((k) => k.art === "fluch" && k.dauerMin === null)!;
+const ZEITFLUCH = KARTEN.find((k) => k.art === "fluch" && k.dauerMin !== null)!;
 
 async function aufbau(app: Hono, db: TestDb, cardsEnabled = true) {
     const { body: created } = await req<any>(app, "POST", "/api/sessions", {
@@ -146,6 +147,48 @@ describe("PATCH /api/sessions/:code/cards", () => {
         );
 
         expect(status).toBe(400);
+    });
+
+    it("beendet auch einen Fluch mit Dauer und verwirft seinen Ablauf-Stups", async () => {
+        const db = createTestDb();
+        const app = createTestApp(db);
+        const a = await aufbau(app, db, true);
+
+        // Fluch mit Ablaufzeit auf die Hand und ausspielen
+        const deckCardId = nanoid();
+        await db.insert(schema.deckCards).values({
+            id: deckCardId,
+            sessionId: a.sessionId,
+            cardId: ZEITFLUCH.id,
+            position: 0,
+            state: "hand",
+        });
+        const { body: gespielt } = await req<any>(
+            app, "POST", `/api/sessions/${a.code}/curses`,
+            { body: { deckCardId }, token: a.hiderToken, expectStatus: 201 },
+        );
+        expect(gespielt.curse.expiresAt).not.toBeNull();
+
+        await req<any>(
+            app, "PATCH", `/api/sessions/${a.code}/cards`,
+            { body: { cardsEnabled: false }, token: a.hiderToken, expectStatus: 200 },
+        );
+
+        const row = await db.query.curses.findFirst({
+            where: eq(schema.curses.id, gespielt.curse.id),
+        });
+        expect(row!.endedAt).not.toBeNull();
+        expect(row!.endedBy).toBe("versteckender");
+
+        // Der Stups darf nicht mehr feuern: getAktiveFlueche liefert nichts,
+        // und ein zweites Beenden waere 409 — der Fluch ist endgueltig zu.
+        const { getAktiveFlueche } = await import("../../lib/curses.js");
+        expect(await getAktiveFlueche(db, a.sessionId)).toHaveLength(0);
+        const { status } = await req<any>(
+            app, "POST", `/api/curses/${gespielt.curse.id}/end`,
+            { token: a.hiderToken },
+        );
+        expect(status).toBe(409);
     });
 
     it("weist bei ausgeschalteter Mechanik nicht mit cards_disabled ab", async () => {
