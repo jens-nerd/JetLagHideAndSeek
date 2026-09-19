@@ -508,6 +508,8 @@ export const de = {
     "overlay.sizeS": "S — Stadtteil",
     "overlay.sizeM": "M — Stadt",
     "overlay.sizeL": "L — Region / Land",
+    "overlay.cardsLabel": "Kartenmechanik",
+    "overlay.cardsHint": "Der Versteckende zieht Karten für beantwortete Fragen und kann Flüche gegen euch spielen.",
     "overlay.codeTitle": "Dein Spielcode",
     "overlay.codeHint": "Teile diesen Code mit deinen Mitspielern!",
     "overlay.codeCopy": "Kopieren",

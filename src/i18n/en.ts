@@ -509,6 +509,8 @@ export const en: Record<TranslationKey, string> = {
     "overlay.sizeS": "S — Neighbourhood",
     "overlay.sizeM": "M — City",
     "overlay.sizeL": "L — Region / Country",
+    "overlay.cardsLabel": "Card mechanic",
+    "overlay.cardsHint": "The hider draws cards for answered questions and can play curses against you.",
     "overlay.codeTitle": "Your Game Code",
     "overlay.codeHint": "Share this code with your fellow players!",
     "overlay.codeCopy": "Copy",

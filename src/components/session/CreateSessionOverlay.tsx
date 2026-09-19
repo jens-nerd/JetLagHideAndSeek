@@ -101,6 +101,7 @@ export function CreateSessionOverlay() {
     const [step, setStep] = useState<Step>("entry");
     const [displayName, setDisplayName] = useState("");
     const [gameSize, setGameSize] = useState<GameSize | null>(null);
+    const [cardsEnabled, setCardsEnabled] = useState(true);
     const [joinCode, setJoinCode] = useState("");
     const [createdSession, setCreatedSession] = useState<CreateSessionResponse | null>(null);
     const [loading, setLoading] = useState(false);
@@ -132,6 +133,7 @@ export function CreateSessionOverlay() {
                 displayName: displayName.trim(),
                 mapLocation: mapLocation ?? undefined,
                 gameSize: gameSize ?? undefined,
+                cardsEnabled,
             });
             setCreatedSession(result);
         } catch (e: unknown) {
@@ -374,6 +376,40 @@ export function CreateSessionOverlay() {
                             {label}
                         </button>
                     ))}
+                    <label
+                        style={{
+                            display: "flex",
+                            alignItems: "flex-start",
+                            gap: 12,
+                            marginTop: 8,
+                            padding: "14px 16px",
+                            background: "var(--color-panel)",
+                            border: "2px solid rgba(245,245,240,0.08)",
+                            borderRadius: "var(--radius-default)",
+                            cursor: "pointer",
+                        }}
+                    >
+                        <input
+                            type="checkbox"
+                            checked={cardsEnabled}
+                            onChange={(e) => setCardsEnabled(e.target.checked)}
+                            style={{
+                                width: 20,
+                                height: 20,
+                                marginTop: 2,
+                                accentColor: "var(--color-primary)",
+                                flexShrink: 0,
+                            }}
+                        />
+                        <span style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            <span style={{ color: "#fff", fontWeight: 600, fontSize: "15px" }}>
+                                {tr("overlay.cardsLabel")}
+                            </span>
+                            <span style={{ color: "rgba(245,245,240,0.6)", fontSize: "13px", lineHeight: 1.4 }}>
+                                {tr("overlay.cardsHint")}
+                            </span>
+                        </span>
+                    </label>
                     <button
                         style={{ ...btnPrimary, marginTop: 8, ...(gameSize ? {} : btnDisabled) }}
                         disabled={!gameSize}
