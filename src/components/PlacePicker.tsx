@@ -131,7 +131,8 @@ export const PlacePicker = ({
                 </Button>
             </PopoverTrigger>
             <PopoverContent
-                className="w-[300px] p-0 light"
+                className="w-[300px] p-0 light overflow-y-auto max-h-[var(--radix-popover-content-available-height)]"
+                collisionPadding={12}
                 data-tutorial-id="place-picker-content"
             >
                 <div
@@ -267,7 +268,7 @@ export const PlacePicker = ({
                         placeholder={tr("placePicker.searchPlaceholder")}
                         onValueChange={setInputValue}
                     />
-                    <CommandList>
+                    <CommandList className="max-h-[40vh]">
                         <CommandEmpty>
                             {loading ? (
                                 <>{tr("placePicker.loading")}</>
