@@ -7,12 +7,12 @@
  */
 import type { HandKarte } from "@hideandseek/shared";
 import { useStore } from "@nanostores/react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "react-toastify";
 
 import { useT, useTFmt } from "@/i18n";
 import { behalten as behaltenApi } from "@/lib/cards-api";
-import { hand, pendingDraw } from "@/lib/deck-context";
+import { applyHandUpdated, hand, pendingDraw } from "@/lib/deck-context";
 import { sessionParticipant } from "@/lib/session-context";
 
 const HANDLIMIT = 6;
@@ -27,6 +27,7 @@ export function ZiehSchirm() {
     const [gewaehlt, setGewaehlt] = useState<string[]>([]);
     const [abwurf, setAbwurf] = useState<string[]>([]);
     const [laufend, setLaufend] = useState(false);
+    const laufendRef = useRef(false);
 
     if (!$pendingDraw || $participant?.role !== "hider") return null;
 
@@ -43,19 +44,31 @@ export function ZiehSchirm() {
     }
 
     async function absenden() {
-        if (!bereit || !$participant?.token) return;
+        if (!bereit || laufendRef.current || !$participant?.token) return;
+        laufendRef.current = true;
         setLaufend(true);
         try {
-            await behaltenApi($pendingDraw!.questionId, $participant.token, {
-                behalten: gewaehlt,
-                abwerfen: abwurf.length > 0 ? abwurf : undefined,
-            });
-            // hand_updated leert pendingDraw und schließt den Schirm.
+            const antwort = await behaltenApi(
+                $pendingDraw!.questionId,
+                $participant.token,
+                {
+                    behalten: gewaehlt,
+                    abwerfen: abwurf.length > 0 ? abwurf : undefined,
+                },
+            );
+            // Die Antwort direkt anwenden, statt auf hand_updated zu warten:
+            // applyHandUpdated setzt pendingDraw auf null und schliesst damit
+            // den Schirm. Reisst die WebSocket-Verbindung ab, waehrend der
+            // Aufruf durchgeht, saesse der Versteckende sonst in einem Vollbild
+            // ohne Schliessknopf fest. Das spaetere Ereignis setzt dieselben
+            // Werte noch einmal und schadet nicht.
+            applyHandUpdated({ hand: antwort.hand, deckRest: antwort.deckRest });
             setGewaehlt([]);
             setAbwurf([]);
         } catch (e) {
             toast.error((e as Error).message);
         } finally {
+            laufendRef.current = false;
             setLaufend(false);
         }
     }
@@ -73,6 +86,7 @@ export function ZiehSchirm() {
                     ? { "data-angeboten": karte.id }
                     : { "data-handcard": karte.id })}
                 onClick={onClick}
+                disabled={laufend}
                 style={{
                     display: "flex",
                     flexDirection: "column",
