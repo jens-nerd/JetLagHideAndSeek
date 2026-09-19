@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 
-export const CURRENT_SCHEMA_VERSION = 6;
+export const CURRENT_SCHEMA_VERSION = 7;
 
 type ColumnRow = { name: string };
 
@@ -147,6 +147,47 @@ const MIGRATIONS: Migration[] = [
             if (!cols.includes("game_size")) {
                 db.exec("ALTER TABLE sessions ADD COLUMN game_size TEXT");
             }
+        },
+    },
+    {
+        // v7: Kartenmechanik — Schalter an sessions, Deck- und Fluchtabellen
+        version: 7,
+        up: (db) => {
+            const cols = columnNames(db, "sessions");
+            if (!cols.includes("cards_enabled")) {
+                db.exec(
+                    "ALTER TABLE sessions ADD COLUMN cards_enabled INTEGER NOT NULL DEFAULT 0",
+                );
+            }
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS deck_cards (
+                    id                   TEXT PRIMARY KEY,
+                    session_id           TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+                    card_id              TEXT NOT NULL,
+                    position             INTEGER NOT NULL,
+                    state                TEXT NOT NULL
+                                             CHECK(state IN ('deck','angeboten','hand','ablage','gespielt')),
+                    draw_for_question_id TEXT,
+                    updated_at           TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_deck_cards_session_state
+                    ON deck_cards(session_id, state);
+
+                CREATE TABLE IF NOT EXISTS curses (
+                    id                       TEXT PRIMARY KEY,
+                    session_id               TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+                    card_id                  TEXT NOT NULL,
+                    played_by_participant_id TEXT NOT NULL REFERENCES participants(id),
+                    played_at                TEXT NOT NULL DEFAULT (datetime('now')),
+                    expires_at               TEXT,
+                    ended_at                 TEXT,
+                    ended_by                 TEXT
+                                                 CHECK(ended_by IS NULL OR ended_by IN ('ablauf','suchende','versteckender'))
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_curses_session ON curses(session_id);
+            `);
         },
     },
     /* add future migrations here, in ascending version order */

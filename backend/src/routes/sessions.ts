@@ -33,6 +33,7 @@ function toSession(row: Session) {
         status: row.status as "waiting" | "active" | "finished",
         mapLocation: row.mapLocation ? JSON.parse(row.mapLocation) : null,
         gameSize: (row.gameSize as "S" | "M" | "L") ?? null,
+        cardsEnabled: row.cardsEnabled,
         createdAt: row.createdAt,
         expiresAt: row.expiresAt,
     };
@@ -114,6 +115,7 @@ export function createSessionsRouter(db: Db): Hono {
                 ? JSON.stringify(body.mapLocation)
                 : null,
             gameSize: body.gameSize ?? null,
+            cardsEnabled: body.cardsEnabled === true,
             expiresAt,
         });
 
