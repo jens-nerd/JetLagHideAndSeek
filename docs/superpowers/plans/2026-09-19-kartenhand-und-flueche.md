@@ -104,8 +104,13 @@ export interface Karte {
      * `undefined` ist ein Fehler und wird vom Test abgefangen.
      */
     dauerMin?: { S: number; M: number; L: number } | null;
-    /** nur bei art === "zeitbonus" */
-    bonusMin?: number;
+    /** nur bei art === "zeitbonus": Minutenwert je Spielgröße */
+    bonusMin?: { S: number; M: number; L: number };
+    /**
+     * Wörtliche Dauer-Angabe, wo sie sich nicht in Minuten ausdrücken lässt
+     * ("bis Rundenende", "drei beantwortete Fragen").
+     */
+    dauerText?: string;
     /** Exemplare im Deck */
     anzahl: number;
 }
@@ -2804,9 +2809,16 @@ export function resetDeckState(): void {
     activeCurses.set([]);
 }
 
-/** Summe der Bonusminuten auf der Hand. Reine Anzeige, wird nirgends verrechnet. */
-export function bonusMinutenAufDerHand(karten: HandKarte[]): number {
-    return karten.reduce((n, k) => n + (k.karte.bonusMin ?? 0), 0);
+/**
+ * Summe der Bonusminuten auf der Hand, für die Spielgröße dieser Sitzung.
+ * Reine Anzeige, wird nirgends verrechnet.
+ */
+export function bonusMinutenAufDerHand(
+    karten: HandKarte[],
+    gameSize: "S" | "M" | "L" | null,
+): number {
+    const g = gameSize ?? "M";
+    return karten.reduce((n, k) => n + (k.karte.bonusMin?.[g] ?? 0), 0);
 }
 ```
 
@@ -3259,6 +3271,17 @@ describe("FluchListe", () => {
         expect(markup).toContain("cards.noDuration");
     });
 
+    it("zeigt eine wörtliche Dauer statt der allgemeinen Beschriftung", async () => {
+        // Drei Karten tragen dauerText, etwa "bis Rundenende".
+        const mitText = { ...KARTE_OHNE_DAUER, dauerText: "bis Rundenende" };
+        stores.activeCurses.set([fluch(mitText, null)]);
+
+        const markup = await render();
+
+        expect(markup).toContain("bis Rundenende");
+        expect(markup).not.toContain("cards.noDuration");
+    });
+
     it("gibt den Suchenden den Knopf erledigt", async () => {
         stores.activeCurses.set([fluch(KARTE_OHNE_DAUER, null)]);
 
@@ -3424,7 +3447,7 @@ export function FluchListe() {
                             <Countdown curseId={curse.id} expiresAt={curse.expiresAt} />
                         ) : (
                             <span style={{ color: "rgba(245,245,240,0.5)", fontSize: 12 }}>
-                                {tr("cards.noDuration")}
+                                {curse.karte.dauerText ?? tr("cards.noDuration")}
                             </span>
                         )}
                     </div>
@@ -3477,7 +3500,7 @@ export function FluchListe() {
 cd ~/hideandseek && pnpm vitest run src/components/__tests__/fluch-liste.test.tsx
 ```
 
-Erwartet: PASS, sieben Fälle.
+Erwartet: PASS, acht Fälle.
 
 - [ ] **Schritt 6: Typen prüfen und committen**
 
@@ -3572,6 +3595,7 @@ const stores = vi.hoisted(() => {
         activeCurses: box<any[]>([]),
         sessionParticipant: box<any>({ role: "hider", token: "t" }),
         sessionCode: box<string | null>("ABCDEF"),
+        gameSize: box<"S" | "M" | "L" | null>("M"),
     };
 });
 
@@ -3581,13 +3605,14 @@ vi.mock("@/lib/deck-context", () => ({
     hand: stores.hand,
     deckRest: stores.deckRest,
     activeCurses: stores.activeCurses,
-    bonusMinutenAufDerHand: (karten: any[]) =>
-        karten.reduce((n: number, k: any) => n + (k.karte.bonusMin ?? 0), 0),
+    bonusMinutenAufDerHand: (karten: any[], g: string) =>
+        karten.reduce((n: number, k: any) => n + (k.karte.bonusMin?.[g ?? "M"] ?? 0), 0),
 }));
 
 vi.mock("@/lib/session-context", () => ({
     sessionParticipant: stores.sessionParticipant,
     sessionCode: stores.sessionCode,
+    gameSize: stores.gameSize,
 }));
 
 vi.mock("@/lib/cards-api", () => ({
@@ -3616,7 +3641,7 @@ const BONUSKARTE = {
     art: "zeitbonus",
     name: "Anschluss weg",
     text: "Zählt am Rundenende.",
-    bonusMin: 10,
+    bonusMin: { S: 4, M: 6, L: 10 },
     anzahl: 13,
 };
 
@@ -3838,7 +3863,7 @@ import { useState } from "react";
 import { useT, useTFmt } from "@/i18n";
 import { fluchSpielen } from "@/lib/cards-api";
 import { bonusMinutenAufDerHand, deckRest, hand } from "@/lib/deck-context";
-import { sessionCode, sessionParticipant } from "@/lib/session-context";
+import { gameSize, sessionCode, sessionParticipant } from "@/lib/session-context";
 
 import { FluchListe } from "./FluchListe";
 import { KartenAnsicht } from "./KartenAnsicht";
@@ -3850,6 +3875,7 @@ export function KartenReiter() {
     const $code = useStore(sessionCode);
     const $hand = useStore(hand);
     const $deckRest = useStore(deckRest);
+    const $gameSize = useStore(gameSize);
     const [offen, setOffen] = useState<HandKarte | null>(null);
 
     const istHider = $participant?.role === "hider";
@@ -3899,7 +3925,7 @@ export function KartenReiter() {
                         <>
                             <span style={{ color: "rgba(245,245,240,0.5)", fontSize: 12 }}>
                                 {trf("cards.bonusSum", {
-                                    n: String(bonusMinutenAufDerHand($hand)),
+                                    n: String(bonusMinutenAufDerHand($hand, $gameSize)),
                                 })}
                             </span>
                             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -3927,7 +3953,7 @@ export function KartenReiter() {
                                         <span style={{ color: "rgba(245,245,240,0.5)", fontSize: 12 }}>
                                             {karte.karte.art === "fluch"
                                                 ? "🃏"
-                                                : `+${karte.karte.bonusMin} min`}
+                                                : `+${karte.karte.bonusMin?.[$gameSize ?? "M"]} min`}
                                         </span>
                                     </button>
                                 ))}

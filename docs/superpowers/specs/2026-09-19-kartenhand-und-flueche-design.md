@@ -94,8 +94,13 @@ export interface Karte {
      * bis die Suchenden "erledigt" melden. Nur bei art === "fluch" gesetzt.
      */
     dauerMin?: { S: number; M: number; L: number } | null;
-    /** Nur bei art === "zeitbonus": Minutenwert der Karte */
-    bonusMin?: number;
+    /** Nur bei art === "zeitbonus": Minutenwert je Spielgröße */
+    bonusMin?: { S: number; M: number; L: number };
+    /**
+     * Wörtliche Dauer-Angabe, wo sie sich nicht in Minuten ausdrücken lässt
+     * ("bis Rundenende", "drei beantwortete Fragen"). Drei Karten tragen sie.
+     */
+    dauerText?: string;
     /** Wie oft die Karte im Deck liegt */
     anzahl: number;
 }
@@ -117,7 +122,10 @@ eigene Absätze, die Überführung ist also mechanisch. Wo eine Karte
 - Jeder Fluch hat `gruppe` gesetzt und `dauerMin` entweder als Zahlentripel oder
   ausdrücklich `null` — `undefined` ist ein Fehler, damit ein vergessenes Feld
   auffällt statt still als Aufgabenfluch durchzugehen.
-- Jeder Zeitbonus hat `bonusMin > 0`.
+- Jeder Zeitbonus hat `bonusMin` mit drei Werten größer null.
+- Die Deckzeit ergibt 198 / 297 / 495 Minuten — die Zahlen aus dem Anhang
+  der Quelle. Das ist die Probe darauf, dass Werte und Stückzahlen
+  zusammenpassen.
 
 ### 1.1 Übertragungstypen
 
@@ -416,8 +424,8 @@ offen ist — `pendingDraw` überlebt ein Neuladen, weil es aus `sync` kommt.
 ### 7.5 Hand und Ausspielen
 
 Der Reiter „Hand" zeigt die Karten als Liste: Name, Art, bei Zeitboni der
-Minutenwert. Darüber die Summe der Bonusminuten auf der Hand — eine reine
-Anzeige, es wird nichts verrechnet.
+Minutenwert **für die Spielgröße dieser Sitzung**. Darüber die Summe der
+Bonusminuten auf der Hand — eine reine Anzeige, es wird nichts verrechnet.
 
 Antippen öffnet die Kartenansicht mit dem vollen Text samt Kosten, Nachweis und
 Ausweichregel. Bei einem Fluch steht darunter „Ausspielen" mit Rückfrage
@@ -432,6 +440,7 @@ Ein eintreffender Fluch erscheint als Vollbild-Overlay nach dem Muster von
 
 Danach bleibt der Fluch im Reiter „Flüche" stehen:
 
+- Mit `dauerText`: diese Zeile wörtlich, kein Countdown.
 - Mit Dauer: Countdown im Muster von `QuestionCountdown`
   (`SessionQuestionPanel.tsx:1365-1415`), Farbwechsel nach Restzeit.
 - Ohne Dauer: die verstrichene Zeit und ein Knopf **„erledigt"**.
