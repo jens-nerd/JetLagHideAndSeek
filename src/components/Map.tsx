@@ -25,6 +25,7 @@ import {
     triggerLocalRefresh,
 } from "@/lib/context";
 import { DEFAULT_VIEWPORT } from "@hideandseek/shared";
+import { locale, t } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { applyQuestionsToMapGeoData, holedMask } from "@/maps";
 import { hiderifyQuestion } from "@/maps";
@@ -186,12 +187,14 @@ export const Map = ({ className }: { className?: string }) => {
                 }
             }
         } catch (error) {
-            console.log(error);
+            console.error(error);
 
             isLoading.set(false);
-            if (document.querySelectorAll(".Toastify__toast").length === 0) {
-                return toast.error("No solutions found / error occurred");
-            }
+            // Feste toastId statt DOM-Abfrage: react-toastify entdoppelt damit
+            // zuverlaessig, auch wenn gerade ein anderer Toast sichtbar ist.
+            toast.error(t("toast.map.refreshFailed", locale.get()), {
+                toastId: "map-refresh-failed",
+            });
         } finally {
             isLoading.set(false);
             // If location changed while we processed questions, re-run for

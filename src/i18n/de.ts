@@ -610,6 +610,10 @@ export const de = {
     "cards.extraDrawLast": "Nachschlag: eine Karte mehr aufgedeckt. Das war die letzte Anwendung.",
     "cards.curseHit": "Fluch!",
     "cards.curseUnderstood": "Verstanden",
+
+    // ── Karte (Map) ───────────────────────────────────────────────────────────
+    "toast.map.refreshFailed":
+        "Kartendaten konnten nicht geladen werden. Die Ansicht ist nicht auf dem aktuellen Stand.",
 } as const;
 
 export type Translations = typeof de;

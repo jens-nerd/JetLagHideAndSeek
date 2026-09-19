@@ -611,4 +611,8 @@ export const en: Record<TranslationKey, string> = {
     "cards.extraDrawLast": "Nachschlag: one more card revealed. That was the last use.",
     "cards.curseHit": "Curse!",
     "cards.curseUnderstood": "Got it",
+
+    // ── Map ───────────────────────────────────────────────────────────────────
+    "toast.map.refreshFailed":
+        "Map data could not be loaded. The view is not up to date.",
 };
