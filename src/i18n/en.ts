@@ -590,4 +590,10 @@ export const en: Record<TranslationKey, string> = {
     "cards.discardNotAvailable": "Discarding only happens while drawing, when the hand would exceed six.",
     "cards.tabHand": "Hand",
     "cards.tabCurses": "Curses",
+    "cards.drawTitle": "Draw cards",
+    "cards.drawHint": "Look at {draw}, keep {keep}.",
+    "cards.drawOpen": "Look at the cards",
+    "cards.keepButton": "Keep",
+    "cards.keepCount": "{gewaehlt} of {noetig} selected",
+    "cards.discardPrompt": "Your hand would be too full. Discard {n}.",
 };

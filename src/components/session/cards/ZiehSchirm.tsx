@@ -1,0 +1,179 @@
+/**
+ * Vollbildschirm für "N ansehen, M behalten".
+ *
+ * Sichtbar, solange der Store einen offenen Ziehvorgang kennt. Der Vorgang
+ * kommt aus dem sync-Ereignis zurück, ein Neuladen mitten im Ziehen verliert
+ * also nichts.
+ */
+import type { HandKarte } from "@hideandseek/shared";
+import { useStore } from "@nanostores/react";
+import { useState } from "react";
+import { toast } from "react-toastify";
+
+import { useT, useTFmt } from "@/i18n";
+import { behalten as behaltenApi } from "@/lib/cards-api";
+import { hand, pendingDraw } from "@/lib/deck-context";
+import { sessionParticipant } from "@/lib/session-context";
+
+const HANDLIMIT = 6;
+
+export function ZiehSchirm() {
+    const tr = useT();
+    const trf = useTFmt();
+    const $participant = useStore(sessionParticipant);
+    const $pendingDraw = useStore(pendingDraw);
+    const $hand = useStore(hand);
+
+    const [gewaehlt, setGewaehlt] = useState<string[]>([]);
+    const [abwurf, setAbwurf] = useState<string[]>([]);
+    const [laufend, setLaufend] = useState(false);
+
+    if (!$pendingDraw || $participant?.role !== "hider") return null;
+
+    const noetig = Math.min($pendingDraw.behalten, $pendingDraw.angeboten.length);
+    const zuViel = $hand.length + noetig - HANDLIMIT;
+    const noetigerAbwurf = Math.max(0, zuViel);
+    const bereit =
+        gewaehlt.length === noetig && abwurf.length === noetigerAbwurf && !laufend;
+
+    function umschalten(liste: string[], id: string, max: number): string[] {
+        if (liste.includes(id)) return liste.filter((x) => x !== id);
+        if (liste.length >= max) return liste;
+        return [...liste, id];
+    }
+
+    async function absenden() {
+        if (!bereit || !$participant?.token) return;
+        setLaufend(true);
+        try {
+            await behaltenApi($pendingDraw!.questionId, $participant.token, {
+                behalten: gewaehlt,
+                abwerfen: abwurf.length > 0 ? abwurf : undefined,
+            });
+            // hand_updated leert pendingDraw und schließt den Schirm.
+            setGewaehlt([]);
+            setAbwurf([]);
+        } catch (e) {
+            toast.error((e as Error).message);
+        } finally {
+            setLaufend(false);
+        }
+    }
+
+    function kartenKnopf(
+        karte: HandKarte,
+        aktiv: boolean,
+        onClick: () => void,
+        marker: "angeboten" | "handcard",
+    ) {
+        return (
+            <button
+                key={karte.id}
+                {...(marker === "angeboten"
+                    ? { "data-angeboten": karte.id }
+                    : { "data-handcard": karte.id })}
+                onClick={onClick}
+                style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "flex-start",
+                    gap: 6,
+                    background: aktiv ? "var(--color-primary)" : "var(--color-panel)",
+                    border: `2px solid ${aktiv ? "var(--color-primary)" : "rgba(245,245,240,0.08)"}`,
+                    borderRadius: "var(--radius-default)",
+                    padding: "12px 14px",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    width: "100%",
+                }}
+            >
+                <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>
+                    {karte.karte.name}
+                </span>
+                <span style={{ color: "rgba(255,255,255,0.75)", fontSize: 12, lineHeight: 1.45, whiteSpace: "pre-line" }}>
+                    {karte.karte.text}
+                </span>
+            </button>
+        );
+    }
+
+    return (
+        <div
+            style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 1300,
+                background: "var(--hs-dark, #14161A)",
+                overflowY: "auto",
+                padding: "24px 16px 32px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 14,
+            }}
+        >
+            <h2 style={{ color: "#fff", fontSize: 22, fontWeight: 800, margin: 0, fontFamily: "Poppins, sans-serif" }}>
+                {tr("cards.drawTitle")}
+            </h2>
+            <p style={{ color: "rgba(245,245,240,0.6)", fontSize: 14, margin: 0 }}>
+                {trf("cards.drawHint", {
+                    draw: $pendingDraw.angeboten.length,
+                    keep: noetig,
+                })}
+            </p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {$pendingDraw.angeboten.map((karte) =>
+                    kartenKnopf(
+                        karte,
+                        gewaehlt.includes(karte.id),
+                        () => setGewaehlt((l) => umschalten(l, karte.id, noetig)),
+                        "angeboten",
+                    ),
+                )}
+            </div>
+
+            {noetigerAbwurf > 0 ? (
+                <>
+                    <p style={{ color: "#F37748", fontSize: 14, fontWeight: 600, margin: "8px 0 0" }}>
+                        {trf("cards.discardPrompt", { n: noetigerAbwurf })}
+                    </p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                        {$hand.map((karte) =>
+                            kartenKnopf(
+                                karte,
+                                abwurf.includes(karte.id),
+                                () => setAbwurf((l) => umschalten(l, karte.id, noetigerAbwurf)),
+                                "handcard",
+                            ),
+                        )}
+                    </div>
+                </>
+            ) : null}
+
+            <span style={{ color: "rgba(245,245,240,0.5)", fontSize: 13 }}>
+                {trf("cards.keepCount", { gewaehlt: gewaehlt.length, noetig })}
+            </span>
+
+            <button
+                onClick={() => void absenden()}
+                disabled={!bereit}
+                style={{
+                    marginTop: 4,
+                    background: "var(--color-primary)",
+                    border: "none",
+                    borderRadius: "var(--radius-pill)",
+                    padding: "14px 32px",
+                    color: "#fff",
+                    fontWeight: 700,
+                    fontSize: 15,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    cursor: bereit ? "pointer" : "default",
+                    opacity: bereit ? 1 : 0.4,
+                }}
+            >
+                {tr("cards.keepButton")}
+            </button>
+        </div>
+    );
+}

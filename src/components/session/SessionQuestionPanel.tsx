@@ -43,6 +43,8 @@ import { adjustMapGeoDataForQuestion, hiderifyQuestion } from "@/maps";
 import { addQuestion, answerQuestion } from "@/lib/session-api";
 import { atom } from "nanostores";
 import { getCardCost } from "@/lib/card-costs";
+import { ziehen } from "@/lib/cards-api";
+import { cardsEnabled, deckRest, pendingDraw } from "@/lib/deck-context";
 
 /** Temporary store for photo answer data — set by PhotoAnswerUI, read by submitAnswer */
 const photoAnswerData = atom<unknown>(null);
@@ -789,7 +791,7 @@ export function SessionQuestionPanel() {
     const answerWarmPolygonRef = useRef<L.Polygon | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [loadingGPS, setLoadingGPS] = useState(false);
-    const [cardDrawOverlay, setCardDrawOverlay] = useState<{ draw: number; keep: number } | null>(null);
+    const [cardDrawOverlay, setCardDrawOverlay] = useState<{ draw: number; keep: number; questionId: string } | null>(null);
     /** Show GPS-vs-manual dialog when the hider starts answering without a pin */
     const [showLocationDialog, setShowLocationDialog] = useState(false);
 
@@ -1131,13 +1133,14 @@ export function SessionQuestionPanel() {
         setSubmitting(true);
         try {
             const answeredType = pendingAnswerSq.type;
+            const answeredId = pendingAnswerSq.id;
             await answerQuestion(pendingAnswerSq.id, participant.token, {
                 answerData: answerPayload,
             });
             toast.success(t("sqp.answerSent", locale.get()));
             // Show card draw overlay
             const cost = getCardCost(answeredType);
-            if (cost) setCardDrawOverlay(cost);
+            if (cost) setCardDrawOverlay({ ...cost, questionId: answeredId });
             setPendingAnswerSq(null);
             setPreviewResult(null);
             latestAnswerDataRef.current = null;
@@ -1219,7 +1222,29 @@ export function SessionQuestionPanel() {
                     Ziehe {cardDrawOverlay.draw}, behalte {cardDrawOverlay.keep}
                 </span>
                 <button
-                    onClick={() => setCardDrawOverlay(null)}
+                    onClick={async () => {
+                        const teilnehmer = sessionParticipant.get();
+                        if (!cardsEnabled.get() || !teilnehmer?.token) {
+                            setCardDrawOverlay(null);
+                            return;
+                        }
+                        try {
+                            const antwort = await ziehen(
+                                cardDrawOverlay.questionId,
+                                teilnehmer.token,
+                            );
+                            pendingDraw.set({
+                                questionId: cardDrawOverlay.questionId,
+                                angeboten: antwort.angeboten,
+                                behalten: antwort.behalten,
+                            });
+                            deckRest.set(antwort.deckRest);
+                        } catch (e) {
+                            toast.error((e as Error).message);
+                        } finally {
+                            setCardDrawOverlay(null);
+                        }
+                    }}
                     style={{
                         marginTop: 8,
                         background: "var(--color-primary)",
@@ -1234,7 +1259,7 @@ export function SessionQuestionPanel() {
                         letterSpacing: "0.06em",
                     }}
                 >
-                    Weiter
+                    {tr("cards.drawOpen")}
                 </button>
             </div>
         );
