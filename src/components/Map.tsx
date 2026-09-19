@@ -33,6 +33,7 @@ import { clearCache, determineMapBoundaries } from "@/maps/api";
 import { activeHidingZone, revealedHidingZone, sessionParticipant } from "@/lib/session-context";
 import { bottomSheetState } from "@/lib/bottom-sheet-state";
 import { DraggableMarkers } from "./DraggableMarkers";
+import { ebenenTauschen } from "./map-ebenen-tausch";
 import { PlayerMarkers } from "./PlayerMarkers";
 import { LeafletFullScreenButton } from "./LeafletFullScreenButton";
 import { MapPrint } from "./MapPrint";
@@ -132,41 +133,42 @@ export const Map = ({ className }: { className?: string }) => {
             triggerLocalRefresh.set(Math.random()); // Refresh the question sidebar with new information but not this map
         }
 
-        map.eachLayer((layer: any) => {
-            if (layer.questionKey || layer.questionKey === 0) {
-                map.removeLayer(layer);
-            }
-        });
-
         try {
-            mapGeoData = await applyQuestionsToMapGeoData(
-                $questions,
-                mapGeoData,
-                planningModeEnabled.get(),
-                (geoJSONObj, question) => {
-                    const geoJSONPlane = L.geoJSON(geoJSONObj);
-                    // @ts-expect-error This is a check such that only this type of layer is removed
-                    geoJSONPlane.questionKey = question.key;
-                    geoJSONPlane.addTo(map);
-                },
-            );
+            // Erst bauen, dann tauschen: die vorhandenen Ebenen bleiben stehen,
+            // bis die neuen fertig sind. Wirft der Aufbau, behaelt der Spieler
+            // seine Ansicht statt einer leeren Karte.
+            const eingangsGeoData = mapGeoData;
 
-            mapGeoData = {
-                type: "FeatureCollection",
-                features: [holedMask(mapGeoData!)!],
-            };
+            mapGeoData = await ebenenTauschen(map, async () => {
+                // Sammelbehaelter: die Gruppe kommt nie auf die Karte, ihre
+                // Ebenen werden einzeln gesetzt – sonst stimmen die Zaehlungen
+                // ueber questionKey / eliminationGeoJSON nicht mehr.
+                const neueEbenen = L.layerGroup();
 
-            map.eachLayer((layer: any) => {
-                if (layer.eliminationGeoJSON) {
-                    // Hopefully only geoJSON layers
-                    map.removeLayer(layer);
-                }
+                const gebaut = await applyQuestionsToMapGeoData(
+                    $questions,
+                    eingangsGeoData,
+                    planningModeEnabled.get(),
+                    (geoJSONObj, question) => {
+                        const geoJSONPlane = L.geoJSON(geoJSONObj);
+                        // @ts-expect-error This is a check such that only this type of layer is removed
+                        geoJSONPlane.questionKey = question.key;
+                        neueEbenen.addLayer(geoJSONPlane);
+                    },
+                );
+
+                const maskiert = {
+                    type: "FeatureCollection" as const,
+                    features: [holedMask(gebaut!)!],
+                };
+
+                const g = L.geoJSON(maskiert);
+                // @ts-expect-error This is a check such that only this type of layer is removed
+                g.eliminationGeoJSON = true;
+                neueEbenen.addLayer(g);
+
+                return { ebenen: neueEbenen.getLayers(), daten: maskiert };
             });
-
-            const g = L.geoJSON(mapGeoData);
-            // @ts-expect-error This is a check such that only this type of layer is removed
-            g.eliminationGeoJSON = true;
-            g.addTo(map);
 
             questionFinishedMapData.set(mapGeoData);
 
