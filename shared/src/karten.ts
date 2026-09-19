@@ -70,6 +70,27 @@ export interface PendingDraw {
 }
 
 /**
+ * Kennung des Nachschlags. Er ist die einzige Karte, die auf die Ziehmechanik
+ * wirkt; alle anderen Flueche sind Regeln, die die Spielenden selbst einhalten.
+ */
+export const NACHSCHLAG_ID = "fluch-nachschlag";
+
+/** So viele beantwortete Fragen lang wirkt der Nachschlag. */
+export const NACHSCHLAG_ANWENDUNGEN = 3;
+
+/** Antwort auf POST /questions/:id/draw. */
+export interface ZiehErgebnis {
+    angeboten: HandKarte[];
+    /** Behaltekosten, vom Nachschlag unberuehrt. */
+    behalten: number;
+    deckRest: number;
+    /** true, wenn fuer diesen Zug eine Karte mehr aufgedeckt wurde als sonst. */
+    nachschlagAktiv: boolean;
+    /** Restanwendungen des laufenden Nachschlags, null ohne laufenden. */
+    nachschlagRest: number | null;
+}
+
+/**
  * Ziehkosten je Fragenkategorie: `draw` ansehen, `keep` behalten.
  * Umgezogen aus src/lib/card-costs.ts, weil das Backend sie auch braucht.
  */
