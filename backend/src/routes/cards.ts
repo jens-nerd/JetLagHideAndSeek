@@ -21,6 +21,7 @@ import {
 } from "../lib/deck.js";
 import {
     berechneAblauf,
+    getAktiveFlueche,
     planeAblauf,
     toFluch,
     verwirfAblauf,
@@ -344,6 +345,64 @@ export function createCardsRouter(db: Db): Hono {
             where: eq(schema.curses.id, curseId),
         }))!;
         return c.json({ curse: toFluch(aktualisiert) });
+    });
+
+    // ── PATCH /sessions/:code/cards ───────────────────────────────────────────
+    //
+    // Der einzige Kartenendpunkt ohne cards_disabled-Sperre: Er ist der Weg
+    // zurück. Beim Ausschalten enden alle laufenden Flüche, damit "aus" wirklich
+    // heißt, dass sich die App wie vor der Kartenmechanik verhält.
+
+    router.patch("/sessions/:code/cards", async (c) => {
+        const code = c.req.param("code").toUpperCase();
+        const token = c.req.header("x-participant-token");
+        const body: { cardsEnabled?: unknown } = await c.req.json();
+
+        const sessionRow = await db.query.sessions.findFirst({
+            where: eq(schema.sessions.code, code),
+        });
+        if (!sessionRow) return c.json({ error: "Session not found" }, 404);
+
+        const participant = await resolveParticipant(db, sessionRow.id, token);
+        if (!participant) return c.json({ error: "Invalid token" }, 403);
+        if (participant.role !== "hider") {
+            return c.json({ error: "Only the hider can toggle cards" }, 403);
+        }
+        if (typeof body.cardsEnabled !== "boolean") {
+            return c.json({ error: "cardsEnabled must be a boolean" }, 400);
+        }
+
+        const cardsEnabled = body.cardsEnabled;
+
+        await db
+            .update(schema.sessions)
+            .set({ cardsEnabled })
+            .where(eq(schema.sessions.id, sessionRow.id));
+
+        if (!cardsEnabled) {
+            const laufende = await getAktiveFlueche(db, sessionRow.id);
+            const endedAt = new Date().toISOString();
+            for (const fluch of laufende) {
+                await db
+                    .update(schema.curses)
+                    .set({ endedAt, endedBy: "versteckender" })
+                    .where(eq(schema.curses.id, fluch.id));
+                verwirfAblauf(fluch.id);
+                wsManager.broadcast(sessionRow.code, {
+                    type: "curse_ended",
+                    curseId: fluch.id,
+                    endedBy: "versteckender",
+                    endedAt,
+                });
+            }
+        }
+
+        wsManager.broadcast(sessionRow.code, {
+            type: "cards_toggled",
+            cardsEnabled,
+        });
+
+        return c.json({ cardsEnabled });
     });
 
     return router;

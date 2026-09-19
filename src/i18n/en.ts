@@ -565,6 +565,9 @@ export const en: Record<TranslationKey, string> = {
     "settings.notificationsDesc": "Alerts for game events",
     "settings.offlineMaps": "Offline maps",
     "settings.offlineMapsDesc": "Save maps for offline use",
+    "settings.cards": "Card mechanic",
+    "settings.cardsDesc": "Draw cards and play curses. Turning it off ends all running curses.",
+    "settings.cardsConfirmOff": "Turn off the card mechanic? All running curses will end.",
 
     // ── Curse list (FluchListe) ────────────────────────────────────────────────
     "cards.noCurses": "No curse is running right now.",

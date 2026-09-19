@@ -61,3 +61,15 @@ export function fluchBeenden(
         token,
     });
 }
+
+export function kartenmechanikSchalten(
+    code: string,
+    token: string,
+    cardsEnabled: boolean,
+): Promise<{ cardsEnabled: boolean }> {
+    return apiFetch(`/api/sessions/${code}/cards`, {
+        method: "PATCH",
+        token,
+        body: JSON.stringify({ cardsEnabled }),
+    });
+}

@@ -564,6 +564,9 @@ export const de = {
     "settings.notificationsDesc": "Hinweise bei Spielereignissen",
     "settings.offlineMaps": "Offline-Karten",
     "settings.offlineMapsDesc": "Karten für Offline-Nutzung speichern",
+    "settings.cards": "Kartenmechanik",
+    "settings.cardsDesc": "Karten ziehen und Flüche spielen. Ausschalten beendet alle laufenden Flüche.",
+    "settings.cardsConfirmOff": "Kartenmechanik ausschalten? Alle laufenden Flüche enden dabei.",
 
     // ── Fluchliste (FluchListe) ───────────────────────────────────────────────
     "cards.noCurses": "Gerade läuft kein Fluch.",

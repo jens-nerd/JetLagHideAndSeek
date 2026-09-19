@@ -100,6 +100,11 @@ export type ServerToClientEvent =
           curseId: string;
           endedBy: "ablauf" | "suchende" | "versteckender";
           endedAt: string;
+      }
+    | {
+          /** An alle: die Kartenmechanik wurde ein- oder ausgeschaltet. */
+          type: "cards_toggled";
+          cardsEnabled: boolean;
       };
 
 /**

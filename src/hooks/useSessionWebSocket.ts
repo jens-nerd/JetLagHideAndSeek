@@ -7,7 +7,9 @@ import {
     applyCurseEnded,
     applyCursePlayed,
     applyHandUpdated,
+    cardsEnabled,
     eingeschlagenerFluch,
+    resetDeckState,
 } from "@/lib/deck-context";
 import {
     activeHidingZone,
@@ -252,6 +254,14 @@ export function useSessionWebSocket({ code, token, onSync }: Options): void {
                             endedBy: event.endedBy,
                             endedAt: event.endedAt,
                         });
+                        break;
+
+                    case "cards_toggled":
+                        cardsEnabled.set(event.cardsEnabled);
+                        if (!event.cardsEnabled) {
+                            resetDeckState();
+                            cardsEnabled.set(false);
+                        }
                         break;
                 }
             };
