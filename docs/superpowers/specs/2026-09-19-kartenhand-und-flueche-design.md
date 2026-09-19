@@ -34,11 +34,18 @@ Ausdrücklich später, nicht hier:
 | Alarm bei den Suchenden | Vorerst nur in der App |
 | Deckumfang | Nur Flüche und Zeitboni, 77 Karten |
 | Wer beendet | Suchende melden „erledigt", der Versteckende kann aufheben |
-| Abschaltbar | Ja, im Onboarding |
+| Abschaltbar | Ja, im Onboarding **und** in den Einstellungen (Nachtrag) |
 
-Eine Annahme, die ich selbst getroffen habe und die Jens beim Gegenlesen kippen
-kann: **Der Schalter wirkt nur bei der Sitzungsgründung.** Mitten im Spiel lässt
-sich die Kartenmechanik nicht mehr zu- oder abschalten.
+**Nachtrag vom 19.09.2026:** Hier stand zunächst, der Schalter wirke nur bei der
+Sitzungsgründung. Jens will ihn zusätzlich in den Einstellungen haben. Die
+Kartenmechanik lässt sich deshalb **auch mitten im Spiel** umlegen, allerdings
+nur vom Versteckenden — ein Suchender darf einen Fluch nicht per Schalter
+loswerden.
+
+Was beim Ausschalten passiert: Alle laufenden Flüche enden sofort mit dem Grund
+`versteckender`, damit „aus" wirklich heißt, dass die App sich wie vorher
+verhält. Hand, Ablage und Deck bleiben unangetastet in der Datenbank liegen;
+wer wieder einschaltet, findet seine Karten vor.
 
 ## Folge der Deckentscheidung
 
@@ -286,6 +293,17 @@ Kein Körper. Wer ihn aufruft, bestimmt den Grund: ein Suchender setzt
 `ended_by = 'suchende'`, der Versteckende `'versteckender'`. Ein bereits
 beendeter Fluch antwortet 409 `already_ended`.
 
+### 4.5 `PATCH /api/sessions/:code/cards`
+
+Körper: `{ cardsEnabled: boolean }`. Nur der Versteckende.
+
+Dieser Endpunkt ist der einzige, der **nicht** mit `cards_disabled` abweist —
+er ist ja der Weg zurück. Beim Ausschalten beendet er in derselben Transaktion
+alle noch laufenden Flüche mit `ended_by = 'versteckender'`.
+
+Antwort: `{ cardsEnabled: boolean }`. Broadcast `cards_toggled` an alle, und
+beim Ausschalten je beendetem Fluch ein `curse_ended`.
+
 ## 5. Ereignisse
 
 Neue Einträge in der diskriminierten Union in `shared/src/events.ts`:
@@ -294,11 +312,12 @@ Neue Einträge in der diskriminierten Union in `shared/src/events.ts`:
 | { type: "curse_played"; curse: Fluch }
 | { type: "curse_ended"; curseId: string; endedBy: string; endedAt: string }
 | { type: "hand_updated"; hand: HandKarte[]; deckRest: number }
+| { type: "cards_toggled"; cardsEnabled: boolean }
 ```
 
 Versandwege über die vorhandenen Funktionen in `backend/src/ws/manager.ts`:
 
-- `curse_played`, `curse_ended`: `broadcast()` an alle.
+- `curse_played`, `curse_ended`, `cards_toggled`: `broadcast()` an alle.
 - `hand_updated`: **`sendToRole(sessionId, "hider", ...)`**. Die Hand des
   Versteckenden darf einen Suchenden nie erreichen. Dafür gibt es einen Test.
 
@@ -419,6 +438,22 @@ Danach bleibt der Fluch im Reiter „Flüche" stehen:
 
 Der Versteckende sieht dieselbe Liste in seinem Reiter „Hand", darunter, mit
 „Aufheben" statt „erledigt".
+
+### 7.8 Schalter in den Einstellungen
+
+`src/components/settings/GeneralSettings.tsx` reiht Einstellungen als
+`SettingsRow` mit einem `Switch` aus `@/components/ui/switch.tsx`. Der
+Kartenschalter kommt dort als weitere Zeile dazu, aber **nur** wenn der
+Betrachter der Versteckende einer laufenden Sitzung ist. Für Suchende und
+außerhalb einer Sitzung erscheint die Zeile gar nicht.
+
+Er unterscheidet sich von seinen Nachbarn: Die übrigen Zeilen schalten ein
+lokales `persistentAtom`, dieser schickt einen `PATCH` an den Server und
+wartet auf das `cards_toggled`-Ereignis. Bis die Antwort da ist, bleibt er
+gesperrt. Schlägt der Aufruf fehl, springt er zurück und zeigt einen Toast.
+
+Beim Ausschalten kommt eine Rückfrage, wenn gerade Flüche laufen: Sie enden
+dabei.
 
 ### 7.7 Stil
 
