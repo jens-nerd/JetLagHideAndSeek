@@ -13,7 +13,9 @@ import { toast } from "react-toastify";
 import { useT, useTFmt } from "@/i18n";
 import { behalten as behaltenApi } from "@/lib/cards-api";
 import { applyHandUpdated, hand, pendingDraw } from "@/lib/deck-context";
-import { sessionParticipant } from "@/lib/session-context";
+import { gameSize, sessionParticipant } from "@/lib/session-context";
+
+import { kartenWert } from "./karten-wert";
 
 const HANDLIMIT = 6;
 
@@ -23,6 +25,7 @@ export function ZiehSchirm() {
     const $participant = useStore(sessionParticipant);
     const $pendingDraw = useStore(pendingDraw);
     const $hand = useStore(hand);
+    const $gameSize = useStore(gameSize);
 
     const [gewaehlt, setGewaehlt] = useState<string[]>([]);
     const [abwurf, setAbwurf] = useState<string[]>([]);
@@ -79,6 +82,7 @@ export function ZiehSchirm() {
         onClick: () => void,
         marker: "angeboten" | "handcard",
     ) {
+        const wert = kartenWert({ karte: karte.karte, gameSize: $gameSize, tr, trf });
         return (
             <button
                 key={karte.id}
@@ -104,6 +108,21 @@ export function ZiehSchirm() {
                 <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>
                     {karte.karte.name}
                 </span>
+                {wert ? (
+                    <span
+                        data-kartenwert={karte.id}
+                        style={{
+                            background: "rgba(0,0,0,0.28)",
+                            borderRadius: "var(--radius-pill)",
+                            padding: "2px 9px",
+                            color: "#fff",
+                            fontWeight: 700,
+                            fontSize: 13,
+                        }}
+                    >
+                        {wert.wert}
+                    </span>
+                ) : null}
                 <span style={{ color: "rgba(255,255,255,0.75)", fontSize: 12, lineHeight: 1.45, whiteSpace: "pre-line" }}>
                     {karte.karte.text}
                 </span>

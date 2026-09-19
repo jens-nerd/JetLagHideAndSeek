@@ -4,10 +4,14 @@
  * verfallen und ein ausgespielter Fluch nicht zurückkommt.
  */
 import type { HandKarte } from "@hideandseek/shared";
+import { useStore } from "@nanostores/react";
 import { useState } from "react";
 import { toast } from "react-toastify";
 
 import { useT, useTFmt } from "@/i18n";
+import { gameSize } from "@/lib/session-context";
+
+import { kartenWert } from "./karten-wert";
 
 export function KartenAnsicht({
     karte,
@@ -22,8 +26,10 @@ export function KartenAnsicht({
 }) {
     const tr = useT();
     const trf = useTFmt();
+    const $gameSize = useStore(gameSize);
     const [laufend, setLaufend] = useState(false);
     const istFluch = karte.karte.art === "fluch";
+    const wert = kartenWert({ karte: karte.karte, gameSize: $gameSize, tr, trf });
 
     async function handeln() {
         const frage = istFluch
@@ -67,6 +73,12 @@ export function KartenAnsicht({
             <p style={{ color: "rgba(245,245,240,0.85)", fontSize: 14, lineHeight: 1.6, margin: 0, whiteSpace: "pre-line" }}>
                 {karte.karte.text}
             </p>
+
+            {wert ? (
+                <p style={{ color: "rgba(245,245,240,0.6)", fontSize: 13, margin: 0 }}>
+                    <strong>{wert.label}:</strong> {wert.wert}
+                </p>
+            ) : null}
 
             {karte.karte.kosten ? (
                 <p style={{ color: "rgba(245,245,240,0.6)", fontSize: 13, margin: 0 }}>

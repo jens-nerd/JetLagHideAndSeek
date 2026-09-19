@@ -21,6 +21,7 @@ const stores = vi.hoisted(() => {
         pendingDraw: box<any>(null),
         hand: box<any[]>([]),
         sessionParticipant: box<any>({ role: "hider", token: "t" }),
+        gameSize: box<"S" | "M" | "L" | null>("M"),
     };
 });
 
@@ -33,13 +34,15 @@ vi.mock("@/lib/deck-context", () => ({
 
 vi.mock("@/lib/session-context", () => ({
     sessionParticipant: stores.sessionParticipant,
+    gameSize: stores.gameSize,
 }));
 
 vi.mock("@/lib/cards-api", () => ({ behalten: vi.fn() }));
 
 vi.mock("@/i18n", () => ({
     useT: () => (key: string) => key,
-    useTFmt: () => (key: string) => key,
+    useTFmt: () => (key: string, vars?: Record<string, string | number>) =>
+        vars ? `${key}|${Object.values(vars).join(",")}` : key,
 }));
 
 const KARTE = (id: string, name: string) => ({
@@ -55,6 +58,31 @@ const KARTE = (id: string, name: string) => ({
     },
 });
 
+const BONUSKARTE = (id: string, name: string) => ({
+    id,
+    karte: {
+        id: "zeitbonus-3",
+        art: "zeitbonus",
+        name,
+        text: "Text.",
+        bonusMin: { S: 2, M: 3, L: 5 },
+        anzahl: 1,
+    },
+});
+
+const ZEITFLUCH = (id: string, name: string) => ({
+    id,
+    karte: {
+        id: "fluch-zeit",
+        art: "fluch",
+        name,
+        text: "Text.",
+        gruppe: "bewegung",
+        dauerMin: { S: 20, M: 40, L: 60 },
+        anzahl: 1,
+    },
+});
+
 async function render() {
     const { ZiehSchirm } = await import("../session/cards/ZiehSchirm");
     return renderToStaticMarkup(<ZiehSchirm />);
@@ -65,6 +93,7 @@ describe("ZiehSchirm", () => {
         stores.pendingDraw.set(null);
         stores.hand.set([]);
         stores.sessionParticipant.set({ role: "hider", token: "t" });
+        stores.gameSize.set("M");
         vi.resetModules();
     });
 
@@ -95,6 +124,47 @@ describe("ZiehSchirm", () => {
         expect(markup.match(/data-angeboten=/g)?.length).toBe(3);
         expect(markup).toContain("Eins");
         expect(markup).toContain("Drei");
+    });
+
+    it("zeigt die Bonusminuten einer angebotenen Zeitbonuskarte", async () => {
+        stores.gameSize.set("L");
+        stores.pendingDraw.set({
+            questionId: "q1",
+            angeboten: [BONUSKARTE("d1", "Zeitbonus")],
+            behalten: 1,
+        });
+
+        const markup = await render();
+
+        expect(markup).toContain("cards.bonusValue|5");
+    });
+
+    it("zeigt die Laufzeit eines angebotenen Fluchs", async () => {
+        stores.gameSize.set("S");
+        stores.pendingDraw.set({
+            questionId: "q1",
+            angeboten: [ZEITFLUCH("d1", "Umweg")],
+            behalten: 1,
+        });
+
+        const markup = await render();
+
+        expect(markup).toContain("cards.durationValue|20");
+    });
+
+    it("zeigt den Wert auch auf den Karten der eigenen Hand", async () => {
+        stores.hand.set(
+            Array.from({ length: 6 }, (_, i) => BONUSKARTE(`h${i}`, `Alt ${i}`)),
+        );
+        stores.pendingDraw.set({
+            questionId: "q1",
+            angeboten: [ZEITFLUCH("d1", "Umweg"), ZEITFLUCH("d2", "Stau")],
+            behalten: 1,
+        });
+
+        const markup = await render();
+
+        expect(markup.match(/cards\.bonusValue\|3/g)?.length).toBe(6);
     });
 
     it("verlangt keinen Abwurf, solange die Hand Platz hat", async () => {
