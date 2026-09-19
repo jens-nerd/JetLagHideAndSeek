@@ -578,6 +578,10 @@ export const en: Record<TranslationKey, string> = {
     "cards.cost": "Cost",
     "cards.proof": "Proof",
     "cards.fallback": "Fallback rule",
+    "cards.bonus": "Time bonus",
+    "cards.bonusValue": "+{n} min",
+    "cards.duration": "Duration",
+    "cards.durationValue": "{n} min",
 
     // ── Hand view and playing cards (KartenReiter, KartenAnsicht) ──────────────
     "cards.handEmpty": "Your hand is empty. Answer a question, then you may draw.",

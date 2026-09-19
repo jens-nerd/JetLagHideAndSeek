@@ -577,6 +577,10 @@ export const de = {
     "cards.cost": "Kosten",
     "cards.proof": "Nachweis",
     "cards.fallback": "Ausweichregel",
+    "cards.bonus": "Zeitbonus",
+    "cards.bonusValue": "+{n} min",
+    "cards.duration": "Laufzeit",
+    "cards.durationValue": "{n} min",
 
     // ── Handansicht und Ausspielen (KartenReiter, KartenAnsicht) ───────────────
     "cards.handEmpty": "Deine Hand ist leer. Beantworte eine Frage, dann darfst du ziehen.",
