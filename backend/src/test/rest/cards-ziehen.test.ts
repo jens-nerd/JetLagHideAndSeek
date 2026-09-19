@@ -322,4 +322,102 @@ describe("POST /api/questions/:id/keep", () => {
         expect(body.hand).toHaveLength(6);
         expect(body.hand.map((k: any) => k.id)).not.toContain(handIds[0]);
     });
+
+    it("lehnt doppelte Kennungen beim Abwerfen ab und lässt die Hand unverändert", async () => {
+        const app = makeApp();
+        const a = await aufbau(app);
+
+        // Sechs Karten auf die Hand bringen: sechs Fragen, je eine behalten
+        let letzte = a.questionId;
+        const handIds: string[] = [];
+        for (let i = 0; i < 6; i++) {
+            if (i > 0) {
+                const { body: f } = await req<any>(
+                    app, "POST", `/api/sessions/${a.code}/questions`,
+                    { body: { type: "matching", data: {} }, token: a.seekerToken, expectStatus: 201 },
+                );
+                letzte = f.question.id;
+                await req<any>(app, "POST", `/api/questions/${letzte}/answer`, {
+                    body: { answerData: { ja: true } }, token: a.hiderToken, expectStatus: 200,
+                });
+            }
+            const { body: d } = await req<any>(
+                app, "POST", `/api/questions/${letzte}/draw`,
+                { token: a.hiderToken, expectStatus: 200 },
+            );
+            handIds.push(d.angeboten[0].id);
+            await req<any>(app, "POST", `/api/questions/${letzte}/keep`, {
+                body: { behalten: [d.angeboten[0].id] },
+                token: a.hiderToken,
+                expectStatus: 200,
+            });
+        }
+
+        // Tentakel-Frage: 4 ziehen, 2 behalten
+        const { body: fT } = await req<any>(
+            app, "POST", `/api/sessions/${a.code}/questions`,
+            { body: { type: "tentacles", data: {} }, token: a.seekerToken, expectStatus: 201 },
+        );
+        await req<any>(app, "POST", `/api/questions/${fT.question.id}/answer`, {
+            body: { answerData: { ja: true } }, token: a.hiderToken, expectStatus: 200,
+        });
+        const { body: dT } = await req<any>(
+            app, "POST", `/api/questions/${fT.question.id}/draw`,
+            { token: a.hiderToken, expectStatus: 200 },
+        );
+
+        // Fünfmal dieselbe Handkarte abwerfen: die Rechnung mit Array-Längen
+        // würde 6 - 5 + 2 = 3 ergeben, tatsächlich abgeworfen wird nur eine.
+        const { status, body } = await req<any>(
+            app, "POST", `/api/questions/${fT.question.id}/keep`,
+            {
+                body: {
+                    behalten: [dT.angeboten[0].id, dT.angeboten[1].id],
+                    abwerfen: [handIds[0], handIds[0], handIds[0], handIds[0], handIds[0]],
+                },
+                token: a.hiderToken,
+            },
+        );
+
+        expect(status).toBe(400);
+        expect(body.error).toBe("duplicate_cards");
+
+        // Nachweis, dass die Hand unverändert ist: derselbe Zug lässt sich mit
+        // zwei verschiedenen abzuwerfenden Karten jetzt sauber abschließen —
+        // wäre handIds[0] beim abgelehnten Versuch schon abgelegt worden,
+        // schlüge das mit not_in_hand fehl.
+        const { body: erfolg } = await req<any>(
+            app, "POST", `/api/questions/${fT.question.id}/keep`,
+            {
+                body: {
+                    behalten: [dT.angeboten[0].id, dT.angeboten[1].id],
+                    abwerfen: [handIds[0], handIds[1]],
+                },
+                token: a.hiderToken,
+                expectStatus: 200,
+            },
+        );
+        expect(erfolg.hand).toHaveLength(6);
+    });
+
+    it("lehnt doppelte Kennungen beim Behalten ab", async () => {
+        const app = makeApp();
+        const a = await aufbau(app, "tentacles");
+
+        const { body: d } = await req<any>(
+            app, "POST", `/api/questions/${a.questionId}/draw`,
+            { token: a.hiderToken, expectStatus: 200 },
+        );
+
+        const { status, body } = await req<any>(
+            app, "POST", `/api/questions/${a.questionId}/keep`,
+            {
+                body: { behalten: [d.angeboten[0].id, d.angeboten[0].id] },
+                token: a.hiderToken,
+            },
+        );
+
+        expect(status).toBe(400);
+        expect(body.error).toBe("duplicate_cards");
+    });
 });
