@@ -4,8 +4,13 @@
  * Alle Endpunkte prüfen zuerst sessions.cards_enabled und antworten mit
  * 409 cards_disabled, wenn die Mechanik für diese Sitzung aus ist.
  */
-import type { HandKarte, ServerToClientEvent } from "@hideandseek/shared";
-import { findeKarte, getCardCost } from "@hideandseek/shared";
+import type { HandKarte, ServerToClientEvent, ZiehErgebnis } from "@hideandseek/shared";
+import {
+    NACHSCHLAG_ANWENDUNGEN,
+    NACHSCHLAG_ID,
+    findeKarte,
+    getCardCost,
+} from "@hideandseek/shared";
 import { and, eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import { nanoid } from "nanoid";
@@ -22,9 +27,11 @@ import {
 } from "../lib/deck.js";
 import {
     berechneAblauf,
+    findeNachschlag,
     getAktiveFlueche,
     planeAblauf,
     toFluch,
+    verbraucheAnwendung,
     verwirfAblauf,
 } from "../lib/curses.js";
 import { wsManager } from "../ws/manager.js";
@@ -112,17 +119,39 @@ export function createCardsRouter(db: Db): Hono {
 
         await buildDeck(db, sessionRow.id);
 
-        // Offener Zug? Dieselben Karten zurückgeben, nicht neu ziehen.
+        // Offener Zug? Dieselben Karten zurückgeben, nicht neu ziehen — und
+        // dabei auch keine zweite Nachschlag-Anwendung verbrauchen.
         let angeboten = await getAngeboten(db, sessionRow.id, questionId);
         if (angeboten.length === 0) {
-            angeboten = await drawTop(db, sessionRow.id, questionId, kosten.draw);
+            const nachschlag = await findeNachschlag(db, sessionRow.id);
+            angeboten = await drawTop(
+                db,
+                sessionRow.id,
+                questionId,
+                nachschlag ? kosten.draw + 1 : kosten.draw,
+            );
+            // Verbraucht wird nur, wenn die Extrakarte auch wirklich kam. Bei
+            // knappem Deck gibt drawTop weniger zurück als angefordert; dann
+            // hat der Nachschlag nichts bewirkt und darf nichts kosten.
+            if (nachschlag && angeboten.length > kosten.draw) {
+                await verbraucheAnwendung(db, sessionRow.code, nachschlag);
+            }
         }
 
-        return c.json({
+        // Nach dem Ziehen gelesen, damit die Restzahl die eben verbrauchte
+        // Anwendung schon enthält.
+        const restFluch = await findeNachschlag(db, sessionRow.id);
+        const ergebnis: ZiehErgebnis = {
             angeboten,
-            behalten: kosten.keep,
+            // Der Nachschlag dreht nur am Aufdecken. Die Behaltezahl ist
+            // dieselbe wie in ermittlePendingDraw und im keep-Endpunkt —
+            // sonst zeigte der Ziehschirm nach einem Neuladen eine andere.
+            behalten: Math.min(kosten.keep, angeboten.length),
             deckRest: await getDeckRest(db, sessionRow.id),
-        });
+            nachschlagAktiv: angeboten.length > kosten.draw,
+            nachschlagRest: restFluch?.usesLeft ?? null,
+        };
+        return c.json(ergebnis);
     });
 
     // ── POST /questions/:id/keep ──────────────────────────────────────────────
@@ -285,6 +314,8 @@ export function createCardsRouter(db: Db): Hono {
             playedByParticipantId: participant.id,
             playedAt,
             expiresAt,
+            usesLeft:
+                karte.id === NACHSCHLAG_ID ? NACHSCHLAG_ANWENDUNGEN : null,
         });
         await db
             .update(schema.deckCards)

@@ -8,8 +8,8 @@
  * Countdown selbst aus expiresAt rechnet.
  */
 import type { Fluch, Karte } from "@hideandseek/shared";
-import { findeKarte } from "@hideandseek/shared";
-import { eq } from "drizzle-orm";
+import { NACHSCHLAG_ID, findeKarte } from "@hideandseek/shared";
+import { and, eq, gt, isNull } from "drizzle-orm";
 
 import { schema } from "../db/schema.js";
 import type { DbCurse } from "../db/schema.js";
@@ -66,6 +66,68 @@ export async function getAktiveFlueche(
     });
     const jetzt = Date.now();
     return rows.filter((r) => istAktiv(r, jetzt)).map(toFluch);
+}
+
+/**
+ * Der laufende Nachschlag mit Restanwendungen, oder null.
+ *
+ * Ausdrücklich der älteste und ausdrücklich genau einer: im Deck liegt nur ein
+ * Exemplar, zwei gleichzeitige kann es im echten Spiel also nicht geben. Wäre
+ * hier trotzdem einer zu viel, soll er warten statt eine zweite Anwendung
+ * derselben Frage zu kosten.
+ */
+export async function findeNachschlag(
+    db: Db,
+    sessionId: string,
+): Promise<DbCurse | null> {
+    const row = await db.query.curses.findFirst({
+        where: and(
+            eq(schema.curses.sessionId, sessionId),
+            eq(schema.curses.cardId, NACHSCHLAG_ID),
+            isNull(schema.curses.endedAt),
+            gt(schema.curses.usesLeft, 0),
+        ),
+        orderBy: (c, { asc }) => [asc(c.playedAt)],
+    });
+    return row ?? null;
+}
+
+/**
+ * Eine Anwendung abziehen. Bei null ist der Nachschlag ausgelaufen: ended_by
+ * bekommt "ablauf", und curse_ended geht heraus — beim Nachschlag wegen
+ * `geheim` nur an die Versteckenden. Gibt die Restanwendungen zurück.
+ */
+export async function verbraucheAnwendung(
+    db: Db,
+    sessionCode: string,
+    row: DbCurse,
+): Promise<number> {
+    const rest = Math.max(0, (row.usesLeft ?? 0) - 1);
+    await db
+        .update(schema.curses)
+        .set({ usesLeft: rest })
+        .where(eq(schema.curses.id, row.id));
+    if (rest > 0) return rest;
+
+    const endedAt = new Date().toISOString();
+    await db
+        .update(schema.curses)
+        .set({ endedAt, endedBy: "ablauf" })
+        .where(eq(schema.curses.id, row.id));
+    verwirfAblauf(row.id);
+
+    const ereignis = {
+        type: "curse_ended" as const,
+        curseId: row.id,
+        endedBy: "ablauf" as const,
+        endedAt,
+    };
+    if (findeKarte(row.cardId)?.geheim) {
+        wsManager.sendToRole(sessionCode, "hider", ereignis);
+    } else {
+        wsManager.broadcast(sessionCode, ereignis);
+    }
+    return rest;
 }
 
 /** In-Memory-Register der geplanten Stupse, damit nichts doppelt läuft. */
