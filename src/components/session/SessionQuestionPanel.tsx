@@ -44,7 +44,7 @@ import { addQuestion, answerQuestion } from "@/lib/session-api";
 import { atom } from "nanostores";
 import { getCardCost } from "@/lib/card-costs";
 import { ziehen } from "@/lib/cards-api";
-import { cardsEnabled, deckRest, pendingDraw } from "@/lib/deck-context";
+import { cardsEnabled, deckRest, nachschlagZug, pendingDraw } from "@/lib/deck-context";
 
 /** Temporary store for photo answer data — set by PhotoAnswerUI, read by submitAnswer */
 const photoAnswerData = atom<unknown>(null);
@@ -1238,6 +1238,11 @@ export function SessionQuestionPanel() {
                                 angeboten: antwort.angeboten,
                                 behalten: antwort.behalten,
                             });
+                            nachschlagZug.set(
+                                antwort.nachschlagAktiv
+                                    ? { rest: antwort.nachschlagRest }
+                                    : null,
+                            );
                             deckRest.set(antwort.deckRest);
                         } catch (e) {
                             toast.error((e as Error).message);

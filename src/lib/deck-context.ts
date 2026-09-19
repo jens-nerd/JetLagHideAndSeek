@@ -20,6 +20,13 @@ export const deckRest = atom<number>(0);
 /** Offener Ziehvorgang, falls der Versteckende gezogen, aber nicht behalten hat. */
 export const pendingDraw = atom<PendingDraw | null>(null);
 
+/**
+ * Nachschlag im gerade offenen Ziehvorgang. `rest` sind die Anwendungen, die
+ * nach diesem Zug noch bleiben; `null` heißt, das war die letzte. Steht der
+ * Atom selbst auf null, läuft dieser Zug ohne Nachschlag.
+ */
+export const nachschlagZug = atom<{ rest: number | null } | null>(null);
+
 /** Laufende Flüche. Beide Rollen sehen dieselbe Liste. */
 export const activeCurses = atom<Fluch[]>([]);
 
@@ -47,6 +54,10 @@ export function applyCardsSync(event: CardsSyncEvent): void {
     hand.set(event.hand ?? []);
     deckRest.set(event.deckRest ?? 0);
     pendingDraw.set(event.pendingDraw ?? null);
+    // Das sync-Ereignis trägt die Nachschlagfelder nicht. Nach einem Neuladen
+    // mitten im Ziehen zeigen wir deshalb keinen Hinweis, statt eine Restzahl
+    // zu raten — die vierte Karte liegt sichtbar da, nur unkommentiert.
+    nachschlagZug.set(null);
     activeCurses.set(event.activeCurses ?? []);
 }
 
@@ -58,6 +69,7 @@ export function applyHandUpdated(event: {
     hand.set(event.hand);
     deckRest.set(event.deckRest);
     pendingDraw.set(event.pendingDraw ?? null);
+    nachschlagZug.set(null);
 }
 
 export function applyCursePlayed(event: { curse: Fluch }): void {
@@ -80,6 +92,7 @@ export function resetDeckState(): void {
     hand.set([]);
     deckRest.set(0);
     pendingDraw.set(null);
+    nachschlagZug.set(null);
     activeCurses.set([]);
     eingeschlagenerFluch.set(null);
 }

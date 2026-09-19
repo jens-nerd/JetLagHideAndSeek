@@ -11,6 +11,10 @@ export interface ZiehAntwort {
     angeboten: HandKarte[];
     behalten: number;
     deckRest: number;
+    /** true, wenn dieser Zug eine Karte mehr aufgedeckt hat als sonst. */
+    nachschlagAktiv: boolean;
+    /** Restanwendungen nach diesem Zug; null, wenn keiner mehr laeuft. */
+    nachschlagRest: number | null;
 }
 
 export interface HandAntwort {
