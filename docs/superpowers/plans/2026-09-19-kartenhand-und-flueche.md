@@ -2044,7 +2044,11 @@ export function berechneAblauf(
     gameSize: "S" | "M" | "L" | null,
 ): string | null {
     if (!karte.dauerMin) return null;
-    const minuten = karte.dauerMin[gameSize ?? "M"];
+    // Weissliste statt ??: sessions.game_size ist freier Text ohne CHECK, und
+    // die Gruendungsroute prueft den Wert nicht. Ein unbekannter Wert ergaebe
+    // undefined, daraus NaN, daraus ein RangeError beim toISOString.
+    const g = gameSize === "S" || gameSize === "L" ? gameSize : "M";
+    const minuten = karte.dauerMin[g];
     return new Date(Date.now() + minuten * 60_000).toISOString();
 }
 
@@ -2142,7 +2146,6 @@ In `backend/src/routes/cards.ts` die Importe ergänzen:
 import { nanoid } from "nanoid";
 import {
     berechneAblauf,
-    getAktiveFlueche,
     planeAblauf,
     toFluch,
     verwirfAblauf,
