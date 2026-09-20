@@ -496,6 +496,7 @@ export const en: Record<TranslationKey, string> = {
     "role.back": "← Back to role selection",
 
     // ── Session creation overlay (CreateSessionOverlay) ───────────────────────
+    "overlay.tagline": "…or as big as you dare.",
     "overlay.newGame": "Create New Game",
     "overlay.joinGame": "Join Session",
     "overlay.nameLabel": "Your player name",
