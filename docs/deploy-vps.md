@@ -108,6 +108,8 @@ Die Uploads sind bewusst **nicht** dabei. Der Deploy fasst sie nicht an — sie 
 
 Nach einem erfolgreichen Deploy dünnt das Skript aus: Von jeder der drei Arten bleiben die neuesten fünf, ältere werden gelöscht. Von Hand angelegte Sicherungen mit anderen Namen, etwa `dist-vor-rebuild`, treffen die Lösch-Muster nicht und bleiben unangetastet.
 
+`backups/` gehört root und ist `700`, die Sicherungen darin `600`. Das Skript setzt das bei jedem Lauf neu, ein von Hand aufgeweichter Zustand hält also höchstens bis zum nächsten Deploy. Der Grund steht in `db-<STEMPEL>.sqlite`: die Datei trägt jede Zeile der Produktionsdatenbank, also auch jedes Teilnehmer-Token im Klartext, und Token laufen nie ab. Am 20.09.2026 war das Verzeichnis `755` und die Dateien `644` — `www-data`, `english-sync` und `nobody` konnten die Kopie öffnen, während die Live-Datenbank mit `640` richtig geschützt war. Wer in `backups/` etwas sehen will, braucht seither `sudo`.
+
 Von Hand zurücksetzen, am Beispiel eines Zeitstempels:
 
 ```bash
@@ -119,6 +121,7 @@ sudo systemctl restart hideandseek-backend
 # Backend-Bau
 sudo systemctl stop hideandseek-backend
 sudo rsync -a --delete --ignore-times /opt/hideandseek/backups/backend-<STEMPEL>/ /opt/hideandseek/backend/dist/
+sudo chmod -R u=rwX,go=rX /opt/hideandseek/backend/dist
 sudo systemctl start hideandseek-backend
 
 # Datenbank

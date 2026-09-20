@@ -19,8 +19,11 @@
 #   - dass systemctl, der Dienst, curl und die oeffentliche Gesundheitspruefung
 #     sich so verhalten wie angenommen. systemctl und chown sind hier
 #     Attrappen.
-#   - dass rsync als root ueber /opt/hideandseek/backend/dist dieselben Rechte
-#     und Eigentuemer wiederherstellt wie auf dem Server.
+#   - wem die Dateien nach einem Rueckweg auf dem Server gehoeren. Eigentuemer
+#     werden hier nicht geprueft: chown ist eine Attrappe, und der Testlauf
+#     laeuft nicht als root. Die MODI dagegen sind seit dem Abschotten von
+#     backups/ gemessen, siehe N2 - ohne das faellt der Dienst nach einem
+#     Rueckweg aus, weil er die eigene index.js nicht mehr lesen kann.
 #   - der Lauf von deploy.sh als Ganzes. Dafuer gibt es keinen Ersatz ohne
 #     Server; der Controller erprobt das dort.
 
@@ -669,6 +672,117 @@ teste_n1() {
     info "      auf dem VPS als Signal bei diesem Prozess ankommt."
 }
 
+# ══ N2: abgeschottete Sicherungen und der Rueckweg ══════════════════════════
+# Gemessen am 20.09.2026: /opt/hideandseek/backups war 755 und die Dateien
+# darin 644. In db-<STEMPEL>.sqlite steht jedes Teilnehmer-Token im Klartext.
+# Seither schottet deploy.sh das Verzeichnis auf 700/600 ab.
+#
+# Der Haken daran ist der Rueckweg: backend_dist_zurueck spielt mit
+# `rsync -a` zurueck, und -a bringt die Rechte der Quelle mit - auch auf das
+# Zielverzeichnis. Ohne Nacharbeit laege backend/dist danach auf 700/600 und
+# gehoerte root, waehrend der Dienst als hideandseek laeuft und dist/index.js
+# lesen muss. Er wuerde nicht mehr starten, und zwar ausgerechnet im
+# Rueckweg, also dann, wenn ohnehin schon etwas schiefgegangen ist.
+#
+# Geprueft werden hier die Modi, nicht die Eigentuemer (siehe Kopf).
+
+# Portabel: GNU stat kennt -c, BSD/macOS -f.
+modus() {
+    stat -c '%a' "$1" 2>/dev/null || stat -f '%OLp' "$1"
+}
+
+teste_n2_rechte() {
+    echo "── N2: abgeschottete Sicherungen brechen den Rueckweg nicht ──"
+
+    local wurzel="$TMPDIR/n2" skript="$TMPDIR/n2.sh"
+    rm -rf "$wurzel"; mkdir -p "$wurzel/backend/dist" "$wurzel/backups"
+    echo "ALT" > "$wurzel/backend/dist/index.js"
+    mkdir -p "$wurzel/backend/dist/unterordner"
+    echo "ALT" > "$wurzel/backend/dist/unterordner/tief.js"
+    cp -a "$wurzel/backend/dist" "$wurzel/backups/backend-20260918-120000"
+    # Die Sicherung so, wie deploy.sh sie seit dem Abschotten hinterlaesst.
+    chmod -R u=rwX,go= "$wurzel/backups/backend-20260918-120000"
+    echo "NEU" > "$wurzel/backend/dist/index.js"
+    touch -r "$wurzel/backups/backend-20260918-120000/index.js" \
+             "$wurzel/backend/dist/index.js"
+
+    # Die Voraussetzung ausdruecklich messen, sonst prueft der Rest ins Leere.
+    local m_sich_dir m_sich_datei
+    m_sich_dir=$(modus "$wurzel/backups/backend-20260918-120000")
+    m_sich_datei=$(modus "$wurzel/backups/backend-20260918-120000/index.js")
+    if [ "$m_sich_dir" = "700" ] && [ "$m_sich_datei" = "600" ]; then
+        ok "die Sicherung liegt auf 700/600 - niemand ausser root liest sie."
+    else
+        nok "die Sicherung liegt auf $m_sich_dir/$m_sich_datei, erwartet 700/600."
+    fi
+
+    {
+        echo '#!/usr/bin/env bash'
+        echo 'set -euo pipefail'
+        echo "PROJEKT='$wurzel'"
+        echo "BACKEND_SICHERUNG='$wurzel/backups/backend-20260918-120000'"
+        echo 'log() { printf "%s\n" "$*"; }'
+        block_backend_zurueck
+        echo 'backend_dist_zurueck'
+    } > "$skript"
+    bash "$skript" >"$TMPDIR/n2.out" 2>&1
+    sed 's/^/    | /' "$TMPDIR/n2.out"
+
+    if [ "$(cat "$wurzel/backend/dist/index.js")" = "ALT" ]; then
+        ok "der Rueckweg hat den vorigen Stand zurueckgespielt."
+    else
+        nok "index.js steht auf '$(cat "$wurzel/backend/dist/index.js")', erwartet 'ALT'."
+    fi
+
+    # Der eigentliche Nachweis: der Dienstbenutzer kommt wieder an den Code.
+    local m_dir m_datei m_tief m_tief_datei
+    m_dir=$(modus "$wurzel/backend/dist")
+    m_datei=$(modus "$wurzel/backend/dist/index.js")
+    m_tief=$(modus "$wurzel/backend/dist/unterordner")
+    m_tief_datei=$(modus "$wurzel/backend/dist/unterordner/tief.js")
+    if [ "$m_dir" = "755" ]; then
+        ok "backend/dist ist nach dem Rueckweg 755 - der Dienst kommt hinein."
+    else
+        nok "backend/dist ist $m_dir, erwartet 755. Der Dienst startet so nicht."
+    fi
+    if [ "$m_datei" = "644" ]; then
+        ok "index.js ist nach dem Rueckweg 644 - der Dienst kann sie lesen."
+    else
+        nok "index.js ist $m_datei, erwartet 644. Der Dienst startet so nicht."
+    fi
+    if [ "$m_tief" = "755" ] && [ "$m_tief_datei" = "644" ]; then
+        ok "auch der Unterordner stimmt ($m_tief/$m_tief_datei) - chmod wirkt rekursiv."
+    else
+        nok "der Unterordner liegt auf $m_tief/$m_tief_datei, erwartet 755/644."
+    fi
+
+    # Und am echten Skript: liegen die drei Abschottungen ueberhaupt drin?
+    local stelle
+    for stelle in 'chmod 700 "$SICHERUNGEN"' \
+                  'chmod -R u=rwX,go= "$BACKEND_SICHERUNG"' \
+                  'chmod 600 "$DB_SICHERUNG"' \
+                  'chmod -R u=rwX,go= "$DIST_SICHERUNG"'; do
+        if grep -qF -- "$stelle" "$DEPLOY"; then
+            ok "deploy.sh enthaelt: $stelle"
+        else
+            nok "deploy.sh enthaelt NICHT: $stelle"
+        fi
+    done
+
+    # Der Webroot-Rueckweg hatte seinen chmod schon vor dieser Runde. Die Zeile
+    # ist jetzt aber die einzige, die nginx nach einem Rueckweg noch lesen
+    # laesst - also festhalten, dass sie steht.
+    if printf '%s\n' "$(awk '/^rueckweg_code\(\) \{$/,/^\}$/' "$DEPLOY")" \
+        | grep -q 'chmod -R 755 "\$PROJEKT/dist"'; then
+        ok "rueckweg_code setzt das Webroot wieder auf 755 - nginx liest weiter."
+    else
+        nok "rueckweg_code setzt das Webroot NICHT zurueck - nginx faellt nach einem Rueckweg aus."
+    fi
+
+    info "nicht gezeigt: die Eigentuemer. chown ist hier eine Attrappe und der"
+    info "      Testlauf ist nicht root; auf dem Server gehoert die Sicherung root."
+}
+
 # ══ Ablauf ══════════════════════════════════════════════════════════════════
 
 echo "bash: $(bash --version | head -1)"
@@ -681,6 +795,7 @@ teste_w2; echo
 teste_a2_fehler; echo
 teste_a2_webroot; echo
 teste_n1; echo
+teste_n2_rechte; echo
 
 if [ "$FEHLER" -eq 0 ]; then
     echo "Ergebnis: bestanden."

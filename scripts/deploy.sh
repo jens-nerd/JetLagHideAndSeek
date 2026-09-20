@@ -58,6 +58,15 @@ log "Sperre gesetzt."
 STEMPEL=$(date -u +%Y%m%d-%H%M%S)
 BACKEND_SICHERUNG="$SICHERUNGEN/backend-$STEMPEL"
 mkdir -p "$SICHERUNGEN"
+# In backups/ liegt eine vollstaendige Kopie der Datenbank, und darin stehen
+# alle Teilnehmer-Token im Klartext. Gemessen am 20.09.2026: das Verzeichnis
+# war 755 und die Dateien 644 - www-data, english-sync und nobody konnten die
+# Kopie oeffnen, waehrend die Live-Datenbank mit 640 richtig geschuetzt war.
+# Der chmod steht hier und nicht nur im mkdir, weil mkdir -p an einem
+# vorhandenen Verzeichnis nichts aendert: so wird der Zustand bei jedem Deploy
+# neu hergestellt, auch wenn ihn jemand von Hand aufgeweicht hat.
+chmod 700 "$SICHERUNGEN" \
+    || fehler "Rechte auf $SICHERUNGEN liessen sich nicht setzen."
 
 # ── 2. Platz pruefen ───────────────────────────────────────────────────
 # Auch hier eine Pipeline unter pipefail: ohne || fehler beendet ein
@@ -167,6 +176,14 @@ backend_dist_zurueck() {
         # gleich ausgefuehrt wird, ist Raten zu wenig; backend/dist ist klein.
         rsync -a --delete --ignore-times "$BACKEND_SICHERUNG/" "$PROJEKT/backend/dist/" \
             || log "Zurueckspielen von backend/dist meldete einen Fehler."
+        # Die Sicherung ist seit dem Abschotten 700/600 und gehoert root, und
+        # rsync -a bringt genau diese Rechte mit - auch auf das Zielverzeichnis
+        # selbst. Der Dienst laeuft als hideandseek und liest dist/index.js:
+        # ohne diese Zeile startet er nach einem Rueckweg nicht mehr. X trifft
+        # nur Verzeichnisse, die .js-Dateien bleiben 644.
+        # rueckweg_code tut fuer das Webroot dasselbe.
+        chmod -R u=rwX,go=rX "$PROJEKT/backend/dist" \
+            || log "Rechte auf backend/dist liessen sich nicht setzen."
     else
         log "Keine Backend-Sicherung vorhanden - backend/dist bleibt, wie es ist."
     fi
@@ -175,6 +192,11 @@ backend_dist_zurueck() {
 if [ -d "$PROJEKT/backend/dist" ]; then
     log "Backend-Bau sichern -> $BACKEND_SICHERUNG"
     cp -a "$PROJEKT/backend/dist" "$BACKEND_SICHERUNG"
+    # Verzeichnis 700, Dateien 600. Hier liegt kein Geheimnis, aber eine
+    # Sicherung braucht von niemandem ausser root gelesen zu werden, und ein
+    # einheitliches backups/ ist leichter zu pruefen als drei Sonderfaelle.
+    chmod -R u=rwX,go= "$BACKEND_SICHERUNG" \
+        || fehler "Rechte auf die Backend-Sicherung liessen sich nicht setzen."
 else
     log "Kein voriger Backend-Bau vorhanden - nichts zu sichern."
 fi
@@ -278,7 +300,11 @@ rueckweg_db() {
     # ein gestarteter Dienst wuerde auf eine halbe Datenbank weiterschreiben.
     if cp -a "$DB_SICHERUNG" "$DB"; then
         # cp -a bringt Eigentuemer und Modus der Sicherung mit: die gehoert
-        # root und ist 644, weil sqlite3 sie als root angelegt hat.
+        # root und ist seit dem Abschotten 600. Beides passt nicht fuer die
+        # Live-Datenbank, der Dienst liest sie als hideandseek - darum die
+        # zwei Zeilen darunter. Sie standen schon hier, als die Sicherung noch
+        # 644 war, und sind der Grund, warum das Abschotten diesen Rueckweg
+        # nicht bricht.
         chown hideandseek:hideandseek "$DB" \
             || log "RUECKWEG: chown meldete einen Fehler."
         chmod 640 "$DB" \
@@ -310,6 +336,13 @@ rueckweg_db() {
 log "Datenbank sichern -> $DB_SICHERUNG"
 sqlite3 "file:$DB?mode=ro" ".backup '$DB_SICHERUNG'" \
     || fehler "Sicherung der Datenbank liess sich nicht anlegen. Abbruch vor der Migration."
+# Die heikle der drei Sicherungen: sie traegt jede Zeile der Datenbank, also
+# auch jedes Teilnehmer-Token im Klartext, und Token laufen nie ab. sqlite3
+# legt sie mit 644 an. Sofort nach dem Anlegen zu, damit das Fenster, in dem
+# sie offen liegt, so kurz wie moeglich bleibt; die Pruefungen darunter laufen
+# als root und stoeren sich an 600 nicht.
+chmod 600 "$DB_SICHERUNG" \
+    || fehler "Rechte auf die Datenbanksicherung liessen sich nicht setzen. Abbruch vor der Migration."
 sqlite3 "$DB_SICHERUNG" "pragma integrity_check;" | grep -qx ok \
     || fehler "Sicherung der Datenbank ist nicht lesbar. Abbruch vor der Migration."
 # integrity_check beantwortet nur "ist das eine gueltige SQLite-Datei": eine
@@ -355,6 +388,12 @@ done
 log "Webroot sichern -> $DIST_SICHERUNG"
 cp -a "$PROJEKT/dist" "$DIST_SICHERUNG" \
     || fehler "Webroot-Sicherung liess sich nicht anlegen. Abbruch vor dem Tausch."
+# Verzeichnis 700, Dateien 600 - wie bei der Backend-Sicherung. Der Webroot
+# selbst bleibt davon unberuehrt: rueckweg_code setzt nach dem Zurueckspielen
+# chmod -R 755 auf $PROJEKT/dist, sonst liesse nginx als www-data die Seite
+# fallen.
+chmod -R u=rwX,go= "$DIST_SICHERUNG" \
+    || fehler "Rechte auf die Webroot-Sicherung liessen sich nicht setzen. Abbruch vor dem Tausch."
 
 # Ab hier uebernimmt rueckweg_code das Zurueckstellen von backend/dist. Die
 # Merkvariable wuerde von hier an nur einen zweiten, ueberfluessigen Durchlauf
