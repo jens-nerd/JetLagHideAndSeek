@@ -57,7 +57,19 @@ export function attachWsServer(server: Server | ServerType, db?: Db): WebSocketS
             );
             ws.on("message", async (data: Buffer) => {
                 if (!client) return;
-                await handleWsMessage(client, data.toString());
+                // Ohne diesen Fang beendet eine geworfene Nachricht den ganzen
+                // Dienst: die Ablehnung bliebe unbehandelt, und Node bricht den
+                // Prozess dann ab. Eine einzelne fehlerhafte Nachricht eines
+                // Teilnehmers nähme so alle laufenden Sitzungen mit. Hier
+                // kostet sie nur eine Zeile im Journal.
+                try {
+                    await handleWsMessage(client, data.toString());
+                } catch (err) {
+                    console.error(
+                        `[ws] Nachricht von ${client.participantId} in Sitzung ${client.sessionCode} abgebrochen:`,
+                        err,
+                    );
+                }
             });
             ws.on("close", () => {
                 if (client) handleWsClose(client);
