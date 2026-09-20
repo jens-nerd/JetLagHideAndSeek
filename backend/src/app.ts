@@ -60,7 +60,7 @@ export function createApp(db: Db): Hono {
     app.route("/api", createQuestionsRouter(db));
     app.route("/api", createOverpassRouter());
     app.route("/api", createPoiRouter());
-    app.route("/api", createUploadRouter());
+    app.route("/api", createUploadRouter(db));
     app.route("/api", createCardsRouter(db));
 
     // ── Health check ──────────────────────────────────────────────────────────

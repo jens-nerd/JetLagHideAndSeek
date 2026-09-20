@@ -6,6 +6,15 @@
  * WS handlers receive the test DB injected via attachWsServer/handleWsOpen, so
  * they never touch this global DB during integration tests.
  */
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
-// Nothing to do — the env: { DB_PATH: ":memory:" } in vitest.config.ts handles
-// the rest.  This file exists so future global setup steps have a home.
+// DB_PATH kommt aus env: { DB_PATH: ":memory:" } in vitest.config.ts.
+//
+// routes/upload.ts liest UPLOADS_DIR beim Laden des Moduls und legt das
+// Verzeichnis sofort an. Ohne die Zeile unten schreiben die Upload-Tests nach
+// backend/uploads, also mitten in den Arbeitsbaum.
+process.env.UPLOADS_DIR ??= mkdtempSync(
+    join(tmpdir(), "hideandseek-test-uploads-"),
+);
