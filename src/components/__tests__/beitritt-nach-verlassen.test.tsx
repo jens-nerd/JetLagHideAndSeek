@@ -37,7 +37,7 @@ vi.mock("@/lib/session-context", () => ({
     buildMapLocationFromContext: vi.fn(() => undefined),
 }));
 
-vi.mock("@/i18n", () => ({ useT: () => (key: string) => key }));
+vi.mock("@/i18n", () => ({ useT: () => (key: string) => key, locale: atom("de") }));
 
 // Zieht Leaflet/PlacePicker nicht mit rein; wird im Join-Flow ohnehin nicht
 // gerendert.

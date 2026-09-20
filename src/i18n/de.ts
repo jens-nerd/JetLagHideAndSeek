@@ -496,6 +496,7 @@ export const de = {
 
     // ── Session-Erstellungs-Overlay (CreateSessionOverlay) ───────────────────
     "overlay.tagline": "…oder so groß, wie ihr euch traut.",
+    "overlay.startImageAlt": "Hide’n’Seek – in der ganzen Stadt. …oder so groß, wie ihr euch traut.",
     "overlay.newGame": "Neues Spiel erstellen",
     "overlay.joinGame": "Session beitreten",
     "overlay.nameLabel": "Dein Spielername",
