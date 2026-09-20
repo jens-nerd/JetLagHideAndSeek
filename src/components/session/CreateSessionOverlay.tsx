@@ -278,9 +278,9 @@ export function CreateSessionOverlay() {
                         }}
                     />
                     <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 4 }}>
-                        <div style={{ fontFamily: "Poppins, sans-serif", fontWeight: 800, fontSize: "30px", color: "#F5F5F0", lineHeight: 1.15, letterSpacing: "-0.3px" }}>
+                        <h2 style={{ margin: 0, fontFamily: "Poppins, sans-serif", fontWeight: 800, fontSize: "30px", color: "#F5F5F0", lineHeight: 1.15, letterSpacing: "-0.3px" }}>
                             Hide’n’Seek
-                        </div>
+                        </h2>
                         <div style={{ fontFamily: "Poppins, sans-serif", fontWeight: 500, fontSize: "16px", color: "rgba(245,245,240,.75)", lineHeight: 1.3 }}>
                             {tr("overlay.subtitle")}
                         </div>
