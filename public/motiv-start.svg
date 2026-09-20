@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+<defs>
+<mask id="rest"><rect width="1200" height="630" fill="#000"/><circle cx="784" cy="236" r="204" fill="#fff"/><circle cx="652" cy="140" r="104" fill="#000"/><path d="M 700 -20 L 1064 660 L 1320 660 L 1320 -20 Z" fill="#000"/></mask>
+<mask id="dim"><rect width="1200" height="630" fill="#fff"/><circle cx="784" cy="236" r="204" fill="#000"/><circle cx="652" cy="140" r="104" fill="#fff"/><path d="M 700 -20 L 1064 660 L 1320 660 L 1320 -20 Z" fill="#fff"/></mask>
+</defs>
+<rect width="1200" height="630" fill="#13131B"/>
+<path d="M -60 372 C 190 330 320 430 585 406 C 850 382 1010 452 1270 418 L 1270 494 C 1010 530 850 458 585 482 C 320 506 190 406 -60 452 Z" fill="#1C3045"/>
+<g stroke="#323240" stroke-width="7" fill="none" stroke-linecap="round" stroke-opacity="0.9">
+<path d="M 396 -40 L 548 700"/>
+<path d="M -60 206 L 1270 70"/>
+<path d="M 660 -40 L 1270 350"/>
+</g>
+<rect width="1200" height="630" fill="#0A0A11" opacity="0.55" mask="url(#dim)"/>
+<rect width="1200" height="630" fill="#F5F5F0" opacity="0.16" mask="url(#rest)"/>
+<circle cx="784" cy="236" r="204" fill="none" stroke="#E8323A" stroke-width="3"/>
+<circle cx="652" cy="140" r="104" fill="none" stroke="#E8323A" stroke-width="3" stroke-dasharray="9 8" stroke-opacity="0.9"/>
+<line x1="700" y1="-20" x2="1064" y2="660" stroke="#E8323A" stroke-width="3"/>
+<circle cx="784" cy="236" r="7.5" fill="#E8323A"/>
+<circle cx="652" cy="140" r="6" fill="none" stroke="#E8323A" stroke-width="3"/>
+</svg>

@@ -11,7 +11,7 @@ import { useStore } from "@nanostores/react";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Copy, Loader2, Share2 } from "lucide-react";
 
-import { locale, useT } from "@/i18n";
+import { useT } from "@/i18n";
 import {
     applyServerMapLocation,
     buildMapLocationFromContext,
@@ -97,7 +97,6 @@ function StepDots({ step, isJoinFlow }: { step: Step; isJoinFlow: boolean }) {
 export function CreateSessionOverlay() {
     const $participant = useStore(sessionParticipant);
     const $hiderConfirmed = useStore(hiderAreaConfirmed);
-    const $locale = useStore(locale);
 
     const [step, setStep] = useState<Step>("entry");
     const [displayName, setDisplayName] = useState("");
@@ -266,8 +265,8 @@ export function CreateSessionOverlay() {
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                 <div>
                     <img
-                        src={$locale === "en" ? "/start-en.png" : "/start-de.png"}
-                        alt={tr("overlay.startImageAlt")}
+                        src="/motiv-start.svg"
+                        alt=""
                         width="1200"
                         height="630"
                         loading="eager"
@@ -278,6 +277,17 @@ export function CreateSessionOverlay() {
                             borderRadius: "var(--radius-default)",
                         }}
                     />
+                    <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 4 }}>
+                        <h2 style={{ margin: 0, fontFamily: "Poppins, sans-serif", fontWeight: 800, fontSize: "30px", color: "#F5F5F0", lineHeight: 1.15, letterSpacing: "-0.3px" }}>
+                            Hide’n’Seek
+                        </h2>
+                        <div style={{ fontFamily: "Poppins, sans-serif", fontWeight: 500, fontSize: "16px", color: "rgba(245,245,240,.75)", lineHeight: 1.3 }}>
+                            {tr("overlay.subtitle")}
+                        </div>
+                        <div style={{ fontFamily: "Poppins, sans-serif", fontWeight: 500, fontSize: "13px", color: "rgba(245,245,240,.55)", lineHeight: 1.3 }}>
+                            {tr("overlay.tagline")}
+                        </div>
+                    </div>
                 </div>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
