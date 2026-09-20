@@ -11,7 +11,7 @@ import { useStore } from "@nanostores/react";
 import { useEffect, useState } from "react";
 import { ArrowLeft, Copy, Loader2, Share2 } from "lucide-react";
 
-import { useT } from "@/i18n";
+import { locale, useT } from "@/i18n";
 import {
     applyServerMapLocation,
     buildMapLocationFromContext,
@@ -97,6 +97,7 @@ function StepDots({ step, isJoinFlow }: { step: Step; isJoinFlow: boolean }) {
 export function CreateSessionOverlay() {
     const $participant = useStore(sessionParticipant);
     const $hiderConfirmed = useStore(hiderAreaConfirmed);
+    const $locale = useStore(locale);
 
     const [step, setStep] = useState<Step>("entry");
     const [displayName, setDisplayName] = useState("");
@@ -264,19 +265,19 @@ export function CreateSessionOverlay() {
         return (
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                 <div>
-                    <h2 style={{
-                        color: "#fff",
-                        fontSize: "24px",
-                        fontWeight: 800,
-                        fontFamily: "Poppins, sans-serif",
-                        margin: "0 0 4px",
-                        letterSpacing: "0.01em",
-                    }}>
-                        Hide’n’Seek
-                    </h2>
-                    <p style={{ color: "rgba(245,245,240,0.55)", fontSize: "13px", margin: 0 }}>
-                        {tr("overlay.tagline")}
-                    </p>
+                    <img
+                        src={$locale === "en" ? "/start-en.png" : "/start-de.png"}
+                        alt={tr("overlay.startImageAlt")}
+                        width="1200"
+                        height="630"
+                        loading="eager"
+                        style={{
+                            width: "100%",
+                            height: "auto",
+                            display: "block",
+                            borderRadius: "var(--radius-default)",
+                        }}
+                    />
                 </div>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
