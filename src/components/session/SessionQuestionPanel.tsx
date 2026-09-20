@@ -1942,10 +1942,17 @@ function PhotoAnswerUI({
         // Upload to server
         setUploading(true);
         try {
+            // /api/upload verlangt seit der Anmeldepflicht ein Teilnehmer-Token.
+            const teilnehmer = sessionParticipant.get();
+            if (!teilnehmer?.token) throw new Error("Kein Teilnehmer-Token");
+
             const form = new FormData();
             form.append("image", file);
             const resp = await fetch(`${BACKEND_URL}/api/upload`, {
                 method: "POST",
+                // Kein Content-Type von Hand: den Trenner der Multipart-Anfrage
+                // setzt der Browser selbst.
+                headers: { "x-participant-token": teilnehmer.token },
                 body: form,
             });
             if (!resp.ok) throw new Error("Upload failed");

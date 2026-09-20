@@ -3,11 +3,19 @@
  *
  * Accepts a multipart/form-data POST with an `image` field,
  * saves the file to the uploads directory, and returns the URL.
+ *
+ * Die Route verlangt ein gültiges Teilnehmer-Token. Ohne diese Prüfung konnte
+ * jeder aus dem Internet beliebige Dateien auf die Platte legen, die nginx
+ * anschließend unter der Domäne ausliefert.
  */
 import { randomUUID } from "node:crypto";
 import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
+
+import { schema } from "../db/schema.js";
+import type { Db } from "../db/types.js";
 
 const UPLOADS_DIR = process.env.UPLOADS_DIR ?? join(process.cwd(), "uploads");
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
@@ -15,10 +23,21 @@ const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
 // Ensure uploads directory exists
 mkdir(UPLOADS_DIR, { recursive: true }).catch(() => {});
 
-export function createUploadRouter(): Hono {
+export function createUploadRouter(db: Db): Hono {
     const router = new Hono();
 
     router.post("/upload", async (c) => {
+        const token = c.req.header("x-participant-token");
+        if (!token) return c.json({ error: "Missing token" }, 401);
+
+        // participants.token ist global eindeutig (siehe db/schema.ts), die
+        // Sitzung muss deshalb nicht mitgeschickt werden. Das hält die Adresse
+        // der Route unverändert; der Aufrufer ergänzt nur den Kopfeintrag.
+        const participant = await db.query.participants.findFirst({
+            where: eq(schema.participants.token, token),
+        });
+        if (!participant) return c.json({ error: "Invalid token" }, 403);
+
         const contentType = c.req.header("content-type") ?? "";
         if (!contentType.includes("multipart/form-data")) {
             return c.json({ error: "Expected multipart/form-data" }, 400);
