@@ -174,6 +174,7 @@ export function CreateSessionOverlay() {
             }
         } catch (e: unknown) {
             setError((e as Error).message ?? "Fehler");
+        } finally {
             setLoading(false);
         }
     }
