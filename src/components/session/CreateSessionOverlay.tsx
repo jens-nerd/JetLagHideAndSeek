@@ -174,6 +174,7 @@ export function CreateSessionOverlay() {
             }
         } catch (e: unknown) {
             setError((e as Error).message ?? "Fehler");
+        } finally {
             setLoading(false);
         }
     }
@@ -192,7 +193,7 @@ export function CreateSessionOverlay() {
         if (!createdSession) return;
         const code = createdSession.session.code;
         if (typeof navigator !== "undefined" && navigator.share) {
-            navigator.share({ title: "JetLag Hide & Seek", text: `Session-Code: ${code}` });
+            navigator.share({ title: "Hide’n’Seek", text: `Session-Code: ${code}` });
         } else {
             navigator.clipboard.writeText(code).then(() => {
                 setCopied(true);
@@ -271,10 +272,10 @@ export function CreateSessionOverlay() {
                         margin: "0 0 4px",
                         letterSpacing: "0.01em",
                     }}>
-                        JetLag
+                        Hide’n’Seek
                     </h2>
                     <p style={{ color: "rgba(245,245,240,0.55)", fontSize: "13px", margin: 0 }}>
-                        Hide &amp; Seek
+                        {tr("overlay.tagline")}
                     </p>
                 </div>
 

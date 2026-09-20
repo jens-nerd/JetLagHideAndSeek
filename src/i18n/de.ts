@@ -495,6 +495,7 @@ export const de = {
     "role.back": "← Zurück zur Rollenauswahl",
 
     // ── Session-Erstellungs-Overlay (CreateSessionOverlay) ───────────────────
+    "overlay.tagline": "…oder so groß, wie ihr euch traut.",
     "overlay.newGame": "Neues Spiel erstellen",
     "overlay.joinGame": "Session beitreten",
     "overlay.nameLabel": "Dein Spielername",
