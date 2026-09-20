@@ -15,7 +15,7 @@ Dieses Repo enthält ein Monorepo mit drei Paketen:
 ## Lokale Entwicklung
 
 ### Voraussetzungen
-- Node.js >= 20 (empfohlen, für native Binaries von better-sqlite3)
+- Node.js 26 (siehe `.nvmrc`)
 - pnpm >= 9
 
 ### Setup
@@ -54,7 +54,7 @@ Für wiederkehrende Deploys auf den bestehenden Server siehe `docs/deploy-vps.md
 
 ### Voraussetzungen
 - Ubuntu/Debian VPS
-- Node.js 20+ (`nvm install 20`)
+- Node.js 26 (`nvm install 26`)
 - pnpm (`npm install -g pnpm`)
 - PM2 (`npm install -g pm2`)
 - nginx (für Reverse Proxy + SSL)

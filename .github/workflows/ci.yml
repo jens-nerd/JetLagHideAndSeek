@@ -17,8 +17,8 @@ jobs:
                   version: 10
 
             # Zielversion steht in .nvmrc, damit CI und lokale Arbeit
-            # (nvm use) nicht auseinanderlaufen. Node 20 hat am 30.04.2026
-            # sein Lebensende erreicht.
+            # (nvm use) nicht auseinanderlaufen. Dort steht 26 - die aktuelle
+            # Fassung, aber bewusst keine LTS.
             - uses: actions/setup-node@v4
               with:
                   node-version-file: .nvmrc
