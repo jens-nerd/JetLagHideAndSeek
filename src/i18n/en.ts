@@ -497,7 +497,7 @@ export const en: Record<TranslationKey, string> = {
 
     // ── Session creation overlay (CreateSessionOverlay) ───────────────────────
     "overlay.tagline": "…or as big as you dare.",
-    "overlay.startImageAlt": "Hide’n’Seek – across a whole city. …or as big as you dare.",
+    "overlay.subtitle": "– across a whole city",
     "overlay.newGame": "Create New Game",
     "overlay.joinGame": "Join Session",
     "overlay.nameLabel": "Your player name",
