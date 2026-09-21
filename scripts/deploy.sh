@@ -144,8 +144,10 @@ log "Stand: $COMMIT $(git -C "$PROJEKT" log -1 --pretty=%s)"
 # ── 4. Abhaengigkeiten ─────────────────────────────────────────────────
 log "pnpm install ..."
 ( cd "$PROJEKT" && pnpm install --frozen-lockfile )
-# pnpm kompiliert die native Bindung wegen der Build-Script-Allowlist nicht
-# mit. Ohne diesen Rebuild startet das Backend nicht.
+# better-sqlite3 13 liegt als Fertigbauteil im npm-Paket, passend zur Plattform
+# statt zur Node-ABI. Der Rebuild laeuft deshalb leer durch und bleibt nur als
+# Netz fuer Plattformen ohne Fertigbauteil stehen - dort uebersetzt node-gyp,
+# wofuer build-essential und python3 auf der Maschine liegen muessen.
 ( cd "$PROJEKT" && pnpm rebuild better-sqlite3 )
 
 # shared/dist ist gitignored und kommt hier sonst noch vom vorigen Deploy:

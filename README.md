@@ -73,7 +73,9 @@ Even if you're not a programmer, you can still help by further documenting the u
 
 ## Developer Workflow
 
-To develop this website, you need to have [git](https://git-scm.com/downloads), [Node.js](https://nodejs.org/) (version 22, 23 or 24), and [pnpm](https://pnpm.io/installation) installed. You should then start by cloning this repository and entering the directory:
+To develop this website, you need to have [git](https://git-scm.com/downloads), [Node.js](https://nodejs.org/) (version 26, as pinned in `.nvmrc`; 22, 23 and 24 also work), and [pnpm](https://pnpm.io/installation) installed. You should then start by cloning this repository and entering the directory:
+
+> **Node 25 does not work.** `@nanostores/persistent` 0.10.2 switches to `globalThis.localStorage` whenever that global exists. Node 25 defines it even without `--localstorage-file`, and writing to a persisted store then fails with `TypeError: 'set' on proxy: trap returned falsish` — but only once something is listening to that store. The static build survives it, because it creates the atoms (`src/i18n/index.ts`, `src/lib/context.ts`) without ever writing to a mounted one; measured, `pnpm build` passes on Node 25. Anything that does write a mounted store under Node 25 crashes. Node 26 no longer defines the global unless the flag is passed, so the package falls back to its in-memory engine and works. This is why `engines.node` reads `>=22 <25 || >=26` instead of a plain `>=22`.
 
 ```bash
 git clone https://github.com/taibeled/JetLagHideAndSeek.git

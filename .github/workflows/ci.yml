@@ -17,8 +17,8 @@ jobs:
                   version: 10
 
             # Zielversion steht in .nvmrc, damit CI und lokale Arbeit
-            # (nvm use) nicht auseinanderlaufen. Node 20 hat am 30.04.2026
-            # sein Lebensende erreicht.
+            # (nvm use) nicht auseinanderlaufen. Dort steht 26 - die aktuelle
+            # Fassung, aber bewusst keine LTS.
             - uses: actions/setup-node@v4
               with:
                   node-version-file: .nvmrc
@@ -26,9 +26,10 @@ jobs:
 
             - run: pnpm install --frozen-lockfile
 
-            # pnpm's build-script allowlist means better-sqlite3 isn't compiled
-            # during `pnpm install`. Rebuild it explicitly so tests can load the
-            # native binding. See MEMORY.md ("better-sqlite3 native bindings").
+            # better-sqlite3 13 liegt als Fertigbauteil im npm-Paket, passend
+            # zur Plattform statt zur Node-ABI. `pnpm rebuild` laeuft deshalb
+            # leer durch und bleibt nur als Netz fuer Plattformen ohne
+            # Fertigbauteil stehen - dort uebersetzt node-gyp.
             - run: pnpm rebuild better-sqlite3
 
             - run: pnpm shared:build
