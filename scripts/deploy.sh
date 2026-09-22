@@ -17,6 +17,8 @@ BRANCH=master
 STAGING="$PROJEKT/build-deploy"
 SICHERUNGEN="$PROJEKT/backups"
 DIENST=hideandseek-backend
+DIENST_BENUTZER=hideandseek
+DIENST_GRUPPE=hideandseek
 MIN_FREE_MB="${MIN_FREE_MB:-2048}"
 DEPLOY_STOP_AFTER="${DEPLOY_STOP_AFTER:-}"
 # Merkvariable: steht auf 1, solange neuer Backend-Code auf der Platte liegt,
@@ -149,6 +151,63 @@ log "pnpm install ..."
 # Netz fuer Plattformen ohne Fertigbauteil stehen - dort uebersetzt node-gyp,
 # wofuer build-essential und python3 auf der Maschine liegen muessen.
 ( cd "$PROJEKT" && pnpm rebuild better-sqlite3 )
+
+# ── 4b. node_modules gehoert hideandseek allein ─────────────────────────
+# Am 22.09.2026 startete das Backend nach einem Deploy nicht mehr:
+# "permission denied" auf node_modules/drizzle-orm/package.json. pnpm hatte
+# die Pakete als harte Links auf den Store unter /root angelegt, und denselben
+# Store benutzt turflock. Ein `chown -R root:root /opt/turflock` stellte damit
+# ueber die gemeinsamen Inodes auch rund 12.000 Dateien von hideandseek um.
+# Der laufende Dienst merkte davon nichts; erst der Neustart fiel darauf.
+#
+# Drei Schritte, jeder mit Abbruch VOR Bau, Migration und Neustart:
+#   1. Eigene Inodes. Die .npmrc sagt package-import-method=copy. Ein
+#      vorhandenes node_modules aus harten Links baut pnpm damit aber nicht
+#      um (gemessen mit pnpm 10.33: --frozen-lockfile laesst es liegen), erst
+#      --force tut das. Deshalb: Dateien mit mehr als einem Link suchen und
+#      nur dann neu installieren.
+#   2. Rechte. Die Kopien tragen Besitzer und Modus aus dem Store, oft
+#      root:root 640. Weil die Inodes jetzt nur uns gehoeren, trifft chgrp
+#      niemanden sonst.
+#   3. Zaun. Als Dienstbenutzer alles lesen, was der Dienst laden koennte.
+NM_VERZEICHNISSE=()
+for nm in "$PROJEKT/node_modules" "$PROJEKT/backend/node_modules" "$PROJEKT/shared/node_modules"; do
+    [ -d "$nm" ] && NM_VERZEICHNISSE+=("$nm")
+done
+[ "${#NM_VERZEICHNISSE[@]}" -gt 0 ] || fehler "Kein node_modules unter $PROJEKT - pnpm install hat nichts angelegt."
+
+geteilte_datei() { find "${NM_VERZEICHNISSE[@]}" -type f -links +1 -print -quit; }
+
+GETEILT=$(geteilte_datei)
+if [ -n "$GETEILT" ]; then
+    log "node_modules teilt Dateien mit dem pnpm-Store (z. B. $GETEILT) - pnpm install --force ..."
+    ( cd "$PROJEKT" && pnpm install --frozen-lockfile --force )
+    GETEILT=$(geteilte_datei)
+    [ -z "$GETEILT" ] \
+        || fehler "node_modules teilt nach pnpm install --force weiter Dateien mit anderen Pfaden (z. B. $GETEILT). Steht package-import-method=copy in $PROJEKT/.npmrc? Abbruch vor dem Neustart."
+fi
+log "node_modules hat eigene Dateien (keine mit mehr als einem Link)."
+
+chgrp -R -h "$DIENST_GRUPPE" "${NM_VERZEICHNISSE[@]}" \
+    || fehler "chgrp $DIENST_GRUPPE auf node_modules scheiterte."
+chmod -R g+rX "${NM_VERZEICHNISSE[@]}" \
+    || fehler "chmod g+rX auf node_modules scheiterte."
+
+als_dienst() {
+    if [ "$(id -un)" = "$DIENST_BENUTZER" ]; then "$@"; else runuser -u "$DIENST_BENUTZER" -- "$@"; fi
+}
+als_dienst true || fehler "Befehle als $DIENST_BENUTZER lassen sich nicht ausfuehren (runuser)."
+# cd /: find will am Ende ins Startverzeichnis zurueck, und das (bei ssh
+# /home/deploy) darf der Dienstbenutzer nicht betreten - find endet dann mit 1,
+# obwohl es alles durchsucht hat. Gemessen am 22.09.2026. Ein Fehlercode gilt
+# hier als Abbruch, nicht als "nichts gefunden": ein find ohne -readable
+# (BSD) oder ein gescheitertes runuser liefern ebenfalls leere Ausgabe.
+UNLESBAR=$(cd / && als_dienst find "${NM_VERZEICHNISSE[@]}" -follow ! -readable -print -quit) \
+    || fehler "Lesbarkeitspruefung als $DIENST_BENUTZER scheiterte (find endete mit Fehler). Abbruch vor dem Neustart."
+[ -z "$UNLESBAR" ] \
+    || fehler "$DIENST_BENUTZER kann $UNLESBAR nicht lesen. Der Dienst wuerde nach dem Neustart nicht starten. Abbruch vor Bau, Migration und Neustart."
+log "$DIENST_BENUTZER kann alles unter node_modules lesen."
+# ── 4b Ende ─────────────────────────────────────────────────────────────
 
 # shared/dist ist gitignored und kommt hier sonst noch vom vorigen Deploy:
 # der Frontend-Bau liest shared/dist direkt, aber pnpm backend:build baut es
