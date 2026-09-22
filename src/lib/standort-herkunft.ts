@@ -38,8 +38,15 @@ export function startStandort(
 
 /**
  * Darf die Frage raus? Nur, wenn jede beteiligte Koordinate aus GPS oder aus
- * einer Eingabe stammt. Beim Thermometer sind es zwei.
+ * einer Eingabe stammt. Beim Thermometer sind es zwei, und dann zaehlt auch,
+ * welcher fehlt: Beim eigenen Standort hilft Warten auf GPS, beim zweiten
+ * Punkt nicht - den muss man setzen.
+ *
+ * `fehlt` ist der Platz des ersten Punktes ohne Angabe, sonst null.
  */
-export function absendeSperre(...herkuenfte: Herkunft[]): { gesperrt: boolean } {
-    return { gesperrt: herkuenfte.some((h) => h === "karte") };
+export function absendeSperre(
+    ...herkuenfte: Herkunft[]
+): { gesperrt: boolean; fehlt: number | null } {
+    const fehlt = herkuenfte.findIndex((h) => h === "karte");
+    return { gesperrt: fehlt !== -1, fehlt: fehlt === -1 ? null : fehlt };
 }

@@ -48,4 +48,22 @@ describe("absendeSperre", () => {
         expect(absendeSperre("karte", "gps").gesperrt).toBe(true);
         expect(absendeSperre("gps", "eingabe").gesperrt).toBe(false);
     });
+
+    // Beim Thermometer haengt die Beschriftung daran: Fehlt der eigene
+    // Standort, hilft Warten auf GPS. Fehlt der zweite Punkt, hilft es nicht -
+    // den muss man setzen.
+    it("sagt, an welchem Punkt es haengt", () => {
+        expect(absendeSperre("karte", "eingabe").fehlt).toBe(0);
+        expect(absendeSperre("gps", "karte").fehlt).toBe(1);
+        expect(absendeSperre("karte", "karte").fehlt).toBe(0);
+        expect(absendeSperre("gps", "eingabe").fehlt).toBe(null);
+        expect(absendeSperre("gps").fehlt).toBe(null);
+    });
+
+    it("A und B haengen nicht aneinander", () => {
+        // B gesetzt, A noch nicht - und umgekehrt.
+        expect(absendeSperre("karte", "eingabe").gesperrt).toBe(true);
+        expect(absendeSperre("eingabe", "karte").gesperrt).toBe(true);
+        expect(absendeSperre("eingabe", "eingabe").gesperrt).toBe(false);
+    });
 });

@@ -345,7 +345,16 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
     // ── Distance between manual points ──────────────────────────────────────────
     // Im GPS-Betrieb zaehlt nur A, im Handbetrieb beide Punkte.
     const gesperrtGps = absendeSperre(startHerkunft).gesperrt;
-    const gesperrtManuell = absendeSperre(startHerkunft, endHerkunft).gesperrt;
+    // Im Handbetrieb sagt `fehlt`, woran es haengt: 0 ist der eigene Standort
+    // (Warten auf GPS hilft), 1 ist Punkt B (den muss man setzen).
+    const manuell = absendeSperre(startHerkunft, endHerkunft);
+    const gesperrtManuell = manuell.gesperrt;
+    const manuellLabel = manuell.fehlt === 1
+        ? tr("picker.punktBFehlt")
+        : tr("picker.warteAufStandort");
+    const manuellHinweis = manuell.fehlt === 1
+        ? tr("picker.punktBHinweis")
+        : tr("picker.standortHinweis");
 
     const manualDistKm = turf.distance([startLng, startLat], [endLng, endLat], { units: "kilometers" });
     const manualDistLabel = isMetric
@@ -441,7 +450,7 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
 
                         <LocationCard
                             accentColor="green"
-                            title="Ende (B)"
+                            title={endHerkunft === "karte" ? "Ende (B) - noch nicht gesetzt" : "Ende (B)"}
                             lat={endLat}
                             lng={endLng}
                             onChange={(lat, lng, quelle) => { setEndLat(lat); setEndLng(lng); setEndHerkunft(quelle); }}
@@ -525,13 +534,13 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
             {/* ── Footer Manual ────────────────────────────────────────────── */}
             {mode === "manual" && (
                 <PickerFooter
-                    primaryLabel={gesperrtManuell ? tr("picker.warteAufStandort") : submitting ? "Wird gesendet…" : "Frage absenden"}
+                    primaryLabel={gesperrtManuell ? manuellLabel : submitting ? "Wird gesendet…" : "Frage absenden"}
                     primaryDisabled={submitting || gesperrtManuell}
                     onPrimary={handleManualSubmit}
                     onCancel={() => setMode("gps")}
                     cancelLabel="Zurück zu GPS"
                     cancelDisabled={submitting}
-                    note={gesperrtManuell ? tr("picker.standortHinweis") : `Entfernung: ${manualDistLabel}`}
+                    note={gesperrtManuell ? manuellHinweis : `Entfernung: ${manualDistLabel}`}
                 />
             )}
         </>

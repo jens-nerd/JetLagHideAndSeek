@@ -291,6 +291,8 @@ export const de = {
     // ── Session-Fragen-Panel (SessionQuestionPanel) ───────────────────────────
     "picker.warteAufStandort": "Warte auf GPS…",
     "picker.standortHinweis": "Kein GPS? Standort von Hand eingeben.",
+    "picker.punktBFehlt": "Punkt B fehlt",
+    "picker.punktBHinweis": "Marker B ziehen oder Ort eingeben.",
     "sqp.askQuestion": "Frage stellen",
     "sqp.questions": "Fragen",
     "sqp.noQuestionsYet": "Die Seeker haben noch keine Fragen gestellt!",
