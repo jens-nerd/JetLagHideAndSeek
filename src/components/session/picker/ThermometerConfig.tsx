@@ -27,7 +27,9 @@ import {
 } from "@/lib/context";
 import { addQuestion } from "@/lib/session-api";
 import { handleSubmitError } from "@/lib/handle-submit-error";
+import { absendeSperre, startStandort, type Herkunft } from "@/lib/standort-herkunft";
 import {
+    ownGpsPosition,
     pendingDraftKey,
     sessionCode,
     sessionParticipant,
@@ -107,14 +109,20 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
     // GPS mode state
     const [selectedKm, setSelectedKm] = useState<number | null>(null);
 
-    // Coordinates — initialized from map center, shared between GPS and manual mode
+    // Coordinates — shared between GPS and manual mode. Punkt A ist die eigene
+    // Position, sobald der GPS-Empfang eine hat; sonst die Kartenmitte, und die
+    // sperrt das Absenden. Punkt B bleibt ein Vorschlag 2 km oestlich von A: Er
+    // ist abgeleitet, also ebenfalls keine Angabe - im Handbetrieb muss er
+    // gesetzt werden, im GPS-Betrieb wird er gar nicht benutzt.
     const map = leafletMapContext.get();
-    const center = map?.getCenter() ?? { lat: 51.1, lng: 10.4 };
-    const [startLat, setStartLat] = useState(center.lat);
-    const [startLng, setStartLng] = useState(center.lng);
-    const offsetDest = turf.destination([center.lng, center.lat], 2, 90, { units: "kilometers" });
+    const start = startStandort(ownGpsPosition.get(), map?.getCenter());
+    const [startLat, setStartLat] = useState(start.lat);
+    const [startLng, setStartLng] = useState(start.lng);
+    const [startHerkunft, setStartHerkunft] = useState<Herkunft>(start.herkunft);
+    const offsetDest = turf.destination([start.lng, start.lat], 2, 90, { units: "kilometers" });
     const [endLat, setEndLat] = useState(offsetDest.geometry.coordinates[1]);
     const [endLng, setEndLng] = useState(offsetDest.geometry.coordinates[0]);
+    const [endHerkunft, setEndHerkunft] = useState<Herkunft>("karte");
     /** Selected travel direction: true = Wärmer (toward B), false = Kälter (away from B) */
     const [selectedWarmer, setSelectedWarmer] = useState<boolean | null>(null);
 
@@ -159,6 +167,8 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
             const pos = startMarkerRef.current!.getLatLng();
             setStartLat(pos.lat);
             setStartLng(pos.lng);
+            // Wer den Marker zieht, hat den Punkt gesetzt - das zaehlt wie eine Eingabe.
+            setStartHerkunft("eingabe");
         });
         // Create draggable B marker
         endMarkerRef.current = L.marker([endLat, endLng], {
@@ -169,6 +179,7 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
             const pos = endMarkerRef.current!.getLatLng();
             setEndLat(pos.lat);
             setEndLng(pos.lng);
+            setEndHerkunft("eingabe");
         });
         return () => {
             const m = leafletMapContext.get();
@@ -332,6 +343,10 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
     }
 
     // ── Distance between manual points ──────────────────────────────────────────
+    // Im GPS-Betrieb zaehlt nur A, im Handbetrieb beide Punkte.
+    const gesperrtGps = absendeSperre(startHerkunft).gesperrt;
+    const gesperrtManuell = absendeSperre(startHerkunft, endHerkunft).gesperrt;
+
     const manualDistKm = turf.distance([startLng, startLat], [endLng, endLat], { units: "kilometers" });
     const manualDistLabel = isMetric
         ? `${manualDistKm.toFixed(3)} km`
@@ -369,7 +384,7 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
                             title="Dein Standort"
                             lat={startLat}
                             lng={startLng}
-                            onChange={(lat, lng) => { setStartLat(lat); setStartLng(lng); }}
+                            onChange={(lat, lng, quelle) => { setStartLat(lat); setStartLng(lng); setStartHerkunft(quelle); }}
                         />
 
                         {/* Distance chips */}
@@ -419,7 +434,7 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
                             title="Start (A)"
                             lat={startLat}
                             lng={startLng}
-                            onChange={(lat, lng) => { setStartLat(lat); setStartLng(lng); }}
+                            onChange={(lat, lng, quelle) => { setStartLat(lat); setStartLng(lng); setStartHerkunft(quelle); }}
                             autoFetchGps={false}
                             initialMode="manual"
                         />
@@ -429,7 +444,7 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
                             title="Ende (B)"
                             lat={endLat}
                             lng={endLng}
-                            onChange={(lat, lng) => { setEndLat(lat); setEndLng(lng); }}
+                            onChange={(lat, lng, quelle) => { setEndLat(lat); setEndLng(lng); setEndHerkunft(quelle); }}
                             autoFetchGps={false}
                             initialMode="manual"
                         />
@@ -497,8 +512,9 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
             {/* ── Footer GPS ──────────────────────────────────────────────── */}
             {mode === "gps" && (
                 <PickerFooter
-                    primaryLabel="🏁 Thermometer starten"
-                    primaryDisabled={selectedKm === null}
+                    primaryLabel={gesperrtGps ? tr("picker.warteAufStandort") : "🏁 Thermometer starten"}
+                    primaryDisabled={selectedKm === null || gesperrtGps}
+                    note={gesperrtGps ? tr("picker.standortHinweis") : undefined}
                     onPrimary={handleStartThermometer}
                     secondaryLabel="Manuell (A+B)"
                     onSecondary={() => setMode("manual")}
@@ -509,13 +525,13 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
             {/* ── Footer Manual ────────────────────────────────────────────── */}
             {mode === "manual" && (
                 <PickerFooter
-                    primaryLabel={submitting ? "Wird gesendet…" : "Frage absenden"}
-                    primaryDisabled={submitting}
+                    primaryLabel={gesperrtManuell ? tr("picker.warteAufStandort") : submitting ? "Wird gesendet…" : "Frage absenden"}
+                    primaryDisabled={submitting || gesperrtManuell}
                     onPrimary={handleManualSubmit}
                     onCancel={() => setMode("gps")}
                     cancelLabel="Zurück zu GPS"
                     cancelDisabled={submitting}
-                    note={`Entfernung: ${manualDistLabel}`}
+                    note={gesperrtManuell ? tr("picker.standortHinweis") : `Entfernung: ${manualDistLabel}`}
                 />
             )}
         </>

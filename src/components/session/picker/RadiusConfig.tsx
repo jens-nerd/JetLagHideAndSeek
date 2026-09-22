@@ -21,6 +21,8 @@ import {
 import { addQuestion } from "@/lib/session-api";
 import { handleSubmitError } from "@/lib/handle-submit-error";
 import { ownGpsPosition, sessionCode, sessionParticipant } from "@/lib/session-context";
+import { absendeSperre, startStandort, type Herkunft } from "@/lib/standort-herkunft";
+import { useT } from "@/i18n";
 import { toast } from "react-toastify";
 import { LocationCard } from "./LocationCard";
 import { PickerFooter } from "./PickerFooter";
@@ -49,6 +51,7 @@ export interface RadiusConfigProps {
 }
 
 export function RadiusConfig({ wsStatus, onBack, onSettings, onClose, onDone }: RadiusConfigProps) {
+    const tr = useT();
     const $defaultUnit = useStore(defaultUnit);
     const isMetric = $defaultUnit !== "miles";
 
@@ -59,12 +62,13 @@ export function RadiusConfig({ wsStatus, onBack, onSettings, onClose, onDone }: 
     const [customUnit, setCustomUnit] = useState<"kilometers" | "miles">(isMetric ? "kilometers" : "miles");
 
     // Center coordinate — driven by LocationCard. Start at the own GPS position
-    // (the "Ich" marker) when known; the map center is only a fallback, because
-    // LocationCard's own GPS fetch may still be pending when the user submits.
+    // (the "Ich" marker) when known; the map center is only a fallback, and als
+    // solche erkennbar: mit ihr allein laesst sich die Frage nicht absenden.
     const map = leafletMapContext.get();
-    const center = ownGpsPosition.get() ?? map?.getCenter() ?? { lat: 51.1, lng: 10.4 };
-    const [lat, setLat] = useState(center.lat);
-    const [lng, setLng] = useState(center.lng);
+    const start = startStandort(ownGpsPosition.get(), map?.getCenter());
+    const [lat, setLat] = useState(start.lat);
+    const [lng, setLng] = useState(start.lng);
+    const [herkunft, setHerkunft] = useState<Herkunft>(start.herkunft);
 
     // Live preview circle
     const circleRef = useRef<L.Circle | null>(null);
@@ -129,12 +133,15 @@ export function RadiusConfig({ wsStatus, onBack, onSettings, onClose, onDone }: 
         };
     }, [lat, lng, effectiveChip?.value, effectiveChip?.unit]);
 
+    // Ohne echte Position geht nichts raus: die Kartenmitte ist kein Standort.
+    const { gesperrt } = absendeSperre(herkunft);
+
     // ── Submit ─────────────────────────────────────────────────────────────────
 
     async function handleSubmit() {
         const code = sessionCode.get();
         const participant = sessionParticipant.get();
-        if (!effectiveChip || !code || !participant) return;
+        if (!effectiveChip || !code || !participant || gesperrt) return;
 
         const data = { lat, lng, radius: effectiveChip.value, unit: effectiveChip.unit, within: true };
         setSubmitting(true);
@@ -178,7 +185,7 @@ export function RadiusConfig({ wsStatus, onBack, onSettings, onClose, onDone }: 
                         title="Dein Standort"
                         lat={lat}
                         lng={lng}
-                        onChange={(newLat, newLng) => { setLat(newLat); setLng(newLng); }}
+                        onChange={(newLat, newLng, quelle) => { setLat(newLat); setLng(newLng); setHerkunft(quelle); }}
                     />
 
                     {/* ── Zielradius chips ────────────────────────────── */}
@@ -288,8 +295,9 @@ export function RadiusConfig({ wsStatus, onBack, onSettings, onClose, onDone }: 
 
             {/* ── Footer ─────────────────────────────────────────────────── */}
             <PickerFooter
-                primaryLabel={submitting ? "Wird gesendet…" : "🎯 Radar starten"}
-                primaryDisabled={!effectiveChip || submitting}
+                primaryLabel={gesperrt ? tr("picker.warteAufStandort") : submitting ? "Wird gesendet…" : "🎯 Radar starten"}
+                primaryDisabled={!effectiveChip || submitting || gesperrt}
+                note={gesperrt ? tr("picker.standortHinweis") : undefined}
                 onPrimary={handleSubmit}
                 onCancel={onBack}
                 cancelDisabled={submitting}

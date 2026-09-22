@@ -289,6 +289,8 @@ export const de = {
     "session.namePlaceholder": "z. B. Sam",
 
     // ── Session-Fragen-Panel (SessionQuestionPanel) ───────────────────────────
+    "picker.warteAufStandort": "Warte auf GPS…",
+    "picker.standortHinweis": "Kein GPS? Standort von Hand eingeben.",
     "sqp.askQuestion": "Frage stellen",
     "sqp.questions": "Fragen",
     "sqp.noQuestionsYet": "Die Seeker haben noch keine Fragen gestellt!",

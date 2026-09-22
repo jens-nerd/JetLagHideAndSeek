@@ -53,8 +53,13 @@ export interface LocationCardProps {
     lat: number;
     /** Current longitude */
     lng: number;
-    /** Called when coordinates change (GPS, search, manual input, clipboard) */
-    onChange: (lat: number, lng: number) => void;
+    /**
+     * Called when coordinates change. Die Herkunft sagt, ob der Wert aus dem
+     * GPS-Abruf kommt oder aus einer Eingabe (Suche, Lat/Lng, Zwischenablage) -
+     * das Formular sperrt das Absenden, solange weder das eine noch das andere
+     * passiert ist.
+     */
+    onChange: (lat: number, lng: number, herkunft: "gps" | "eingabe") => void;
     /** Whether to auto-fetch GPS on mount. Default: true */
     autoFetchGps?: boolean;
     /** Initial internal mode. Default: "gps" */
@@ -110,7 +115,7 @@ export function LocationCard({
             );
             const newLat = pos.coords.latitude;
             const newLng = pos.coords.longitude;
-            onChange(newLat, newLng);
+            onChange(newLat, newLng, "gps");
         } catch {
             setGpsError("GPS nicht verfügbar. Bitte Berechtigungen prüfen.");
         } finally {
@@ -123,13 +128,13 @@ export function LocationCard({
     function applyLatStr(s: string) {
         setLatStr(s);
         const v = parseFloat(s);
-        if (!isNaN(v) && v >= -90 && v <= 90) onChange(v, lng);
+        if (!isNaN(v) && v >= -90 && v <= 90) onChange(v, lng, "eingabe");
     }
 
     function applyLngStr(s: string) {
         setLngStr(s);
         const v = parseFloat(s);
-        if (!isNaN(v) && v >= -180 && v <= 180) onChange(lat, v);
+        if (!isNaN(v) && v >= -180 && v <= 180) onChange(lat, v, "eingabe");
     }
 
     function handleSearchChange(q: string) {
@@ -147,7 +152,7 @@ export function LocationCard({
     }
 
     function selectResult(r: { lat: number; lng: number }) {
-        onChange(r.lat, r.lng);
+        onChange(r.lat, r.lng, "eingabe");
         setSearchQuery("");
         setSearchResults([]);
     }
@@ -158,7 +163,7 @@ export function LocationCard({
             const text = await navigator.clipboard.readText();
             const coords = parseClipboardCoords(text);
             if (!coords) { setCoordError("Ungültige Koordinaten"); return; }
-            onChange(coords.lat, coords.lng);
+            onChange(coords.lat, coords.lng, "eingabe");
         } catch {
             setCoordError("Zwischenablage nicht verfügbar");
         }

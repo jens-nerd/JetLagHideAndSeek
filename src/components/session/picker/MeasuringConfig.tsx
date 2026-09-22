@@ -18,12 +18,14 @@ import { bottomSheetState, pickerOpen } from "@/lib/bottom-sheet-state";
 import { leafletMapContext } from "@/lib/context";
 import { addQuestion, findNearestPoi } from "@/lib/session-api";
 import { handleSubmitError } from "@/lib/handle-submit-error";
+import { absendeSperre, startStandort, type Herkunft } from "@/lib/standort-herkunft";
 import {
     gameSize,
+    ownGpsPosition,
     sessionCode,
     sessionParticipant,
 } from "@/lib/session-context";
-import { locale, t, type TranslationKey } from "@/i18n";
+import { locale, t, useT, type TranslationKey } from "@/i18n";
 import { ConfigCard } from "./ConfigCard";
 import { LocationCard } from "./LocationCard";
 import { PickerFooter } from "./PickerFooter";
@@ -169,15 +171,20 @@ export function MeasuringConfig({
     onClose,
     onDone,
 }: MeasuringConfigProps) {
+    const tr = useT();
     const $gameSize = useStore(gameSize);
 
     const [measType, setMeasType] = useState("airport");
 
     // ── Center coordinate ────────────────────────────────────────────────────
     const mapInst = leafletMapContext.get();
-    const rawCenter = mapInst?.getCenter() ?? { lat: 51.1, lng: 10.4 };
-    const [centerLat, setCenterLat] = useState(rawCenter.lat);
-    const [centerLng, setCenterLng] = useState(rawCenter.lng);
+    // Startwert ist die eigene Position (dieselbe wie der "Ich"-Punkt); die
+    // Kartenmitte dient nur als Platzhalter und sperrt das Absenden.
+    const start = startStandort(ownGpsPosition.get(), mapInst?.getCenter());
+    const [centerLat, setCenterLat] = useState(start.lat);
+    const [centerLng, setCenterLng] = useState(start.lng);
+    const [herkunft, setHerkunft] = useState<Herkunft>(start.herkunft);
+    const { gesperrt } = absendeSperre(herkunft);
 
     // ── Find nearest state ───────────────────────────────────────────────────
     const [nearestResult, setNearestResult] = useState<{
@@ -399,7 +406,7 @@ export function MeasuringConfig({
                         title="Dein Standort (Seeker)"
                         lat={centerLat}
                         lng={centerLng}
-                        onChange={(lat, lng) => { setCenterLat(lat); setCenterLng(lng); }}
+                        onChange={(lat, lng, quelle) => { setCenterLat(lat); setCenterLng(lng); setHerkunft(quelle); }}
                     />
 
                     {/* ── Fragetyp dropdown ──────────────────────────────── */}
@@ -525,8 +532,9 @@ export function MeasuringConfig({
 
             {/* ── Footer ──────────────────────────────────────────────── */}
             <PickerFooter
-                primaryLabel={submitting ? "Wird gesendet…" : "Frage stellen  ✈"}
-                primaryDisabled={submitting}
+                primaryLabel={gesperrt ? tr("picker.warteAufStandort") : submitting ? "Wird gesendet…" : "Frage stellen  ✈"}
+                primaryDisabled={submitting || gesperrt}
+                note={gesperrt ? tr("picker.standortHinweis") : undefined}
                 onPrimary={handleSubmit}
                 onCancel={onBack}
                 cancelDisabled={submitting}

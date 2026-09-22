@@ -290,6 +290,8 @@ export const en: Record<TranslationKey, string> = {
     "session.namePlaceholder": "e.g. Sam",
 
     // ── Session question panel (SessionQuestionPanel) ─────────────────────────
+    "picker.warteAufStandort": "Waiting for GPS…",
+    "picker.standortHinweis": "No GPS? Enter a location by hand.",
     "sqp.askQuestion": "Ask Question",
     "sqp.questions": "Questions",
     "sqp.noQuestionsYet": "No questions in this session yet.",

@@ -20,7 +20,9 @@ import {
 } from "@/lib/context";
 import { addQuestion, findNearestPoi } from "@/lib/session-api";
 import { handleSubmitError } from "@/lib/handle-submit-error";
-import { sessionCode, sessionParticipant } from "@/lib/session-context";
+import { absendeSperre, startStandort, type Herkunft } from "@/lib/standort-herkunft";
+import { ownGpsPosition, sessionCode, sessionParticipant } from "@/lib/session-context";
+import { useT } from "@/i18n";
 import { toast } from "react-toastify";
 import { ConfigCard } from "./ConfigCard";
 import { LocationCard } from "./LocationCard";
@@ -85,14 +87,19 @@ export interface TentaclesConfigProps {
 }
 
 export function TentaclesConfig({ wsStatus, onBack, onSettings, onClose, onDone }: TentaclesConfigProps) {
+    const tr = useT();
     const $defaultUnit = useStore(defaultUnit);
     const isMetric = $defaultUnit !== "miles";
 
     // ── Center coordinate (reactive — LocationCard drives via onChange) ──────
     const mapInst = leafletMapContext.get();
-    const rawCenter = mapInst?.getCenter() ?? { lat: 51.1, lng: 10.4 };
-    const [centerLat, setCenterLat] = useState(rawCenter.lat);
-    const [centerLng, setCenterLng] = useState(rawCenter.lng);
+    // Startwert ist die eigene Position (dieselbe wie der "Ich"-Punkt); die
+    // Kartenmitte dient nur als Platzhalter und sperrt das Absenden.
+    const start = startStandort(ownGpsPosition.get(), mapInst?.getCenter());
+    const [centerLat, setCenterLat] = useState(start.lat);
+    const [centerLng, setCenterLng] = useState(start.lng);
+    const [herkunft, setHerkunft] = useState<Herkunft>(start.herkunft);
+    const { gesperrt } = absendeSperre(herkunft);
 
     // ── Shared state ────────────────────────────────────────────────────────
     const [category, setCategory] = useState<string>("hospital");
@@ -294,7 +301,7 @@ export function TentaclesConfig({ wsStatus, onBack, onSettings, onClose, onDone 
                         title="Dein Standort"
                         lat={centerLat}
                         lng={centerLng}
-                        onChange={(lat, lng) => { setCenterLat(lat); setCenterLng(lng); }}
+                        onChange={(lat, lng, quelle) => { setCenterLat(lat); setCenterLng(lng); setHerkunft(quelle); }}
                     />
 
                     {/* ── Category dropdown ──────────────────────────────── */}
@@ -364,12 +371,12 @@ export function TentaclesConfig({ wsStatus, onBack, onSettings, onClose, onDone 
 
             {/* ── Footer ─────────────────────────────────────────────────── */}
             <PickerFooter
-                primaryLabel={submitting ? "Wird gesendet…" : "🔍 Tentakel starten"}
-                primaryDisabled={!selectedChip || fetchState === "loading" || submitting}
+                primaryLabel={gesperrt ? tr("picker.warteAufStandort") : submitting ? "Wird gesendet…" : "🔍 Tentakel starten"}
+                primaryDisabled={!selectedChip || fetchState === "loading" || submitting || gesperrt}
                 onPrimary={handleSubmit}
                 onCancel={onBack}
                 cancelDisabled={submitting}
-                note={getFooterNote()}
+                note={gesperrt ? tr("picker.standortHinweis") : getFooterNote()}
             />
         </>
     );
