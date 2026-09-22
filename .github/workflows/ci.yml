@@ -12,9 +12,11 @@ jobs:
         steps:
             - uses: actions/checkout@v4
 
+            # Ohne "version" liest die Action packageManager aus package.json.
+            # Damit laufen CI, VPS und Mac auf derselben pnpm-Version: pnpm ab
+            # 9.7 holt sich im Projekt selbst die dort festgelegte Fassung,
+            # egal was global im PATH liegt.
             - uses: pnpm/action-setup@v4
-              with:
-                  version: 10
 
             # Zielversion steht in .nvmrc, damit CI und lokale Arbeit
             # (nvm use) nicht auseinanderlaufen. Dort steht 26 - die aktuelle
