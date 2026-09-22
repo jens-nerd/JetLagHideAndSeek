@@ -116,11 +116,47 @@ chmod -R u+rwX,go+rX "$STORE"
 echo "== 3. Zweiter Lauf ohne Befund bleibt still und gruen =="
 if lauf_4b "$P" >"$TMPDIR/lauf2.log" 2>&1; then
     ok "zweiter Lauf endet mit 0"
-    grep -q -- '--force' "$TMPDIR/lauf2.log" && nok "zweiter Lauf hat trotzdem neu installiert" \
+    grep -Eq -- '--force|neu aufgebaut' "$TMPDIR/lauf2.log" && nok "zweiter Lauf hat trotzdem neu installiert" \
         || ok "zweiter Lauf installiert nicht erneut"
 else
     nok "zweiter Lauf bricht ab:"; sed 's/^/    /' "$TMPDIR/lauf2.log" >&2
 fi
+
+echo "== 3b. Harter Link innerhalb von node_modules ist kein Befund =="
+# esbuild legt bei der Installation selbst einen harten Link zwischen
+# esbuild/bin/esbuild und @esbuild/linux-x64/bin/esbuild an. Das teilt mit
+# niemandem ausserhalb etwas und darf weder Neuinstallation noch Abbruch
+# ausloesen (so auf dem Server am 22.09.2026, 15:53 UTC).
+INNEN="$(dirname "$DATEI")/innen-link"
+ln "$DATEI" "$INNEN"
+if lauf_4b "$P" >"$TMPDIR/lauf2b.log" 2>&1; then
+    ok "Block 4b endet mit 0"
+    grep -Eq -- '--force|neu aufgebaut' "$TMPDIR/lauf2b.log" && nok "Block 4b hat wegen eines inneren Links neu installiert" \
+        || ok "kein Neuaufbau wegen eines inneren Links"
+else
+    nok "Block 4b bricht wegen eines inneren Links ab:"; sed 's/^/    /' "$TMPDIR/lauf2b.log" >&2
+fi
+rm -f "$INNEN"
+
+echo "== 3c. Verwaister Paketordner aus einem alten Lockfile, hart auf den Store verlinkt =="
+# Auf dem Server lagen 42 solcher Ordner (z. B. astro@..._yaml@2.7.0) mit
+# 3.140 Inodes, die sie mit /opt/turflock teilten. pnpm kennt sie nicht mehr
+# und raeumt sie auch mit --force nicht ab.
+STOREDATEI=$(find "$STORE" -type f | head -1)
+mkdir -p "$P/node_modules/.pnpm/waise@0.0.1/node_modules/waise"
+ln "$STOREDATEI" "$P/node_modules/.pnpm/waise@0.0.1/node_modules/waise/index.js"
+if lauf_4b "$P" >"$TMPDIR/lauf2c.log" 2>&1; then
+    ok "Block 4b endet mit 0"
+else
+    nok "Block 4b bricht bei einer Waise ab:"; sed 's/^/    /' "$TMPDIR/lauf2c.log" >&2
+fi
+[ ! -e "$P/node_modules/.pnpm/waise@0.0.1" ] && ok "die Waise ist weg" || nok "die Waise liegt noch da"
+[ -e "$P/node_modules/is-number/package.json" ] && ok "die echte Abhaengigkeit ist wieder installiert" \
+    || nok "is-number fehlt nach dem Neuaufbau"
+DATEI=$(find "$P/node_modules/.pnpm" -path '*is-number/package.json' | head -1)
+GETEILT=$(find "$P/node_modules" -type f -links +1 | wc -l | tr -d ' ')
+[ "$GETEILT" = "0" ] && ok "danach keine Datei mit mehr als einem Link" \
+    || nok "danach $GETEILT Dateien mit mehr als einem Link"
 
 echo "== 4. Lesbarkeitszaun bricht ab, bevor irgendetwas neu startet =="
 chmod 000 "$DATEI"

@@ -161,11 +161,17 @@ log "pnpm install ..."
 # Der laufende Dienst merkte davon nichts; erst der Neustart fiel darauf.
 #
 # Drei Schritte, jeder mit Abbruch VOR Bau, Migration und Neustart:
-#   1. Eigene Inodes. Die .npmrc sagt package-import-method=copy. Ein
-#      vorhandenes node_modules aus harten Links baut pnpm damit aber nicht
-#      um (gemessen mit pnpm 10.33: --frozen-lockfile laesst es liegen), erst
-#      --force tut das. Deshalb: Dateien mit mehr als einem Link suchen und
-#      nur dann neu installieren.
+#   1. Eigene Inodes. Die .npmrc sagt package-import-method=copy. Gesucht
+#      wird jede Datei, deren Inode auch an einem Pfad AUSSERHALB dieser
+#      node_modules haengt: Linkzahl groesser als die Zahl ihrer Pfade hier.
+#      Ein harter Link innerhalb zaehlt nicht - esbuild legt selbst einen an
+#      (bin/esbuild in esbuild und @esbuild/linux-x64).
+#      Gibt es solche Dateien, wird node_modules geloescht und neu aufgebaut.
+#      pnpm install --force reicht nicht: Paketordner aus alten Lockfiles
+#      (am 22.09.2026 waren es 42, mit 3.140 Inodes gemeinsam mit turflock)
+#      kennt pnpm nicht mehr und laesst sie liegen, auch mit --force. Der
+#      Neuaufbau laeuft, waehrend der alte Dienst noch laeuft; der hat seine
+#      Module geladen, und neu gestartet wird erst am Ende.
 #   2. Rechte. Die Kopien tragen Besitzer und Modus aus dem Store, oft
 #      root:root 640. Weil die Inodes jetzt nur uns gehoeren, trifft chgrp
 #      niemanden sonst.
@@ -176,17 +182,32 @@ for nm in "$PROJEKT/node_modules" "$PROJEKT/backend/node_modules" "$PROJEKT/shar
 done
 [ "${#NM_VERZEICHNISSE[@]}" -gt 0 ] || fehler "Kein node_modules unter $PROJEKT - pnpm install hat nichts angelegt."
 
-geteilte_datei() { find "${NM_VERZEICHNISSE[@]}" -type f -links +1 -print -quit; }
+# Gibt eine Datei aus, deren Inode auch ausserhalb von node_modules haengt.
+# find -printf "%i %n %p": Inode, Linkzahl, Pfad. awk zaehlt die Pfade je
+# Inode; bleibt die Zahl unter der Linkzahl, gibt es einen Pfad woanders.
+# Der Schluessel wird vor dem sub() gesichert: mawk (Ubuntu) teilt $0 nach
+# sub() neu in Felder, $1 waere danach der Pfad.
+aussen_geteilt() {
+    find "${NM_VERZEICHNISSE[@]}" -type f -links +1 -printf '%i %n %p\n' \
+        | awk '{ k = $1; zahl[k]++; links[k] = $2; p = $0; sub(/^[0-9]+ [0-9]+ /, "", p); pfad[k] = p }
+               END { for (i in zahl) if (zahl[i] < links[i]) { print pfad[i]; exit } }'
+}
 
-GETEILT=$(geteilte_datei)
+GETEILT=$(aussen_geteilt)
 if [ -n "$GETEILT" ]; then
-    log "node_modules teilt Dateien mit dem pnpm-Store (z. B. $GETEILT) - pnpm install --force ..."
-    ( cd "$PROJEKT" && pnpm install --frozen-lockfile --force )
-    GETEILT=$(geteilte_datei)
+    log "node_modules teilt Dateien mit Pfaden ausserhalb (z. B. $GETEILT) - node_modules wird neu aufgebaut ..."
+    rm -rf "${NM_VERZEICHNISSE[@]}"
+    ( cd "$PROJEKT" && pnpm install --frozen-lockfile )
+    NM_VERZEICHNISSE=()
+    for nm in "$PROJEKT/node_modules" "$PROJEKT/backend/node_modules" "$PROJEKT/shared/node_modules"; do
+        [ -d "$nm" ] && NM_VERZEICHNISSE+=("$nm")
+    done
+    [ "${#NM_VERZEICHNISSE[@]}" -gt 0 ] || fehler "Nach dem Neuaufbau fehlt node_modules. Abbruch vor dem Neustart."
+    GETEILT=$(aussen_geteilt)
     [ -z "$GETEILT" ] \
-        || fehler "node_modules teilt nach pnpm install --force weiter Dateien mit anderen Pfaden (z. B. $GETEILT). Steht package-import-method=copy in $PROJEKT/.npmrc? Abbruch vor dem Neustart."
+        || fehler "node_modules teilt nach dem Neuaufbau weiter Dateien mit Pfaden ausserhalb (z. B. $GETEILT). Steht package-import-method=copy in $PROJEKT/.npmrc? Abbruch vor dem Neustart."
 fi
-log "node_modules hat eigene Dateien (keine mit mehr als einem Link)."
+log "node_modules teilt keine Datei mit Pfaden ausserhalb."
 
 chgrp -R -h "$DIENST_GRUPPE" "${NM_VERZEICHNISSE[@]}" \
     || fehler "chgrp $DIENST_GRUPPE auf node_modules scheiterte."
