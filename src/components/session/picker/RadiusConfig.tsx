@@ -20,7 +20,7 @@ import {
 } from "@/lib/context";
 import { addQuestion } from "@/lib/session-api";
 import { handleSubmitError } from "@/lib/handle-submit-error";
-import { sessionCode, sessionParticipant } from "@/lib/session-context";
+import { ownGpsPosition, sessionCode, sessionParticipant } from "@/lib/session-context";
 import { toast } from "react-toastify";
 import { LocationCard } from "./LocationCard";
 import { PickerFooter } from "./PickerFooter";
@@ -58,9 +58,11 @@ export function RadiusConfig({ wsStatus, onBack, onSettings, onClose, onDone }: 
     const [customValue, setCustomValue] = useState("");
     const [customUnit, setCustomUnit] = useState<"kilometers" | "miles">(isMetric ? "kilometers" : "miles");
 
-    // Center coordinate — driven by LocationCard
+    // Center coordinate — driven by LocationCard. Start at the own GPS position
+    // (the "Ich" marker) when known; the map center is only a fallback, because
+    // LocationCard's own GPS fetch may still be pending when the user submits.
     const map = leafletMapContext.get();
-    const center = map?.getCenter() ?? { lat: 51.1, lng: 10.4 };
+    const center = ownGpsPosition.get() ?? map?.getCenter() ?? { lat: 51.1, lng: 10.4 };
     const [lat, setLat] = useState(center.lat);
     const [lng, setLng] = useState(center.lng);
 
