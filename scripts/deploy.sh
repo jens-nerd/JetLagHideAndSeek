@@ -425,6 +425,18 @@ sqlite3 "file:$DB?mode=ro" ".backup '$DB_SICHERUNG'" \
 # als root und stoeren sich an 600 nicht.
 chmod 600 "$DB_SICHERUNG" \
     || fehler "Rechte auf die Datenbanksicherung liessen sich nicht setzen. Abbruch vor der Migration."
+# .backup uebernimmt den WAL-Modus der Quelle in den Dateikopf. Jeder, der die
+# Sicherung danach oeffnet - integrity_check hier, ein Blick von Hand - legt
+# dann -wal und -shm daneben, und die Ausduennung hat sie frueher liegen
+# lassen. Im Modus delete ist die Sicherung eine einzige, in sich
+# vollstaendige Datei. Fuer den Rueckweg egal: der Dienst stellt beim Oeffnen
+# selbst auf WAL (backend/src/db/index.ts).
+sqlite3 "$DB_SICHERUNG" "pragma journal_mode=delete;" | grep -qx delete \
+    || fehler "Datenbanksicherung liess sich nicht auf journal_mode=delete stellen. Abbruch vor der Migration."
+# Das Umstellen oeffnet die Datei noch im WAL-Modus und legt dabei -shm an;
+# manche Builds (Apples sqlite3) lassen es danach liegen. Nach erfolgreichem
+# Wechsel ist beides leer und bedeutungslos.
+rm -f "$DB_SICHERUNG-wal" "$DB_SICHERUNG-shm"
 sqlite3 "$DB_SICHERUNG" "pragma integrity_check;" | grep -qx ok \
     || fehler "Sicherung der Datenbank ist nicht lesbar. Abbruch vor der Migration."
 # integrity_check beantwortet nur "ist das eine gueltige SQLite-Datei": eine
@@ -514,6 +526,17 @@ if gesundheit; then
     # Die Muster treffen bewusst NUR den Zeitstempel, den dieses Skript selbst
     # vergibt (JJJJMMTT-HHMMSS). Von Hand angelegte Sicherungen wie
     # dist-vor-rebuild bleiben dadurch unangetastet.
+    #
+    # Sortiert wird nach dem Zeitstempel im NAMEN, nicht nach der
+    # Aenderungszeit. Bis zum 22.09.2026 stand hier `ls -t`: cp -a uebernimmt
+    # die Zeit der Quelle, backend/dist traegt seit dem 28.03.2026 dieselbe
+    # Verzeichniszeit, und bei Gleichstand sortiert ls nach Namen - die
+    # frischeste Backend-Sicherung landete so zweimal direkt nach dem Anlegen
+    # im Loeschbereich. Die Sicherungen dieses Laufs ($STEMPEL) werden
+    # zusaetzlich nie geloescht, egal was die Sortierung sagt.
+    # Der Rueckweg haengt davon nicht ab: er nimmt die Pfade dieses Laufs aus
+    # $DB_SICHERUNG, $DIST_SICHERUNG und $BACKEND_SICHERUNG, und ausgeduennt
+    # wird erst nach bestandener Gesundheitspruefung.
     BEHALTEN=5
     ZIFFER8='[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'
     ZIFFER6='[0-9][0-9][0-9][0-9][0-9][0-9]'
@@ -522,11 +545,24 @@ if gesundheit; then
         eintraege=("$SICHERUNGEN"/$muster)
         [ "${#eintraege[@]}" -gt "$BEHALTEN" ] || continue
         while IFS= read -r alt; do
+            case "$(basename "$alt")" in
+                *"-$STEMPEL"*) log "Sicherung dieses Laufs bleibt: $(basename "$alt")"; continue ;;
+            esac
             log "Entferne alte Sicherung: $(basename "$alt")"
             # Ein fehlgeschlagenes rm darf einen laengst live geschalteten
             # Deploy nicht nachtraeglich als Fehler enden lassen.
             rm -rf "$alt" || log "Konnte $(basename "$alt") nicht entfernen."
-        done < <(ls -1dt "${eintraege[@]}" | tail -n "+$((BEHALTEN + 1))")
+            case "$alt" in
+                *.sqlite) rm -f "$alt-wal" "$alt-shm" || log "Konnte -wal/-shm zu $(basename "$alt") nicht entfernen." ;;
+            esac
+        done < <(printf '%s\n' "${eintraege[@]}" | LC_ALL=C sort -r | tail -n "+$((BEHALTEN + 1))")
+    done
+    # -wal/-shm, deren Datenbanksicherung schon weg ist (vor dem 22.09.2026
+    # blieben sie beim Ausduennen liegen).
+    for begleiter in "$SICHERUNGEN"/db-$ZIFFER8-$ZIFFER6.sqlite-wal "$SICHERUNGEN"/db-$ZIFFER8-$ZIFFER6.sqlite-shm; do
+        [ -e "${begleiter%-*}" ] && continue
+        log "Entferne verwaisten Begleiter: $(basename "$begleiter")"
+        rm -f "$begleiter" || log "Konnte $(basename "$begleiter") nicht entfernen."
     done
     shopt -u nullglob
     log "Sicherungen ausgeduennt, die neuesten $BEHALTEN bleiben."
