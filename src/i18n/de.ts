@@ -364,6 +364,7 @@ export const de = {
     "sqp.detailVerwaltungsebene": "Verwaltungsebene:",
     "sqp.detailAntwort": "Antwort:",
     "sqp.detailKeinStandort": "Antwort: Kein Standort in Reichweite",
+    "sqp.detailKeineKartenwirkung": "Schneidet die Karte nicht zu",
 
     // ── Erwartungsformulierungen (QuestionDetails, sqp) ───────────────────────
     "sqp.expectOutside": "❓ Bist du AUSSERHALB des Kreises?",
@@ -548,6 +549,7 @@ export const de = {
     "picker.questionDesc.measuring": "Hider misst Distanzen und Strecken von einem Objekt.",
     "picker.questionDesc.photo": "Der Hider fotografiert ein markantes Objekt in seiner Nähe",
     "picker.lockedCategory": "Das Glücksrad sperrt gerade {kategorie}. Diese Frage ist erst nach dem nächsten Los wieder möglich.",
+    "picker.keineKartenwirkung": "Diese Frage schneidet die Karte nicht zu. Die Antwort sagt dir etwas über den Hider, das Suchgebiet verkleinerst du selbst.",
 
     // ── Einstellungen (Settings redesign) ───────────────────────────────────
     "settings.title": "Einstellungen",

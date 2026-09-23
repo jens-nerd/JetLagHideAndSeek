@@ -364,6 +364,7 @@ export const en: Record<TranslationKey, string> = {
     "sqp.detailTyp": "Type:",
     "sqp.detailVerwaltungsebene": "Admin level:",
     "sqp.detailAntwort": "Answer:",
+    "sqp.detailKeineKartenwirkung": "Doesn't shrink the map",
     "sqp.detailKeinStandort": "Answer: No location in range",
 
     // ── Expectation phrases (QuestionDetails, sqp) ───────────────────────────
@@ -548,6 +549,7 @@ export const en: Record<TranslationKey, string> = {
     "picker.questionDesc.matching": "Compare features of your location with the hider's",
     "picker.questionDesc.measuring": "Hider measures distances and lengths from an object.",
     "picker.questionDesc.photo": "The hider photographs a distinctive object nearby",
+    "picker.keineKartenwirkung": "This question doesn't shrink the map. The answer tells you something about the hider, but you narrow the search area yourself.",
     "picker.lockedCategory": "The Glücksrad is locking {kategorie} right now. This question is possible again after the next draw.",
 
     // ── Settings (Settings redesign) ────────────────────────────────────────

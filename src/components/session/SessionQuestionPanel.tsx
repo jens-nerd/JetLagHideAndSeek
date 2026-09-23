@@ -339,6 +339,15 @@ function QuestionDetails({
         if (d.type === "street" && d.seekerStreet) {
             rows.push({ icon: "🛤️", text: `Straße/Weg: ${d.seekerStreet}` });
         }
+        // Die Bahnhofs-Typen liefern eine Auskunft, aber keinen Kartenzuschnitt.
+        // Wer die Antwort liest, soll nicht rätseln, warum die Karte gleich bleibt.
+        if (
+            d.type === "same-first-letter-station" ||
+            d.type === "same-length-station" ||
+            d.type === "same-train-line"
+        ) {
+            rows.push({ icon: "🗺️", text: t("sqp.detailKeineKartenwirkung", loc) ?? "" });
+        }
     }
 
     // Photo: Titel + Regeln

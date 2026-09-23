@@ -143,7 +143,9 @@ function getInfoHint(matchType: string): string {
         return `Der Hider prüft, ob er in derselben ${label} ist wie du. Ein Match grenzt das Suchgebiet stark ein!`;
     }
     if (matchType.includes("station") || matchType === "same-train-line") {
-        return `Der Hider vergleicht seinen nächsten Bahnhof mit deinem. Ein Match bedeutet eine starke Eingrenzung!`;
+        // Kein "starke Eingrenzung" mehr: diese Fragen schneiden die Karte
+        // nicht zu. Das steht als Hinweis direkt unter der Kategorie-Auswahl.
+        return `Der Hider vergleicht seinen nächsten Bahnhof mit deinem.`;
     }
     return `Der Hider vergleicht seine nächstgelegene ${label} mit deiner. Ein Match bedeutet eine starke Eingrenzung!`;
 }
@@ -513,6 +515,18 @@ export function MatchingConfig({
                                 </optgroup>
                             ))}
                         </select>
+                        {isStation && (
+                            <div style={{
+                                background: "#2A2A3A",
+                                borderRadius: 10,
+                                padding: "10px 12px",
+                                fontSize: "12px",
+                                color: "#99A1AF",
+                                lineHeight: 1.5,
+                            }}>
+                                {tr("picker.keineKartenwirkung")}
+                            </div>
+                        )}
                     </div>
 
                     {/* ── Admin level for zone types ──────────────────────── */}
