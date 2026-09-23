@@ -452,6 +452,8 @@ export const de = {
     "matchType.letter-zone": "Buchstabenzone",
     "matchType.airport": "Flughafen",
     "matchType.major-city": "Großstadt",
+    // Nicht mehr im Frage-Menü. Bleibt stehen, damit alte Sessions in der
+    // Historie einen lesbaren Namen zeigen statt "street".
     "matchType.street": "Straße oder Weg",
     "matchType.aquarium": "Aquarium",
     "matchType.aquarium-full": "Aquarium",

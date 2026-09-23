@@ -79,6 +79,8 @@ let geoSpatialVoronoi: typeof import("@/maps/geo-utils/voronoi").geoSpatialVoron
 let adjustPerThermometer: typeof import("@/maps/questions/thermometer").adjustPerThermometer;
 let adjustPerRadius: typeof import("@/maps/questions/radius").adjustPerRadius;
 let adjustMapGeoDataForQuestion: typeof import("@/maps/index").adjustMapGeoDataForQuestion;
+let determineMatchingBoundary: typeof import("@/maps/questions/matching").determineMatchingBoundary;
+let questionsSchema: typeof import("@/maps/schema").questionsSchema;
 
 beforeAll(async () => {
     ({ holedMask, modifyMapData, safeUnion } = await import(
@@ -88,6 +90,8 @@ beforeAll(async () => {
     ({ adjustPerThermometer } = await import("@/maps/questions/thermometer"));
     ({ adjustPerRadius } = await import("@/maps/questions/radius"));
     ({ adjustMapGeoDataForQuestion } = await import("@/maps/index"));
+    ({ determineMatchingBoundary } = await import("@/maps/questions/matching"));
+    ({ questionsSchema } = await import("@/maps/schema"));
 });
 
 // ── Test-Fixtures ─────────────────────────────────────────────────────────────
@@ -366,5 +370,37 @@ describe("adjustMapGeoDataForQuestion", () => {
                 : turf.featureCollection([result]),
         );
         expect(resultArea).toBeCloseTo(originalArea, -3);
+    });
+});
+
+describe("Matching: unbekannter Fragetyp", () => {
+    it("determineMatchingBoundary meldet false statt undefined", async () => {
+        // undefined waere der stille Tod: modifyMapData wirft darauf einen
+        // TypeError, den adjustMapGeoDataForQuestion wegfaengt. false heisst
+        // dagegen ausdruecklich "keine Grenze" und laesst die Karte in Ruhe.
+        const boundary = await determineMatchingBoundary({
+            type: "gibts-nicht",
+            lat: 53.55,
+            lng: 10.0,
+            same: true,
+            drag: false,
+            color: "black",
+            collapsed: false,
+        } as never);
+        expect(boundary).toBe(false);
+    });
+
+    it("alte street-Fragen kommen gar nicht erst in den questions-Atom", () => {
+        // "Strasse oder Weg" stand im Menue, aber nie im Schema. Sessions aus
+        // der Zeit davor duerfen die Karte nicht kaputtmachen, sondern muessen
+        // an der Zod-Pruefung in useSessionMapSync einzeln haengenbleiben.
+        const result = questionsSchema.safeParse([
+            {
+                id: "matching",
+                key: 1,
+                data: { type: "street", same: true, seekerStreet: "Hauptstrasse", drag: false },
+            },
+        ]);
+        expect(result.success).toBe(false);
     });
 });

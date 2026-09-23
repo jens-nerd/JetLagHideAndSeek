@@ -453,6 +453,8 @@ export const en: Record<TranslationKey, string> = {
     "matchType.letter-zone": "Letter Zone",
     "matchType.airport": "Airport",
     "matchType.major-city": "Major City",
+    // No longer offered in the question menu. Kept so old sessions still show
+    // a readable name in their history instead of "street".
     "matchType.street": "Street or Path",
     "matchType.aquarium": "Aquarium",
     "matchType.aquarium-full": "Aquarium",

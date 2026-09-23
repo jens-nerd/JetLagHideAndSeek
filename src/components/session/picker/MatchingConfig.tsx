@@ -48,7 +48,6 @@ const MATCH_TYPES: MatchTypeDef[] = [
     // Standard (all sizes, no group)
     { value: "airport" },
     { value: "major-city" },
-    { value: "street" },
     { value: "zone" },
     { value: "letter-zone" },
     // S/M full variants (no group, hidden when L)
@@ -96,7 +95,7 @@ function Hl({ children }: { children: React.ReactNode }) {
 }
 
 /** Station types where the seeker provides a value and the hider answers gleich/ungleich */
-const STATION_TYPES = ["same-first-letter-station", "same-length-station", "same-train-line", "street"] as const;
+const STATION_TYPES = ["same-first-letter-station", "same-length-station", "same-train-line"] as const;
 type StationType = (typeof STATION_TYPES)[number];
 function isStationType(t: string): t is StationType { return (STATION_TYPES as readonly string[]).includes(t); }
 
@@ -108,7 +107,6 @@ function renderPreview(
     seekerLetter?: string,
     seekerLength?: number,
     seekerTrainLine?: string,
-    seekerStreet?: string,
 ): React.ReactNode {
     const label = getMatchLabel(matchType);
 
@@ -131,10 +129,6 @@ function renderPreview(
     if (matchType === "same-train-line") {
         const line = seekerTrainLine?.trim() || "…";
         return <>Liegt dein nächster <Hl>Bahnhof</Hl> an der Bahnlinie <Hl>{line}</Hl>?</>;
-    }
-    if (matchType === "street") {
-        const street = seekerStreet?.trim() || "…";
-        return <>Bist du auf derselben <Hl>Straße/Weg</Hl> wie ich? Meine: <Hl>{street}</Hl></>;
     }
     // Default: nearest X
     if (same) {
@@ -213,7 +207,6 @@ export function MatchingConfig({
     const [seekerLetter, setSeekerLetter] = useState("A");
     const [seekerLength, setSeekerLength] = useState(8);
     const [seekerTrainLine, setSeekerTrainLine] = useState("");
-    const [seekerStreet, setSeekerStreet] = useState("");
 
     // ── Center coordinate ────────────────────────────────────────────────────
     const mapInst = leafletMapContext.get();
@@ -420,10 +413,6 @@ export function MatchingConfig({
             toast.error("Bitte gib den Namen der Bahnlinie ein.");
             return;
         }
-        if (matchType === "street" && !seekerStreet.trim()) {
-            toast.error("Bitte gib den Namen der Straße oder des Wegs ein.");
-            return;
-        }
 
         const data: Record<string, unknown> = {
             type: matchType,
@@ -438,8 +427,6 @@ export function MatchingConfig({
                 data.seekerLength = seekerLength;
             } else if (matchType === "same-train-line") {
                 data.seekerTrainLine = seekerTrainLine.trim();
-            } else if (matchType === "street") {
-                data.seekerStreet = seekerStreet.trim();
             }
         } else {
             data.lat = centerLat;
@@ -466,7 +453,7 @@ export function MatchingConfig({
 
     // ── Derived ──────────────────────────────────────────────────────────────
     const isStation = isStationType(matchType);
-    const canFindNearest = !isStation && matchType !== "zone" && matchType !== "letter-zone" && matchType !== "street";
+    const canFindNearest = !isStation && matchType !== "zone" && matchType !== "letter-zone";
     const selectedZoneName = adminLevels.find((al) => al.level === adminLevel)?.name ?? null;
 
     // ── Render ───────────────────────────────────────────────────────────────
@@ -611,28 +598,11 @@ export function MatchingConfig({
                             />
                         </div>
                     )}
-                    {matchType === "street" && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                            <span style={sectionLabel}>Straße / Weg</span>
-                            <input
-                                type="text"
-                                value={seekerStreet}
-                                onChange={(e) => setSeekerStreet(e.target.value.slice(0, 128))}
-                                maxLength={128}
-                                placeholder="z.B. Hauptstraße, Rheinweg…"
-                                style={{
-                                    ...selectStyle,
-                                    backgroundImage: "none",
-                                    padding: "12px 14px",
-                                }}
-                            />
-                        </div>
-                    )}
 
                     {/* ── Fragevorschau ────────────────────────────────────── */}
                     <ConfigCard accentColor="green" title="Fragevorschau">
                         <p style={{ margin: 0, color: "#E5E7EB", fontSize: "14px", lineHeight: 1.55 }}>
-                            {renderPreview(matchType, same, adminLevel, selectedZoneName, seekerLetter, seekerLength, seekerTrainLine, seekerStreet)}
+                            {renderPreview(matchType, same, adminLevel, selectedZoneName, seekerLetter, seekerLength, seekerTrainLine)}
                         </p>
 
                         {/* Compact same/different pills — hidden for station types (hider decides) */}

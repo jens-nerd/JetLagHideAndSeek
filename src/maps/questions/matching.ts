@@ -240,6 +240,18 @@ export const determineMatchingBoundary = _.memoize(
                 }
                 break;
             }
+            default: {
+                // Kein Zweig getroffen: `boundary` bliebe undefined, und
+                // modifyMapData wirft darauf einen TypeError, den die Pipeline
+                // wegfängt. Die Frage wirkt dann stumm nicht auf die Karte.
+                // Stattdessen loggen und wie die Station-Typen "keine Grenze"
+                // melden, damit kein Fehler mehr verschluckt werden muss.
+                console.error(
+                    "[determineMatchingBoundary] Unbekannter Matching-Typ:",
+                    (question as { type?: string }).type,
+                );
+                return false;
+            }
         }
 
         return boundary;
