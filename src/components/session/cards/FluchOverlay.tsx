@@ -25,10 +25,14 @@ export function FluchOverlay() {
                 inset: 0,
                 zIndex: 1400,
                 background: "rgba(20,22,26,0.97)",
+                overflowY: "auto",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                justifyContent: "center",
+                // "safe" ist Pflicht: ohne das ragt ein Fluchtext, der höher als
+                // der Schirm ist, oben aus dem Scrollbereich heraus, und sein
+                // Anfang bleibt auch bei scrollTop 0 unerreichbar.
+                justifyContent: "safe center",
                 gap: 18,
                 padding: "32px 24px",
                 textAlign: "center",

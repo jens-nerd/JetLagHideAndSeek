@@ -88,6 +88,19 @@ describe("FluchOverlay", () => {
         expect(markup).not.toContain("Mindestabstand.");
     });
 
+    it("laesst lange Fluchtexte scrollen, ohne den Anfang abzuschneiden", async () => {
+        // Der laengste Fluchtext ist auf einem Handy hoeher als der Schirm.
+        // overflow-y allein reicht nicht: bei "justify-content: center" liegt
+        // der Anfang des Textes ueber dem Scrollbereich und ist nicht
+        // erreichbar. Deshalb muss "safe center" dastehen.
+        stores.eingeschlagenerFluch.set(FLUCH);
+
+        const markup = await render();
+
+        expect(markup).toContain("overflow-y:auto");
+        expect(markup).toContain("justify-content:safe center");
+    });
+
     it("zeichnet beim Versteckenden nichts", async () => {
         stores.sessionParticipant.set({ role: "hider", token: "t" });
         stores.eingeschlagenerFluch.set(FLUCH);
