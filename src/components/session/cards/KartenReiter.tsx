@@ -16,6 +16,8 @@ import { gameSize, sessionCode, sessionParticipant } from "@/lib/session-context
 
 import { FluchListe } from "./FluchListe";
 import { KartenAnsicht } from "./KartenAnsicht";
+import { KartenKopf } from "./KartenKopf";
+import { kartenArt, kartenFlaeche, kartenName } from "./karten-stil";
 
 export function KartenReiter() {
     const tr = useT();
@@ -94,25 +96,25 @@ export function KartenReiter() {
                                         data-handcard={karte.id}
                                         onClick={() => setOffen(karte)}
                                         style={{
-                                            display: "flex",
-                                            justifyContent: "space-between",
-                                            alignItems: "center",
-                                            gap: 10,
-                                            background: "var(--color-panel)",
-                                            border: `2px solid ${karte.karte.art === "fluch" ? "var(--color-primary)" : "rgba(245,245,240,0.08)"}`,
-                                            borderRadius: "var(--radius-default)",
-                                            padding: "12px 14px",
+                                            ...kartenFlaeche(kartenArt(karte.karte.art).farbe),
+                                            padding: 0,
                                             cursor: "pointer",
                                             textAlign: "left",
+                                            font: "inherit",
                                         }}
                                     >
-                                        <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>
+                                        <KartenKopf
+                                            art={karte.karte.art}
+                                            rechts={
+                                                karte.karte.art === "zeitbonus"
+                                                    ? trf("cards.bonusValue", {
+                                                          n: String(karte.karte.bonusMin?.[$gameSize ?? "M"]),
+                                                      })
+                                                    : null
+                                            }
+                                        />
+                                        <span style={{ ...kartenName, padding: "12px 14px" }}>
                                             {karte.karte.name}
-                                        </span>
-                                        <span style={{ color: "rgba(245,245,240,0.5)", fontSize: 12 }}>
-                                            {karte.karte.art === "fluch"
-                                                ? "🃏"
-                                                : `+${karte.karte.bonusMin?.[$gameSize ?? "M"]} min`}
                                         </span>
                                     </button>
                                 ))}

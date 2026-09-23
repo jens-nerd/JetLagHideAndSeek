@@ -16,6 +16,15 @@ import { fluchBeenden } from "@/lib/cards-api";
 import { activeCurses, gesperrteKategorie } from "@/lib/deck-context";
 import { sessionParticipant } from "@/lib/session-context";
 
+import { KartenKopf } from "./KartenKopf";
+import { kartenArt, kartenFlaeche, kartenName, kartenText, kartenZusatz } from "./karten-stil";
+
+// Die Restzeit steht in der Kopfzeile der Karte, also auf dunklem Rot. Die
+// satten Warnfarben von vorher verschwinden dort; diese hellen Töne bleiben
+// auseinanderzuhalten und lesbar.
+const EILIG = "#FFD0D1";
+const KNAPP = "#FFDCA8";
+
 /** MM:SS aus einem ISO-Zeitstempel, jede Sekunde neu. */
 function Countdown({ curseId, expiresAt }: { curseId: string; expiresAt: string }) {
     const tr = useT();
@@ -40,7 +49,7 @@ function Countdown({ curseId, expiresAt }: { curseId: string; expiresAt: string 
 
     if (remainingMs <= 0) {
         return (
-            <span data-countdown={curseId} style={{ color: "#D56062", fontWeight: 700, fontSize: 13 }}>
+            <span data-countdown={curseId} style={{ color: EILIG, fontWeight: 800, fontSize: 13 }}>
                 ⏰ {tr("cards.expired")}
             </span>
         );
@@ -53,13 +62,13 @@ function Countdown({ curseId, expiresAt }: { curseId: string; expiresAt: string 
 
     const rot = remainingMs < 60_000;
     const orange = !rot && remainingMs < 5 * 60_000;
-    const farbe = rot ? "#D56062" : orange ? "#F37748" : "rgba(255,255,255,0.85)";
+    const farbe = rot ? EILIG : orange ? KNAPP : "#fff";
 
     return (
         <span
             data-countdown={curseId}
             className="tabular-nums"
-            style={{ color: farbe, fontWeight: 700, fontSize: 13 }}
+            style={{ color: farbe, fontWeight: rot ? 800 : 700, fontSize: 13 }}
         >
             ⏱ {text}
         </span>
@@ -91,7 +100,7 @@ export function FluchListe() {
 
     if ($curses.length === 0) {
         return (
-            <p style={{ color: "rgba(245,245,240,0.6)", fontSize: 14, padding: "12px 4px", margin: 0 }}>
+            <p style={{ color: "rgba(245,245,240,0.6)", fontSize: 15, padding: "12px 4px", margin: 0 }}>
                 {tr("cards.noCurses")}
             </p>
         );
@@ -103,75 +112,69 @@ export function FluchListe() {
                 <div
                     key={curse.id}
                     data-curse={curse.id}
-                    style={{
-                        background: "var(--color-panel)",
-                        border: "2px solid rgba(245,245,240,0.08)",
-                        borderRadius: "var(--radius-default)",
-                        padding: "12px 14px",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 8,
-                    }}
+                    style={kartenFlaeche(kartenArt("fluch").farbe)}
                 >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-                        <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>
-                            {curse.karte.name}
-                        </span>
-                        {curse.expiresAt ? (
-                            <Countdown curseId={curse.id} expiresAt={curse.expiresAt} />
-                        ) : (
-                            <span style={{ color: "rgba(245,245,240,0.5)", fontSize: 12 }}>
-                                {curse.karte.dauerText ?? tr("cards.noDuration")}
-                            </span>
-                        )}
-                    </div>
+                    <KartenKopf
+                        art="fluch"
+                        rechts={
+                            curse.expiresAt ? (
+                                <Countdown curseId={curse.id} expiresAt={curse.expiresAt} />
+                            ) : (
+                                curse.karte.dauerText ?? tr("cards.noDuration")
+                            )
+                        }
+                    />
 
-                    <p style={{ color: "rgba(245,245,240,0.8)", fontSize: 13, lineHeight: 1.5, margin: 0, whiteSpace: "pre-line" }}>
-                        {curse.karte.text}
-                    </p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "12px 14px" }}>
+                        <h4 style={kartenName}>{curse.karte.name}</h4>
 
-                    {curse.karte.id === GLUECKSRAD_ID && $gesperrt ? (
-                        <p
-                            data-gesperrt={$gesperrt}
-                            style={{ color: "#F37748", fontSize: 13, fontWeight: 700, margin: 0 }}
+                        <p style={kartenText}>
+                            {curse.karte.text}
+                        </p>
+
+                        {curse.karte.id === GLUECKSRAD_ID && $gesperrt ? (
+                            <p
+                                data-gesperrt={$gesperrt}
+                                style={{ color: "#F37748", fontSize: 14, fontWeight: 700, margin: 0 }}
+                            >
+                                {trFmt("cards.lockedCategory", {
+                                    kategorie: tr(`questionType.${$gesperrt}` as any),
+                                })}
+                            </p>
+                        ) : null}
+
+                        {curse.karte.nachweis ? (
+                            <p style={kartenZusatz}>
+                                <strong>{tr("cards.proof")}:</strong> {curse.karte.nachweis}
+                            </p>
+                        ) : null}
+
+                        {curse.karte.ausweichregel ? (
+                            <p style={kartenZusatz}>
+                                <strong>{tr("cards.fallback")}:</strong> {curse.karte.ausweichregel}
+                            </p>
+                        ) : null}
+
+                        <button
+                            onClick={() => void beenden(curse)}
+                            disabled={laufend === curse.id}
+                            style={{
+                                alignSelf: "flex-start",
+                                marginTop: 2,
+                                background: istHider ? "transparent" : "var(--color-primary)",
+                                border: istHider ? "2px solid rgba(245,245,240,0.2)" : "none",
+                                borderRadius: "var(--radius-pill)",
+                                padding: "11px 24px",
+                                color: "#fff",
+                                fontWeight: 700,
+                                fontSize: 15,
+                                cursor: laufend === curse.id ? "default" : "pointer",
+                                opacity: laufend === curse.id ? 0.5 : 1,
+                            }}
                         >
-                            {trFmt("cards.lockedCategory", {
-                                kategorie: tr(`questionType.${$gesperrt}` as any),
-                            })}
-                        </p>
-                    ) : null}
-
-                    {curse.karte.nachweis ? (
-                        <p style={{ color: "rgba(245,245,240,0.55)", fontSize: 12, margin: 0 }}>
-                            <strong>{tr("cards.proof")}:</strong> {curse.karte.nachweis}
-                        </p>
-                    ) : null}
-
-                    {curse.karte.ausweichregel ? (
-                        <p style={{ color: "rgba(245,245,240,0.55)", fontSize: 12, margin: 0 }}>
-                            <strong>{tr("cards.fallback")}:</strong> {curse.karte.ausweichregel}
-                        </p>
-                    ) : null}
-
-                    <button
-                        onClick={() => void beenden(curse)}
-                        disabled={laufend === curse.id}
-                        style={{
-                            alignSelf: "flex-start",
-                            marginTop: 2,
-                            background: istHider ? "transparent" : "var(--color-primary)",
-                            border: istHider ? "2px solid rgba(245,245,240,0.2)" : "none",
-                            borderRadius: "var(--radius-pill)",
-                            padding: "8px 20px",
-                            color: "#fff",
-                            fontWeight: 700,
-                            fontSize: 13,
-                            cursor: laufend === curse.id ? "default" : "pointer",
-                            opacity: laufend === curse.id ? 0.5 : 1,
-                        }}
-                    >
-                        {istHider ? tr("cards.lift") : tr("cards.done")}
-                    </button>
+                            {istHider ? tr("cards.lift") : tr("cards.done")}
+                        </button>
+                    </div>
                 </div>
             ))}
         </div>

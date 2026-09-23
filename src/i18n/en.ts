@@ -585,6 +585,7 @@ export const en: Record<TranslationKey, string> = {
     "cards.cost": "Cost",
     "cards.proof": "Proof",
     "cards.fallback": "Fallback rule",
+    "cards.curse": "Curse",
     "cards.bonus": "Time bonus",
     "cards.bonusValue": "+{n} min",
     "cards.duration": "Duration",

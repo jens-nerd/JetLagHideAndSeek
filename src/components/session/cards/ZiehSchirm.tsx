@@ -15,6 +15,8 @@ import { behalten as behaltenApi } from "@/lib/cards-api";
 import { applyHandUpdated, hand, nachschlagZug, pendingDraw } from "@/lib/deck-context";
 import { gameSize, sessionParticipant } from "@/lib/session-context";
 
+import { KartenKopf } from "./KartenKopf";
+import { kartenArt, kartenFlaeche, kartenName, kartenText } from "./karten-stil";
 import { kartenWert } from "./karten-wert";
 
 const HANDLIMIT = 6;
@@ -93,39 +95,44 @@ export function ZiehSchirm() {
                 onClick={onClick}
                 disabled={laufend}
                 style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "flex-start",
-                    gap: 6,
-                    background: aktiv ? "var(--color-primary)" : "var(--color-panel)",
-                    border: `2px solid ${aktiv ? "var(--color-primary)" : "rgba(245,245,240,0.08)"}`,
-                    borderRadius: "var(--radius-default)",
-                    padding: "12px 14px",
+                    ...kartenFlaeche(kartenArt(karte.karte.art).farbe),
+                    // Das Gewähltsein hängt nicht an einer Farbe: heller Ring
+                    // um die Karte, Haken in der Kopfzeile.
+                    boxShadow: aktiv ? "0 0 0 3px var(--hs-light)" : "none",
+                    padding: 0,
                     cursor: "pointer",
                     textAlign: "left",
                     width: "100%",
+                    font: "inherit",
                 }}
             >
-                <span style={{ color: "#fff", fontWeight: 700, fontSize: 15 }}>
-                    {karte.karte.name}
-                </span>
-                {wert ? (
-                    <span
-                        data-kartenwert={karte.id}
-                        style={{
-                            background: "rgba(0,0,0,0.28)",
-                            borderRadius: "var(--radius-pill)",
-                            padding: "2px 9px",
-                            color: "#fff",
-                            fontWeight: 700,
-                            fontSize: 13,
-                        }}
-                    >
-                        {wert.wert}
-                    </span>
-                ) : null}
-                <span style={{ color: "rgba(255,255,255,0.75)", fontSize: 12, lineHeight: 1.45, whiteSpace: "pre-line" }}>
-                    {karte.karte.text}
+                <KartenKopf art={karte.karte.art} rechts={aktiv ? "✓" : null} />
+                <span
+                    style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "flex-start",
+                        gap: 8,
+                        padding: "12px 14px",
+                    }}
+                >
+                    <span style={kartenName}>{karte.karte.name}</span>
+                    {wert ? (
+                        <span
+                            data-kartenwert={karte.id}
+                            style={{
+                                background: "rgba(0,0,0,0.28)",
+                                borderRadius: "var(--radius-pill)",
+                                padding: "3px 10px",
+                                color: "#fff",
+                                fontWeight: 700,
+                                fontSize: 14,
+                            }}
+                        >
+                            {wert.wert}
+                        </span>
+                    ) : null}
+                    <span style={kartenText}>{karte.karte.text}</span>
                 </span>
             </button>
         );

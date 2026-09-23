@@ -117,6 +117,12 @@
     --color-overlay: rgba(30,30,42,0.75);
     --radius-default: 8px;
     --radius-pill:    10px;
+
+    /* Kartenarten. Blau statt Gruen oder Gelb neben dem Rot: warm gegen kalt
+       bleibt auch bei Rot-Gruen-Schwaeche unterscheidbar. Die Helligkeit ist
+       auf das Rot abgestimmt, damit beide Kopfzeilen gleich gut lesbar sind. */
+    --color-bonus:  #1E7FBF;
+    --radius-karte: 12px;
 }
 
 html,

@@ -584,6 +584,7 @@ export const de = {
     "cards.cost": "Kosten",
     "cards.proof": "Nachweis",
     "cards.fallback": "Ausweichregel",
+    "cards.curse": "Fluch",
     "cards.bonus": "Zeitbonus",
     "cards.bonusValue": "+{n} min",
     "cards.duration": "Laufzeit",
