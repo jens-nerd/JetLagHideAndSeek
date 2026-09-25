@@ -448,14 +448,13 @@ export const tutorialStepsDe: TutorialStep[] = [
             <>
                 <strong>Vollspiel-Variationen (Kleine/Mittlere Spiele):</strong>
                 <br />
-                Diese erfordern ein relativ kleines Spielgebiet (Alternativen
-                gibt es auch für den Versteckzonen-Modus bei größeren Spielen):
+                Diese erfordern ein relativ kleines Spielgebiet:
                 <br />• Aquarien, Zoos, Freizeitparks
                 <br />• Berge, Museen, Krankenhäuser, Kinos
                 <br />• Bibliotheken, Golfplätze, ausländische Konsulate, Parks
                 <br />
                 <br />
-                <strong>Versteckzonen-Modus-Variationen:</strong>
+                <strong>Endgame-Variationen:</strong>
                 <br />
                 Diese funktionieren speziell mit Bahnhofsdaten:
                 <br />• <strong>Gleicher Anfangsbuchstabe des Bahnhofs:</strong>{" "}
@@ -530,7 +529,7 @@ export const tutorialStepsDe: TutorialStep[] = [
         title: "Mess-Fragen: Distanzvergleich (Teil 2)",
         content: (
             <>
-                <strong>Versteckzonen-Modus-Variationen:</strong>
+                <strong>Endgame-Variationen:</strong>
                 <br />
                 Diese funktionieren mit dem Zonenanalysesystem:
                 <br />• <strong>McDonald&apos;s:</strong> Entfernung zum nächsten
