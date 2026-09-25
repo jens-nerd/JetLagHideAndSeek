@@ -22,6 +22,7 @@ import { absendeSperre, startStandort, type Herkunft } from "@/lib/standort-herk
 import {
     gameSize,
     ownGpsPosition,
+    revealedHidingZone,
     sessionCode,
     sessionParticipant,
 } from "@/lib/session-context";
@@ -60,21 +61,21 @@ const MEAS_TYPES: MeasTypeDef[] = [
     { value: "consulate-full", smOnly: true },
     { value: "park-full", smOnly: true },
     // Hiding Zone Mode — Store chains
-    { value: "mcdonalds", group: "Versteckzonen-Modus" },
-    { value: "seven11", group: "Versteckzonen-Modus" },
-    { value: "rail-measure", group: "Versteckzonen-Modus" },
+    { value: "mcdonalds", group: "Endgame" },
+    { value: "seven11", group: "Endgame" },
+    { value: "rail-measure", group: "Endgame" },
     // Hiding Zone Mode — POI types
-    { value: "aquarium", group: "Versteckzonen-Modus" },
-    { value: "zoo", group: "Versteckzonen-Modus" },
-    { value: "theme_park", group: "Versteckzonen-Modus" },
-    { value: "peak", group: "Versteckzonen-Modus" },
-    { value: "museum", group: "Versteckzonen-Modus" },
-    { value: "hospital", group: "Versteckzonen-Modus" },
-    { value: "cinema", group: "Versteckzonen-Modus" },
-    { value: "library", group: "Versteckzonen-Modus" },
-    { value: "golf_course", group: "Versteckzonen-Modus" },
-    { value: "consulate", group: "Versteckzonen-Modus" },
-    { value: "park", group: "Versteckzonen-Modus" },
+    { value: "aquarium", group: "Endgame" },
+    { value: "zoo", group: "Endgame" },
+    { value: "theme_park", group: "Endgame" },
+    { value: "peak", group: "Endgame" },
+    { value: "museum", group: "Endgame" },
+    { value: "hospital", group: "Endgame" },
+    { value: "cinema", group: "Endgame" },
+    { value: "library", group: "Endgame" },
+    { value: "golf_course", group: "Endgame" },
+    { value: "consulate", group: "Endgame" },
+    { value: "park", group: "Endgame" },
 ];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -173,6 +174,7 @@ export function MeasuringConfig({
 }: MeasuringConfigProps) {
     const tr = useT();
     const $gameSize = useStore(gameSize);
+    const $revealedZone = useStore(revealedHidingZone);
 
     const [measType, setMeasType] = useState("airport");
 
@@ -202,9 +204,15 @@ export function MeasuringConfig({
     const markerRef = useRef<L.CircleMarker | null>(null);
     const nearestMarkerRef = useRef<L.CircleMarker | null>(null);
 
+    // Das Endgame laeuft, sobald der Hider seine Zone freigegeben hat. Beim
+    // Suchenden steht sie genau dann in revealedHidingZone — der Server liefert
+    // sie an Seeker erst mit revealed === true (backend/src/ws/handler.ts).
+    const endgameAktiv = $revealedZone !== null;
+
     // ── Filter measuring types by game size ──────────────────────────────────
     const filteredTypes = MEAS_TYPES.filter((mt) => {
         if ($gameSize === "L" && mt.smOnly) return false;
+        if (mt.group === "Endgame" && !endgameAktiv) return false;
         return true;
     });
 
