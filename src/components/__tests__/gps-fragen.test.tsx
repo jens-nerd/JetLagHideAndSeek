@@ -33,6 +33,7 @@ const stores = vi.hoisted(() => {
         sessionCode: box<string | null>("ABCDEF"),
         sessionParticipant: box<any>({ role: "seeker", token: "t" }),
         gameSize: box<string>("M"),
+        revealedHidingZone: box<any>(null),
         pickerOpen: box(true),
         bottomSheetState: box("expanded"),
         pendingDraftKey: box<number | null>(null),
@@ -60,6 +61,7 @@ vi.mock("@/lib/session-context", () => ({
     sessionParticipant: stores.sessionParticipant,
     ownGpsPosition: stores.ownGpsPosition,
     gameSize: stores.gameSize,
+    revealedHidingZone: stores.revealedHidingZone,
     pendingDraftKey: stores.pendingDraftKey,
     thermometerGpsTracking: stores.thermometerGpsTracking,
 }));
