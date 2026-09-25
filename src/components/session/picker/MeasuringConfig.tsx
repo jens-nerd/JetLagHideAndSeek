@@ -383,7 +383,7 @@ export function MeasuringConfig({
     return (
         <>
             <PickerHeader
-                title="📏 Measuring"
+                title={`📏 ${tr("questionType.measuring" as TranslationKey)}`}
                 wsStatus={wsStatus}
                 onBack={onBack}
                 onSettings={onSettings}
