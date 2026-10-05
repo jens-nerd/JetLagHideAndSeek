@@ -219,6 +219,9 @@ export const de = {
     "thermometer.distance": "Entfernung",
     "thermometer.start": "Start",
     "thermometer.end": "Ende",
+    "thermometer.endTrack": "Strecke beenden",
+    "thermometer.lineOfSight": "Luftlinie",
+    "thermometer.walkedDistance": "gelaufen",
 
     // ── Tentakel-Karte ────────────────────────────────────────────────────────
     "tentacles.noLocationsRetry": "Keine Standorte gefunden – erneut versuchen",

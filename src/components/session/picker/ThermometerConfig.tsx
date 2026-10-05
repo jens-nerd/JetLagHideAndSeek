@@ -297,6 +297,7 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
             currentLat: startLat,
             currentLng: startLng,
             traveled: 0,
+            walked: 0,
             lastMoveTime: Date.now(),
             accuracy: null,
             signalLost: false,

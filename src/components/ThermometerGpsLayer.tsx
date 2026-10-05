@@ -18,6 +18,7 @@ import { useEffect, useRef } from "react";
 import { Polygon, useMap } from "react-leaflet";
 import { toast } from "react-toastify";
 
+import { useT } from "@/i18n";
 import { questions as questionsAtom } from "@/lib/context";
 import { bottomSheetState } from "@/lib/bottom-sheet-state";
 import {
@@ -70,9 +71,37 @@ function computeVoronoi(
     }
 }
 
+// ── Ending a tracking run ─────────────────────────────────────────────────────
+
+/**
+ * Takes a position as point B of the draft question and ends the tracking.
+ *
+ * The draft itself stays in questions_atom: the seeker still has to press
+ * "Frage senden", and until then B can be dragged on the map — which matters
+ * when the last GPS fix jumped.
+ */
+function endTracking(questionKey: number, latB: number, lngB: number) {
+    // Cast through any to avoid strict union-type mismatch on data shape.
+    const qs = questionsAtom.get();
+    const updated = qs.map((q) => {
+        if (q.key !== questionKey) return q;
+        return {
+            ...q,
+            data: { ...(q.data as any), latB, lngB },
+        } as typeof q;
+    });
+    questionsAtom.set(updated);
+
+    thermometerGpsTracking.set(null);
+
+    // Expand bottom sheet so the "Frage senden" button is visible
+    bottomSheetState.set("default");
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function ThermometerGpsLayer() {
+    const tr = useT();
     const tracking = useStore(thermometerGpsTracking);
     const map = useMap();
     // Stable ref so the watchPosition callback always reads current tracking state
@@ -106,29 +135,21 @@ export function ThermometerGpsLayer() {
                         [longitude, latitude],
                         { units: "kilometers" },
                     ) * 1000;
-                const lastMoveTime = movedM > 5 ? Date.now() : current.lastMoveTime;
+                const hasMoved = movedM > 5;
+                const lastMoveTime = hasMoved ? Date.now() : current.lastMoveTime;
+
+                // Walked distance: sum of the steps, not the straight line. The
+                // 5 m threshold from above keeps GPS jitter out of the sum —
+                // without it a phone standing still walks a kilometre an hour.
+                const walked = hasMoved
+                    ? current.walked + movedM / 1000
+                    : current.walked;
 
                 // ── Auto-stop when target distance is reached ─────────────
                 if (traveled >= current.targetKm) {
                     navigator.geolocation.clearWatch(watchId);
 
-                    // Update the draft question with the final B coordinates.
-                    // Cast through any to avoid strict union-type mismatch on data shape.
-                    const qs = questionsAtom.get();
-                    const updated = qs.map((q) => {
-                        if (q.key !== current.questionKey) return q;
-                        return {
-                            ...q,
-                            data: { ...(q.data as any), latB: latitude, lngB: longitude },
-                        } as typeof q;
-                    });
-                    questionsAtom.set(updated);
-
-                    // Clear tracking state
-                    thermometerGpsTracking.set(null);
-
-                    // Expand bottom sheet so the "Frage senden" button is visible
-                    bottomSheetState.set("default");
+                    endTracking(current.questionKey, latitude, longitude);
 
                     // Haptic feedback
                     navigator.vibrate?.([200, 100, 200]);
@@ -144,6 +165,7 @@ export function ThermometerGpsLayer() {
                     currentLat: latitude,
                     currentLng: longitude,
                     traveled,
+                    walked,
                     lastMoveTime,
                     accuracy: accuracy ?? null,
                     signalLost: false,
@@ -164,9 +186,10 @@ export function ThermometerGpsLayer() {
     if (!tracking) return null;
 
     const {
+        questionKey,
         startLat, startLng,
         currentLat, currentLng,
-        targetKm, traveled,
+        targetKm, traveled, walked,
         lastMoveTime, accuracy, signalLost,
     } = tracking;
 
@@ -175,6 +198,14 @@ export function ThermometerGpsLayer() {
     const isStillstanding = Date.now() - lastMoveTime > 30_000;
     const hasAccuracyWarning = accuracy !== null && accuracy > 50;
     const voronoi = computeVoronoi(startLat, startLng, currentLat, currentLng);
+
+    // ── Finish handler ────────────────────────────────────────────────────────
+    // Works at any time, regardless of the target distance: in a city block you
+    // walk 1.5 km and the straight line stays at 600 m, so the auto-stop above
+    // never fires and there used to be no way out but "Abbrechen".
+    function handleFinish() {
+        endTracking(questionKey, currentLat, currentLng);
+    }
 
     // ── Cancel handler ────────────────────────────────────────────────────────
     function handleCancel() {
@@ -312,6 +343,36 @@ export function ThermometerGpsLayer() {
                                 }}
                             >
                                 Abbrechen
+                            </button>
+                        </div>
+
+                        {/* Row 3: both distances + manual finish.
+                            The straight line is what the map clipping can use,
+                            so it stays the number that counts. The walked sum
+                            is there to explain why it grows so slowly. */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                            <span style={{ color: "#84BCDA", fontSize: 11, whiteSpace: "nowrap" }}>
+                                📐 {fmtKm(traveled)} {tr("thermometer.lineOfSight")}
+                                {" · "}
+                                👣 {fmtKm(walked)} {tr("thermometer.walkedDistance")}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={handleFinish}
+                                style={{
+                                    background: "#ECC30B",
+                                    color: "#000",
+                                    border: "none",
+                                    borderRadius: 8,
+                                    padding: "5px 12px",
+                                    fontSize: 11,
+                                    fontWeight: 800,
+                                    fontFamily: "inherit",
+                                    cursor: "pointer",
+                                    whiteSpace: "nowrap",
+                                }}
+                            >
+                                {tr("thermometer.endTrack")}
                             </button>
                         </div>
                     </div>

@@ -145,6 +145,12 @@ export type ThermometerGpsTrackingState = {
     currentLng: number;
     /** Distance traveled from A so far (km) */
     traveled: number;
+    /**
+     * Summed up walking distance since A (km). Only `traveled` (the straight
+     * line) counts for the question; this is the number that explains why the
+     * target is still far away after 1.5 km through a city block.
+     */
+    walked: number;
     /** Timestamp (ms) of the last significant movement (> 5 m) */
     lastMoveTime: number;
     /** Latest GPS accuracy in metres, null = unknown */
