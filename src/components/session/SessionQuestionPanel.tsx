@@ -2057,7 +2057,7 @@ export function QuestionList({
 // ── Photo answer UI (hider) ─────────────────────────────────────────────────
 
 const BACKEND_URL =
-    (typeof import.meta !== "undefined" && (import.meta as any).env?.PUBLIC_BACKEND_URL) ||
+    (typeof import.meta !== "undefined" && (import.meta as any).env?.PUBLIC_BACKEND_URL) ??
     "http://localhost:3001";
 
 function PhotoAnswerUI({
