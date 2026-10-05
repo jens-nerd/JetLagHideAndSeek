@@ -101,6 +101,26 @@ describe("FluchOverlay", () => {
         expect(markup).toContain("justify-content:safe center");
     });
 
+    it("zeigt die Nachweis-Forderung, wenn die Karte eine traegt", async () => {
+        // Wer das Overlay wegtippt und nicht in den Reiter "Flueche" wechselt,
+        // erfuhr vom verlangten Foto sonst nichts.
+        stores.eingeschlagenerFluch.set({
+            ...FLUCH,
+            karte: { ...FLUCH.karte, nachweis: "Foto beider Steintuerme." },
+        });
+
+        const markup = await render();
+
+        expect(markup).toContain("cards.proof");
+        expect(markup).toContain("Foto beider Steintuerme.");
+    });
+
+    it("zeigt keine Nachweis-Zeile, wenn die Karte keine traegt", async () => {
+        stores.eingeschlagenerFluch.set(FLUCH);
+
+        expect(await render()).not.toContain("cards.proof");
+    });
+
     it("zeichnet beim Versteckenden nichts", async () => {
         stores.sessionParticipant.set({ role: "hider", token: "t" });
         stores.eingeschlagenerFluch.set(FLUCH);

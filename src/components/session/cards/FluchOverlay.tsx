@@ -10,6 +10,8 @@ import { useT } from "@/i18n";
 import { eingeschlagenerFluch } from "@/lib/deck-context";
 import { sessionParticipant } from "@/lib/session-context";
 
+import { kartenZusatz } from "./karten-stil";
+
 export function FluchOverlay() {
     const tr = useT();
     const $participant = useStore(sessionParticipant);
@@ -52,6 +54,12 @@ export function FluchOverlay() {
             <p style={{ color: "rgba(245,245,240,0.85)", fontSize: 15, lineHeight: 1.6, margin: 0, maxWidth: 420, whiteSpace: "pre-line" }}>
                 {$fluch.karte.text}
             </p>
+
+            {$fluch.karte.nachweis ? (
+                <p style={kartenZusatz}>
+                    <strong>{tr("cards.proof")}:</strong> {$fluch.karte.nachweis}
+                </p>
+            ) : null}
 
             <span
                 style={{
