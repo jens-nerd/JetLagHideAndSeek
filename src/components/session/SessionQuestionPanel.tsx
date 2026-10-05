@@ -50,7 +50,7 @@ import { cardsEnabled, deckRest, nachschlagZug, pendingDraw } from "@/lib/deck-c
 const photoAnswerData = atom<unknown>(null);
 
 const BACKEND_URL_DETAIL =
-    (typeof import.meta !== "undefined" && (import.meta as any).env?.PUBLIC_BACKEND_URL) ||
+    (typeof import.meta !== "undefined" && (import.meta as any).env?.PUBLIC_BACKEND_URL) ??
     "http://localhost:3001";
 import { handleSubmitError } from "@/lib/handle-submit-error";
 import { LocationCard } from "./picker/LocationCard";
