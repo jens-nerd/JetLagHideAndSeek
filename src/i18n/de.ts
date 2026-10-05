@@ -369,6 +369,15 @@ export const de = {
     "sqp.detailKeinStandort": "Antwort: Kein Standort in Reichweite",
     "sqp.detailKeineKartenwirkung": "Schneidet die Karte nicht zu",
 
+    // ── Fotobeweis-Overlay (QuestionDetails, sqp) ────────────────────────────
+    "sqp.photoProof": "Fotobeweis",
+    "sqp.photoOpen": "Fotobeweis gross anzeigen",
+    // Bewusst nicht "speichern": auf iOS geht es ueber das Freigabeblatt, wo
+    // der Spieler noch "Bild speichern" antippen muss, und im Rueckfall landet
+    // die Datei in den Downloads statt in den Fotos. Zwei Tipps, nicht einer.
+    "sqp.photoShare": "Foto teilen oder speichern…",
+    "sqp.photoSaveFailed": "Foto konnte nicht weitergegeben werden",
+
     // ── Erwartungsformulierungen (QuestionDetails, sqp) ───────────────────────
     "sqp.expectOutside": "❓ Bist du AUSSERHALB des Kreises?",
     "sqp.expectInside": "❓ Bist du INNERHALB des Kreises?",

@@ -370,6 +370,12 @@ export const en: Record<TranslationKey, string> = {
     "sqp.detailKeineKartenwirkung": "Doesn't shrink the map",
     "sqp.detailKeinStandort": "Answer: No location in range",
 
+    // ── Photo proof overlay (QuestionDetails, sqp) ───────────────────────────
+    "sqp.photoProof": "Photo proof",
+    "sqp.photoOpen": "Show photo proof full size",
+    "sqp.photoShare": "Share or save photo…",
+    "sqp.photoSaveFailed": "Could not hand over the photo",
+
     // ── Expectation phrases (QuestionDetails, sqp) ───────────────────────────
     "sqp.expectOutside": "❓ Are you OUTSIDE the circle?",
     "sqp.expectInside": "❓ Are you INSIDE the circle?",
