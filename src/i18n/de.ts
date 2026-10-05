@@ -222,6 +222,11 @@ export const de = {
     "thermometer.endTrack": "Strecke beenden",
     "thermometer.lineOfSight": "Luftlinie",
     "thermometer.walkedDistance": "gelaufen",
+    "thermometer.remaining": "übrig",
+    "thermometer.cancel": "Abbrechen",
+    "thermometer.signalLost": "GPS-Signal verloren",
+    "thermometer.noProgress": "Kein Fortschritt",
+    "thermometer.targetReached": "Thermometer-Strecke erreicht!",
 
     // ── Tentakel-Karte ────────────────────────────────────────────────────────
     "tentacles.noLocationsRetry": "Keine Standorte gefunden – erneut versuchen",

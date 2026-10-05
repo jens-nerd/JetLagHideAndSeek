@@ -18,7 +18,7 @@ import { useEffect, useRef } from "react";
 import { Polygon, useMap } from "react-leaflet";
 import { toast } from "react-toastify";
 
-import { useT } from "@/i18n";
+import { locale, t, useT } from "@/i18n";
 import { questions as questionsAtom } from "@/lib/context";
 import { bottomSheetState } from "@/lib/bottom-sheet-state";
 import {
@@ -155,7 +155,7 @@ export function ThermometerGpsLayer() {
                     navigator.vibrate?.([200, 100, 200]);
 
                     // Toast
-                    toast.success("🎯 Thermometer-Strecke erreicht!");
+                    toast.success(`🎯 ${t("thermometer.targetReached", locale.get())}`);
                     return;
                 }
 
@@ -312,7 +312,7 @@ export function ThermometerGpsLayer() {
                                 minWidth: 72,
                                 textAlign: "right",
                             }}>
-                                {fmtKm(remaining)} übrig
+                                {fmtKm(remaining)} {tr("thermometer.remaining")}
                             </span>
                         </div>
 
@@ -320,9 +320,9 @@ export function ThermometerGpsLayer() {
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                             <span style={{ color: "#84BCDA", fontSize: 11 }}>
                                 {signalLost
-                                    ? "⚠️ GPS-Signal verloren"
+                                    ? `⚠️ ${tr("thermometer.signalLost")}`
                                     : isStillstanding
-                                        ? "⏸️ Kein Fortschritt"
+                                        ? `⏸️ ${tr("thermometer.noProgress")}`
                                         : hasAccuracyWarning
                                             ? `📡 ±${Math.round(accuracy!)} m`
                                             : `🛰️ ${fmtKm(traveled)} / ${fmtKm(targetKm)}`}
@@ -342,7 +342,7 @@ export function ThermometerGpsLayer() {
                                     padding: 0,
                                 }}
                             >
-                                Abbrechen
+                                {tr("thermometer.cancel")}
                             </button>
                         </div>
 

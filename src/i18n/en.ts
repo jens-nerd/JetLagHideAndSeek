@@ -223,6 +223,11 @@ export const en: Record<TranslationKey, string> = {
     "thermometer.endTrack": "End track",
     "thermometer.lineOfSight": "straight line",
     "thermometer.walkedDistance": "walked",
+    "thermometer.remaining": "left",
+    "thermometer.cancel": "Cancel",
+    "thermometer.signalLost": "GPS signal lost",
+    "thermometer.noProgress": "No progress",
+    "thermometer.targetReached": "Thermometer track reached!",
 
     // ── Tentacles card ────────────────────────────────────────────────────────
     "tentacles.noLocationsRetry": "No locations found – retry",
