@@ -16,10 +16,13 @@ import type {
     UpdateMapLocationRequest,
 } from "@hideandseek/shared";
 
-const BASE_URL =
-    (typeof import.meta !== "undefined" &&
-        (import.meta as any).env?.PUBLIC_BACKEND_URL) ||
-    "";
+// Der Literalausdruck muss hier stehen bleiben: Vite ersetzt
+// import.meta.env.PUBLIC_BACKEND_URL beim Bauen textuell. Ueber eine Variable
+// oder einen Namen in einer Hilfsfunktion gelesen, wird nichts ersetzt.
+// ?? statt ||, damit der Rueckfall nur bei fehlendem Wert greift:
+// .env.production setzt die Variable absichtlich leer, das ergibt relative
+// URLs, die nginx weiterleitet.
+const BASE_URL = import.meta.env.PUBLIC_BACKEND_URL ?? "";
 
 // ── Typed API errors ─────────────────────────────────────────────────────────
 

@@ -22,7 +22,6 @@ const stores = vi.hoisted(() => {
     }
     return {
         pickerOpen: box<boolean>(true),
-        pendingPickerType: box<string | null>(null),
         bottomSheetState: box<string>("collapsed"),
         sessionParticipant: box<any>({ role: "seeker", token: "t" }),
         sessionCode: box<string | null>("ABCDEF"),
@@ -37,7 +36,6 @@ vi.mock("@nanostores/react", () => ({ useStore: (s: any) => s.get() }));
 
 vi.mock("@/lib/bottom-sheet-state", () => ({
     pickerOpen: stores.pickerOpen,
-    pendingPickerType: stores.pendingPickerType,
     bottomSheetState: stores.bottomSheetState,
 }));
 

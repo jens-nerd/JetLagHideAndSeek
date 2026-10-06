@@ -31,7 +31,6 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import {
-    addQuestion as addLocalQuestion,
     hiderMode,
     isLoading,
     leafletMapContext,
@@ -49,9 +48,9 @@ import { cardsEnabled, deckRest, nachschlagZug, pendingDraw } from "@/lib/deck-c
 /** Temporary store for photo answer data — set by PhotoAnswerUI, read by submitAnswer */
 const photoAnswerData = atom<unknown>(null);
 
+// Literalausdruck, siehe session-api.ts: Vite ersetzt ihn beim Bauen textuell.
 const BACKEND_URL_DETAIL =
-    (typeof import.meta !== "undefined" && (import.meta as any).env?.PUBLIC_BACKEND_URL) ??
-    "http://localhost:3001";
+    import.meta.env.PUBLIC_BACKEND_URL ?? "http://localhost:3001";
 import { handleSubmitError } from "@/lib/handle-submit-error";
 import { LocationCard } from "./picker/LocationCard";
 import {
@@ -63,7 +62,7 @@ import {
     sessionQuestions,
     thermometerGpsTracking,
 } from "@/lib/session-context";
-import { pendingPickerType, pickerOpen } from "@/lib/bottom-sheet-state";
+import { pickerOpen } from "@/lib/bottom-sheet-state";
 import type { SessionQuestion } from "@hideandseek/shared";
 import { locale, t, useT, type TranslationKey } from "@/i18n";
 
@@ -914,7 +913,6 @@ export function SessionQuestionPanel() {
      * on mobile (when the user closes the panel to look at the map).
      */
     const pendingLocalKey = useStore(pendingDraftKey);
-    const $pendingPickerType = useStore(pendingPickerType);
 
     // ── Hider answer state ──────────────────────────────────────────────────
     /** The session question currently being answered (preview mode) */
@@ -938,14 +936,6 @@ export function SessionQuestionPanel() {
     const [cardDrawOverlay, setCardDrawOverlay] = useState<{ draw: number; keep: number; questionId: string } | null>(null);
     /** Show GPS-vs-manual dialog when the hider starts answering without a pin */
     const [showLocationDialog, setShowLocationDialog] = useState(false);
-
-    // ── React to question type selected in QuestionPickerSheet ──────────────
-    useEffect(() => {
-        if ($pendingPickerType === null) return;
-        pendingPickerType.set(null);
-        stageQuestion($pendingPickerType);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [$pendingPickerType]);
 
     // ── Notify hider when the question being answered expires ───────────────
     // (We no longer cancel — late answers are still accepted by the server.)
@@ -1131,33 +1121,9 @@ export function SessionQuestionPanel() {
 
     const isHider = participant.role === "hider";
 
-    // ── Seeker: step 1 – add question locally so the seeker can configure it ─
-
-    /** Internal helper: stage a question with explicit data (bypasses map-center defaults) */
-    function stageQuestionWithData(type: string, data: Record<string, unknown>) {
-        addLocalQuestion({ id: type as any, data });
-        const added = [...questions_atom.get()].reverse().find((q) => q.id === type);
-        if (added) pendingDraftKey.set(added.key as number);
-    }
-
-    function stageQuestion(type: string) {
-        const map = leafletMapContext.get();
-        if (!map) return;
-        const center = map.getCenter();
-
-        let questionData: Record<string, unknown>;
-        if (type === "tentacles") {
-            // Start with theme_park so schemaFifteen's default is used initially;
-            // the user can then switch to any locationType in the question card.
-            questionData = { lat: center.lat, lng: center.lng, locationType: "theme_park" };
-        } else {
-            questionData = { lat: center.lat, lng: center.lng };
-        }
-
-        stageQuestionWithData(type, questionData);
-    }
-
-    // ── Seeker: step 2 – send the staged question to the hider ───────────────
+    // ── Seeker: send the staged question to the hider ───────────────────────
+    // Angelegt wird der Entwurf in den Unteransichten des Fragenwaehlers
+    // (siehe stageQuestionWithData in picker/ThermometerConfig.tsx).
     async function sendPendingQuestion() {
         if (!code || !participant || pendingLocalKey === null) return;
         const match = questions_atom.get().find((q) => q.key === pendingLocalKey);
@@ -2056,9 +2022,9 @@ export function QuestionList({
 
 // ── Photo answer UI (hider) ─────────────────────────────────────────────────
 
+// Literalausdruck, siehe session-api.ts: Vite ersetzt ihn beim Bauen textuell.
 const BACKEND_URL =
-    (typeof import.meta !== "undefined" && (import.meta as any).env?.PUBLIC_BACKEND_URL) ??
-    "http://localhost:3001";
+    import.meta.env.PUBLIC_BACKEND_URL ?? "http://localhost:3001";
 
 function PhotoAnswerUI({
     qData,

@@ -12,9 +12,3 @@ export const bottomSheetState = atom<SheetState>("collapsed");
 
 /** Controls visibility of the QuestionPickerSheet overlay */
 export const pickerOpen = atom<boolean>(false);
-
-/**
- * When QuestionPickerSheet selects a question type, it sets this atom.
- * SessionQuestionPanel watches it and calls stageQuestion() then resets to null.
- */
-export const pendingPickerType = atom<string | null>(null);

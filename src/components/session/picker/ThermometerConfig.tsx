@@ -302,6 +302,16 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
 
     function handleStartThermometer() {
         if (selectedKm === null) return;
+        // Die 100 m sind absichtlich fest und nicht thermometerPunktBAbstandKm
+        // wie oben im Handbetrieb. Im GPS-Betrieb ist Punkt B kein Vorschlag,
+        // den der Spieler setzt, sondern ein Platzhalter: endTracking in
+        // ThermometerGpsLayer schreibt die erreichte Position hinein, sobald
+        // die Strecke zu Ende ist. Beim Start ist die Strecke 0, also gehoert
+        // der Pin neben Punkt A. Null Abstand geht nicht, geoSpatialVoronoi
+        // braucht zwei verschiedene Punkte. Der gerechnete Abstand waere hier
+        // falsch herum: ein Viertel der Gebietsausdehnung sind ohne gesetztes
+        // Gebiet 20 km und in einer Stadt etliche Kilometer, und so weit weg
+        // zeigt der Pin etwas, das der Spieler noch nicht gelaufen ist.
         const dest = turf.destination([startLng, startLat], 0.1, 90, { units: "kilometers" });
         stageQuestionWithData("thermometer", {
             latA: startLat,

@@ -6,12 +6,15 @@
  *   Tab "Neue Frage"  — category cards, filtered by gameSize atom
  *   Tab "Verlauf"     — compact history of sessionQuestions
  *
- * When a category is selected, navigates to the question-specific config screen:
+ * When a category is selected, navigates to the question-specific config screen.
+ * Jede der sechs Kategorien aus CATEGORIES hat eine eigene Unteransicht, die
+ * selbst an den Server sendet:
  *   "radius"      → RadiusConfig (GPS + manual modes)
  *   "tentacles"   → TentaclesConfig (category dropdown + radius chips + POI preview)
  *   "thermometer" → ThermometerConfig (GPS + manual modes)
  *   "measuring"   → MeasuringConfig (type dropdown + GPS + distance + preview)
- *   all others    → sets pendingPickerType → SessionQuestionPanel picks it up
+ *   "matching"    → MatchingConfig
+ *   "photo"       → PhotoConfig
  *
  * Visibility: controlled by the pickerOpen atom.
  */
@@ -23,7 +26,7 @@ import { useState } from "react";
 
 import { useT, useTFmt } from "@/i18n";
 import { getCardCost } from "@/lib/card-costs";
-import { bottomSheetState, pendingPickerType, pickerOpen } from "@/lib/bottom-sheet-state";
+import { bottomSheetState, pickerOpen } from "@/lib/bottom-sheet-state";
 import { gesperrteKategorie } from "@/lib/deck-context";
 import {
     gameSize,
@@ -125,13 +128,7 @@ export function QuestionPickerSheet() {
     }
 
     function handleSelectType(type: string) {
-        if (type === "thermometer" || type === "radius" || type === "tentacles" || type === "photo" || type === "matching" || type === "measuring") {
-            setSelectedType(type);
-            return;
-        }
-        pickerOpen.set(false);
-        bottomSheetState.set("default");
-        pendingPickerType.set(type);
+        setSelectedType(type);
     }
 
     function goBack() {

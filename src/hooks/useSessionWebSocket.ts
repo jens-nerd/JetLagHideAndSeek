@@ -40,10 +40,12 @@ function getDefaultWsUrl(): string {
     return "ws://localhost:3001";
 }
 
-const BASE_WS_URL =
-    (typeof import.meta !== "undefined" &&
-        (import.meta as any).env?.PUBLIC_BACKEND_WS_URL) ||
-    getDefaultWsUrl();
+// Literalausdruck, siehe session-api.ts: Vite ersetzt ihn beim Bauen textuell.
+// ?? statt ||, damit nur ein fehlender Wert auf die abgeleitete Adresse
+// zurueckfaellt. .env.production setzt die Variable absichtlich leer, dann
+// entsteht die relative Adresse /ws/<code>, die der Browser gegen das Dokument
+// aufloest und nginx weiterleitet.
+const BASE_WS_URL = import.meta.env.PUBLIC_BACKEND_WS_URL ?? getDefaultWsUrl();
 
 interface Options {
     code: string;
