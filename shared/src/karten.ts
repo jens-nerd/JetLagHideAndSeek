@@ -9,6 +9,27 @@ export type Fluchgruppe =
     | "fragensperre"
     | "eigenvorteil";
 
+/** Medienart eines Nachweises. "video" ist vorgesehen, aber noch nicht erlaubt. */
+export type Nachweisart = "bild" | "video";
+
+/**
+ * Ein hochgeladener Nachweis an einem Fluch.
+ *
+ * `url` ist wörtlich das, was `POST /api/upload` zurückgibt, damit es im Haus
+ * eine Form gibt und nicht zwei. `von` und `am` stehen drin, weil Flüche
+ * Nachweise von beiden Seiten (Warteschlange) oder zu verschiedenen Zeiten
+ * innerhalb derselben Laufzeit (Eiertanz) verlangen.
+ */
+export interface Nachweis {
+    /** z. B. "/uploads/<uuid>.jpg" */
+    url: string;
+    art: Nachweisart;
+    /** Teilnehmerkennung dessen, der hochgeladen hat */
+    von: string;
+    /** ISO8601 */
+    am: string;
+}
+
 export interface Karte {
     /** Stabile Kennung, z. B. "fluch-brueckenzoll" oder "zeitbonus-10" */
     id: string;
@@ -18,6 +39,14 @@ export interface Karte {
     text: string;
     kosten?: string;
     nachweis?: string;
+    /**
+     * Gesetzt bei den zwölf Flüchen, deren Karte selbst einen Nachweis
+     * verlangt: dort darf hochgeladen werden, und der Wert sagt, welche
+     * Medienart die Karte verlangt. Bewusst nicht aus `nachweis` abgeleitet —
+     * den tragen nur sechs der zwölf, weil er eine Transkription der gedruckten
+     * Karte ist und keine Funktion.
+     */
+    nachweisUpload?: "bild" | "video" | "beides";
     ausweichregel?: string;
     /** nur bei art === "fluch" */
     gruppe?: Fluchgruppe;
@@ -60,6 +89,8 @@ export interface Fluch {
     expiresAt: string | null;
     endedAt: string | null;
     endedBy: "ablauf" | "suchende" | "versteckender" | null;
+    /** Hochgeladene Nachweise, älteste zuerst. Leer, solange keiner da ist. */
+    nachweise: Nachweis[];
 }
 
 /** Ein offener Ziehvorgang. */
@@ -192,6 +223,7 @@ export const KARTEN: Karte[] = [
         name: "Brückenzoll",
         text: "Die Suchenden fragen erst weiter, wenn sie unter einer Brücke stehen. Von dort muss die nächste Frage kommen, und sie schicken dir ein Foto nach oben als Beleg.",
         kosten: "Die Suchenden müssen mindestens 1,5 / 8 / 50 Kilometer von dir entfernt sein.",
+        nachweisUpload: "bild",
         ausweichregel: "Unterführungen, Bahnbrücken, Fußgängerbrücken und Tunneleinfahrten zählen. Ein Vordach oder ein Bahnsteigdach nicht. Im Zweifel entscheidet die Karten-App: Über ihnen muss ein Weg verlaufen, der dort eingezeichnet ist.",
         dauerMin: null,
         anzahl: 1,
@@ -204,6 +236,7 @@ export const KARTEN: Karte[] = [
         text: "Du baust einen Turm aus gefundenen Steinen. Die Suchenden müssen einen mit genau so vielen Steinen bauen.\n\nJeder Stein darf nur einen anderen berühren. Was gesetzt ist, bleibt liegen. Der Turm muss fünf Sekunden stehen, bevor der nächste Stein draufkommt. Berührt ein Stein außer dem untersten den Boden, ist der Turm gefallen und die Suchenden fangen von vorn an. Steine werden gefunden, nicht gekauft. Danach räumen beide Seiten ihre Türme wieder ab.",
         kosten: "Du baust zuerst selbst. Nicht auf Vorrat vorbereiten, siehe die Regel oben.",
         nachweis: "Foto beider Türme.",
+        nachweisUpload: "bild",
         ausweichregel: "Schotter, Kies, Ziegelbruch und lose Pflastersteine zählen mit. Findet eine Seite im Umkreis von 200 Metern nach 15 Minuten Suche nichts Stapelbares, gilt der Fluch als erledigt.",
         dauerMin: null,
         anzahl: 1,
@@ -216,6 +249,7 @@ export const KARTEN: Karte[] = [
         text: "Die Suchenden stellen sich irgendwo an und warten dort 5 / 5 / 10 Minuten. Kaufen müssen sie nichts. Warten schon.\n\nBeim Einreihen müssen mindestens zwei Leute vor ihnen stehen. Niemanden vorlassen, auch nicht den netten alten Herrn mit den zwei Brötchen. Sobald niemand mehr vor ihnen steht, läuft die Uhr nicht weiter. Sie stellen sich dann hinten in einer anderen Schlange an. Die abgesessene Zeit nehmen sie mit.",
         kosten: "Du stehst selbst gerade in einer Schlange, wenn du die Karte spielst.",
         nachweis: "Foto oder Video, auf dem Leute vor ihnen stehen. Von dir dasselbe.",
+        nachweisUpload: "beides",
         ausweichregel: "Bäckerei, Kiosk, Apotheke, Supermarktkasse, Reisezentrum, Imbiss. Ist in 15 Minuten Fußweg keine Schlange mit zwei Leuten darin aufzutreiben, gilt der Fluch als erledigt.",
         dauerMin: null,
         anzahl: 1,
@@ -228,6 +262,7 @@ export const KARTEN: Karte[] = [
         text: "Du suchst dir eine von vier Zahlen aus. Die Suchenden gehen zur nächsten Stelle, an der sie diese Zahl ablesen oder abzählen können, und nennen dir ihre Schätzung, bevor sie hinsehen.\n\nZur Wahl stehen die Bahnsteigkanten am nächsten Bahnhof, die Abfahrten der nächsten Stunde auf dem Aushangfahrplan der nächsten Haltestelle, die Stufen der nächsten Treppe mit mehr als zehn Stufen, oder die Einwohnerzahl auf dem nächsten Ortsschild, falls in Gehweite eins steht.\n\nNachschlagen ist verboten. Die Wahrheit hängt an einem Mast oder liegt unter ihren Füßen, dafür braucht niemand ein Telefon.\n\nLiegt die Schätzung innerhalb von 25 Prozent, ist die Sache erledigt. Gerechnet wird von der richtigen Zahl aus, nicht von der geschätzten. Daneben geschätzt bringt dir 15 / 20 / 30 Minuten.\n\nSo oder so endet der Fluch mit dem Versuch. Bis dahin fragen sie nicht, danach schon, und die erste Frage danach ist für sie umsonst.",
         kosten: "Die nächste Frage der Suchenden ist kostenlos. Du ziehst dafür keine Karten.",
         nachweis: "Foto der Stelle mit der Zahl, oder ein Video vom Zählen.",
+        nachweisUpload: "beides",
         ausweichregel: "Ist die gewählte Zahl nach 15 Minuten Fußweg nirgends zu finden, nehmen sie die nächste aus der Liste. Geht auch die nicht, ist der Fluch erledigt.",
         dauerMin: null,
         anzahl: 1,
@@ -239,6 +274,7 @@ export const KARTEN: Karte[] = [
         name: "Wildwechsel",
         text: "Ein wildlebendes Tier vor deine Kamera, dann sind sie dran: Die Suchenden brauchen eins aus derselben Klasse. Vogel bleibt Vogel, Säugetier bleibt Säugetier, Insekt bleibt Insekt.\n\nWildlebend heißt: kein Haustier, kein Zootier, nichts hinter einem Zaun. Stadttauben, Eichhörnchen, Wespen und Ratten gehen alle klar.\n\nPasst dein Tier in keine der drei Gruppen, weil du eine Spinne, eine Schnecke oder einen Fisch erwischt hast, entscheidet der deutsche Wikipedia-Artikel: Die Suchenden brauchen ein Tier aus derselben Klasse, die dort im Kasten steht.",
         kosten: "Du fotografierst zuerst.",
+        nachweisUpload: "bild",
         dauerMin: null,
         anzahl: 1,
     },
@@ -249,6 +285,7 @@ export const KARTEN: Karte[] = [
         name: "Vogelkino",
         text: "Du filmst einen Vogel am Stück, höchstens 5 / 10 / 15 Minuten lang. Sobald er aus dem Bild ist, stoppt deine Zeit. Was du geschafft hast, ist die Vorgabe.\n\nDie Suchenden müssen diese Zeit erreichen. Du hast einen Versuch, sie haben beliebig viele.\n\nAm Stück heißt: Der Vogel ist durchgehend im Bild. Zoomen und Mitgehen sind erlaubt, Schneiden nicht.",
         kosten: "dein eigener Film.",
+        nachweisUpload: "video",
         dauerMin: null,
         anzahl: 1,
     },
@@ -260,6 +297,7 @@ export const KARTEN: Karte[] = [
         text: "Du zeichnest ein Labyrinth und schickst es rüber. Die Suchenden müssen es lösen.\n\nDeine Zeichenzeit: höchstens 10 / 20 / 30 Minuten ab dem ersten Strich. Papier und Stift besorgen zählt nicht mit. Du darfst verwerfen und neu anfangen, aber die Uhr läuft weiter. Lösbar muss es am Ende sein.",
         kosten: "die Zeichnung.",
         nachweis: "Foto mit eingezeichnetem Weg.",
+        nachweisUpload: "bild",
         dauerMin: null,
         anzahl: 1,
     },
@@ -281,6 +319,7 @@ export const KARTEN: Karte[] = [
         name: "Suchbild",
         text: "Die Suchenden nennen dir ihren Standort. Du suchst im Straßenbild einen Punkt im Umkreis von 150 Metern und schickst ein Bild davon. Sie müssen hingehen und ein eigenes Foto von derselben Stelle schicken.\n\nDabei sind Karten, Bildersuche und Nachfragen bei Passanten verboten. Die Suchenden gehen los und erkennen die Stelle wieder, oder sie gehen im Kreis.\n\nDieser Fluch sperrt Fragen und Nahverkehr gleichzeitig.\n\nAbbruch: Die Suchenden dürfen jederzeit aufgeben. Dann bekommst du 20 / 30 / 45 Minuten, und der Fluch ist erledigt. Damit ist die Karte für beide Seiten kalkulierbar: Entweder sie laufen, oder sie zahlen.\n\nNur für diesen Fluch darfst du das Straßenbild benutzen. Im restlichen Spiel ist es gesperrt.",
         kosten: "Die Suchenden müssen draußen sein.",
+        nachweisUpload: "bild",
         ausweichregel: "Ist im Straßenbild nichts Wiedererkennbares zu finden, weil da Wald, Baustelle oder gar kein Bildmaterial ist, such dir einen anderen Punkt oder lass die Karte verfallen.",
         dauerMin: null,
         anzahl: 1,
@@ -292,6 +331,7 @@ export const KARTEN: Karte[] = [
         name: "Abstecher",
         text: "Du bestimmst einen Ort im Umkreis von 400 / 400 / 800 Metern um die Suchenden. Sie müssen hin, dort 5 / 5 / 10 Minuten bleiben, dir drei Fotos von der Stelle schicken und ein Souvenir mitnehmen. Das Souvenir übergeben sie dir am Ende der Runde.\n\nAls Souvenir geht alles, was man mitnehmen darf. Ein Flyer, ein Bierdeckel, ein Kassenbon, ein Blatt, ein Kieselstein. Nichts, was jemandem gehört.\n\nGeht das Souvenir vor der Übergabe verloren, bekommst du 30 / 45 / 60 Minuten.\n\nNicht spielbar, solange die Suchenden in einem Verkehrsmittel sitzen.",
         kosten: "Der Ort muss weiter von dir entfernt liegen als der aktuelle Standort der Suchenden.",
+        nachweisUpload: "bild",
         dauerMin: null,
         anzahl: 1,
     },
@@ -302,6 +342,7 @@ export const KARTEN: Karte[] = [
         name: "Erpresserbrief",
         text: "Ihre nächste Frage müssen die Suchenden als Buchstabencollage stellen. Ausgeschnittene oder abgerissene Buchstaben aus gedrucktem Material, mindestens fünf Wörter. Ein Foto davon reicht.\n\nMaterial: Gratiszeitungen, Werbeprospekte, Verpackungen, Fahrpläne. Kein Handy, kein selbst ausgedrucktes Blatt.",
         kosten: "Du legst zuerst selbst eine Collage. Nicht auf Vorrat vorbereiten, siehe die Regel oben.",
+        nachweisUpload: "bild",
         dauerMin: null,
         anzahl: 1,
     },
@@ -323,6 +364,7 @@ export const KARTEN: Karte[] = [
         text: "Die Suchenden müssen einen Würfel mindestens 30 Meter weit rollen lassen und dabei eine 5 oder 6 treffen. Vorher fragen sie nicht weiter.\n\nRollen heißt rollen. Rutschen und Springen zählen nicht, und gemessen wird von der Stelle, an der der Würfel die Hand verlässt, bis dorthin, wo er liegen bleibt.\n\nRollt der Würfel gegen einen Menschen, ist der Wurf ungültig und du bekommst 10 / 20 / 30 Minuten. Sie haben also einen guten Grund, sich eine freie Fläche zu suchen.",
         kosten: "Du würfelst einmal, bevor du die Karte spielst. Kommt eine 5 oder 6, verpufft sie.",
         nachweis: "Video vom Wurf, ungeschnitten.",
+        nachweisUpload: "video",
         ausweichregel: "Gerollt wird auf befestigtem Boden ohne Autoverkehr. Gehwege, Plätze, Bahnhofshallen, Parkwege. Treppen und Gleise nicht. Ist im Umkreis von 200 Metern keine solche Fläche, gilt der Fluch als erledigt.",
         dauerMin: null,
         anzahl: 1,
@@ -337,6 +379,7 @@ export const KARTEN: Karte[] = [
         text: "Die Suchenden kaufen ein rohes Ei. Es gilt bis zum Rundenende als vollwertiges Teammitglied: Wo alle Suchenden hinmüssen, muss auch das Ei hin. Bis sie es haben, dürfen sie nicht fragen.\n\nJeder sichtbare Riss ist ein Verlust und bringt dir 30 / 45 / 60 Minuten. Die Suchenden müssen dir das sofort melden.\n\nWeil das Ei als Teammitglied zählt, betrifft es auch jeden anderen Fluch, der alle Suchenden zu etwas verpflichtet. Zitronenpflicht zum Beispiel.\n\nNicht im Endgame spielbar.",
         kosten: "2 Karten.",
         nachweis: "Foto beim Kauf, Foto auf Verlangen.",
+        nachweisUpload: "bild",
         dauerMin: null,
         anzahl: 1,
     },

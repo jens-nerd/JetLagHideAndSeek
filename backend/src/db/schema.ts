@@ -138,6 +138,11 @@ export const curses = sqliteTable("curses", {
      * jeder andere Fluch laesst die Spalte auf null.
      */
     gesperrteKategorie: text("locked_category"),
+    /**
+     * Hochgeladene Nachweise als JSON-Liste von { url, art, von, am }.
+     * null heisst "kein Nachweis"; der Lesecode behandelt es wie [].
+     */
+    nachweise: text("nachweise"),
 });
 
 // Grouped schema object for convenience imports

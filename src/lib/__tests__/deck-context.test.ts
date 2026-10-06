@@ -7,6 +7,7 @@ import {
     activeCurses,
     applyCardsSync,
     applyCurseEnded,
+    applyCurseNachweise,
     applyCursePlayed,
     applyHandUpdated,
     applyLockedCategory,
@@ -36,6 +37,14 @@ const FLUCH = {
     expiresAt: null,
     endedAt: null,
     endedBy: null,
+    nachweise: [],
+};
+
+const NACHWEIS = {
+    url: "/uploads/beleg.jpg",
+    art: "bild" as const,
+    von: "p1",
+    am: "2026-10-06T10:00:00.000Z",
 };
 
 describe("deck-context", () => {
@@ -204,6 +213,41 @@ describe("deck-context", () => {
         });
 
         expect(gesperrteKategorie.get()).toBe("photo");
+    });
+
+    it("schreibt eingetroffene Nachweise an den gemeinten Fluch", () => {
+        applyCursePlayed({ curse: FLUCH });
+        applyCurseNachweise({ curseId: "c1", nachweise: [NACHWEIS] });
+
+        expect(activeCurses.get()[0].nachweise).toEqual([NACHWEIS]);
+    });
+
+    it("ersetzt die Nachweisliste, statt sie zu verdoppeln", () => {
+        applyCursePlayed({ curse: FLUCH });
+        applyCurseNachweise({ curseId: "c1", nachweise: [NACHWEIS] });
+        // Das Ereignis trägt immer die ganze Liste, auch beim zweiten Mal.
+        applyCurseNachweise({ curseId: "c1", nachweise: [NACHWEIS] });
+
+        expect(activeCurses.get()[0].nachweise).toHaveLength(1);
+    });
+
+    it("rührt die anderen Flüche nicht an", () => {
+        const zweiter = { ...FLUCH, id: "c2" };
+        applyCursePlayed({ curse: FLUCH });
+        applyCursePlayed({ curse: zweiter });
+
+        applyCurseNachweise({ curseId: "c2", nachweise: [NACHWEIS] });
+
+        expect(activeCurses.get()[0].nachweise).toEqual([]);
+        expect(activeCurses.get()[1].nachweise).toEqual([NACHWEIS]);
+    });
+
+    it("ignoriert Nachweise an einem unbekannten Fluch", () => {
+        applyCursePlayed({ curse: FLUCH });
+        applyCurseNachweise({ curseId: "gibt-es-nicht", nachweise: [NACHWEIS] });
+
+        expect(activeCurses.get()).toHaveLength(1);
+        expect(activeCurses.get()[0].nachweise).toEqual([]);
     });
 
     it("räumt die gesperrte Kategorie beim Zurücksetzen ab", () => {

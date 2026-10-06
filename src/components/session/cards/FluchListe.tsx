@@ -18,6 +18,7 @@ import { sessionParticipant } from "@/lib/session-context";
 
 import { KartenKopf } from "./KartenKopf";
 import { kartenArt, kartenFlaeche, kartenName, kartenText, kartenZusatz } from "./karten-stil";
+import { NachweisFeld } from "./NachweisFeld";
 
 // Die Restzeit steht in der Kopfzeile der Karte, also auf dunklem Rot. Die
 // satten Warnfarben von vorher verschwinden dort; diese hellen Töne bleiben
@@ -154,6 +155,8 @@ export function FluchListe() {
                                 <strong>{tr("cards.fallback")}:</strong> {curse.karte.ausweichregel}
                             </p>
                         ) : null}
+
+                        <NachweisFeld curse={curse} />
 
                         <button
                             onClick={() => void beenden(curse)}

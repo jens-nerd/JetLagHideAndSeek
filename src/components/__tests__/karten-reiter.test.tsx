@@ -132,6 +132,7 @@ describe("KartenReiter", () => {
                 expiresAt: null,
                 endedAt: null,
                 endedBy: null,
+                nachweise: [],
             },
         ]);
 

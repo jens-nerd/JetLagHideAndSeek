@@ -1,4 +1,4 @@
-import type { Fluch, Fragekategorie, HandKarte, PendingDraw } from "./karten.js";
+import type { Fluch, Fragekategorie, HandKarte, Nachweis, PendingDraw } from "./karten.js";
 import type { HidingZone, MapLocation, SessionQuestion, SessionStatus } from "./types.js";
 
 export interface SeekerPosition {
@@ -127,6 +127,16 @@ export type ServerToClientEvent =
           type: "locked_category";
           curseId: string;
           kategorie: Fragekategorie;
+      }
+    | {
+          /**
+           * An alle: an einem Fluch hängen neue Nachweise. Es geht immer die
+           * ganze Liste raus, nicht nur der Zuwachs — dann macht ein verlorenes
+           * Ereignis die Anzeige nicht dauerhaft falsch.
+           */
+          type: "curse_nachweise";
+          curseId: string;
+          nachweise: Nachweis[];
       };
 
 /**

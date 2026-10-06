@@ -636,6 +636,10 @@ export const en: Record<TranslationKey, string> = {
     "cards.extraDrawLast": "Nachschlag: one more card revealed. That was the last use.",
     "cards.curseHit": "Curse!",
     "cards.curseUnderstood": "Got it",
+    "cards.proofUpload": "Upload proof",
+    "cards.proofUploading": "Uploading…",
+    "cards.proofsUploaded": "Uploaded proofs",
+    "cards.proofUploadFailed": "The proof could not be uploaded.",
 
     // ── Map ───────────────────────────────────────────────────────────────────
     "toast.map.refreshFailed":

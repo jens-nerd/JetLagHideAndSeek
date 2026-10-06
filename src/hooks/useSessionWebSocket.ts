@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import {
     applyCardsSync,
     applyCurseEnded,
+    applyCurseNachweise,
     applyCursePlayed,
     applyHandUpdated,
     applyLockedCategory,
@@ -258,6 +259,13 @@ export function useSessionWebSocket({ code, token, onSync }: Options): void {
                             curseId: event.curseId,
                             endedBy: event.endedBy,
                             endedAt: event.endedAt,
+                        });
+                        break;
+
+                    case "curse_nachweise":
+                        applyCurseNachweise({
+                            curseId: event.curseId,
+                            nachweise: event.nachweise,
                         });
                         break;
 

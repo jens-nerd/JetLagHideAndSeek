@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 
-export const CURRENT_SCHEMA_VERSION = 9;
+export const CURRENT_SCHEMA_VERSION = 10;
 
 type ColumnRow = { name: string };
 
@@ -209,6 +209,18 @@ const MIGRATIONS: Migration[] = [
             const cols = columnNames(db, "curses");
             if (!cols.includes("locked_category")) {
                 db.exec("ALTER TABLE curses ADD COLUMN locked_category TEXT");
+            }
+        },
+    },
+    {
+        // v10: hochgeladene Nachweise an curses, als JSON-Liste von Objekten
+        // { url, art, von, am }. NULL heisst "kein Nachweis" und wird beim
+        // Lesen wie [] behandelt.
+        version: 10,
+        up: (db) => {
+            const cols = columnNames(db, "curses");
+            if (!cols.includes("nachweise")) {
+                db.exec("ALTER TABLE curses ADD COLUMN nachweise TEXT");
             }
         },
     },

@@ -7,7 +7,7 @@
  * einem Dienstneustart), stimmt die Anzeige trotzdem, weil jeder Client seinen
  * Countdown selbst aus expiresAt rechnet.
  */
-import type { Fluch, Fragekategorie, Karte } from "@hideandseek/shared";
+import type { Fluch, Fragekategorie, Karte, Nachweis } from "@hideandseek/shared";
 import {
     GLUECKSRAD_ID,
     NACHSCHLAG_ID,
@@ -39,6 +39,14 @@ export function berechneAblauf(
     return new Date(Date.now() + minuten * 60_000).toISOString();
 }
 
+/**
+ * Die Nachweisspalte lesen. NULL und leerer Text heißen beide "kein Nachweis",
+ * wie bei sessions.map_location.
+ */
+export function leseNachweise(raw: string | null): Nachweis[] {
+    return raw ? (JSON.parse(raw) as Nachweis[]) : [];
+}
+
 /** Eine DB-Zeile in die Übertragungsform bringen. */
 export function toFluch(row: DbCurse): Fluch {
     const karte = findeKarte(row.cardId);
@@ -52,6 +60,7 @@ export function toFluch(row: DbCurse): Fluch {
         expiresAt: row.expiresAt ?? null,
         endedAt: row.endedAt ?? null,
         endedBy: row.endedBy ?? null,
+        nachweise: leseNachweise(row.nachweise),
     };
 }
 

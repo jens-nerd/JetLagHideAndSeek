@@ -5,7 +5,7 @@
  * sync-Ereignis beim Verbinden stellt den Zustand wieder her. Ein Neuladen
  * mitten im Spiel verliert also nichts.
  */
-import type { Fluch, Fragekategorie, HandKarte, PendingDraw } from "@hideandseek/shared";
+import type { Fluch, Fragekategorie, HandKarte, Nachweis, PendingDraw } from "@hideandseek/shared";
 import { GLUECKSRAD_ID } from "@hideandseek/shared";
 import { atom } from "nanostores";
 
@@ -99,6 +99,24 @@ export function applyCurseEnded(event: {
     if (beendet?.karte.id === GLUECKSRAD_ID) {
         gesperrteKategorie.set(null);
     }
+}
+
+/**
+ * Neue Nachweise an einem Fluch.
+ *
+ * Das Ereignis trägt immer die ganze Liste, nicht den Zuwachs — also stumpf
+ * ersetzen, nichts zusammenfügen. Ein verlorenes Ereignis macht die Anzeige
+ * dann nicht dauerhaft falsch.
+ */
+export function applyCurseNachweise(event: {
+    curseId: string;
+    nachweise: Nachweis[];
+}): void {
+    activeCurses.set(
+        activeCurses.get().map((f) =>
+            f.id === event.curseId ? { ...f, nachweise: event.nachweise } : f,
+        ),
+    );
 }
 
 /** Das Glücksrad hat gelost — beim Ausspielen und nach jeder gestellten Frage. */

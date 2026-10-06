@@ -4,7 +4,12 @@
  * Alle Endpunkte prüfen zuerst sessions.cards_enabled und antworten mit
  * 409 cards_disabled, wenn die Mechanik für diese Sitzung aus ist.
  */
-import type { HandKarte, ServerToClientEvent, ZiehErgebnis } from "@hideandseek/shared";
+import type {
+    HandKarte,
+    Nachweis,
+    ServerToClientEvent,
+    ZiehErgebnis,
+} from "@hideandseek/shared";
 import {
     GLUECKSRAD_ID,
     NACHSCHLAG_ANWENDUNGEN,
@@ -31,6 +36,7 @@ import {
     dreheGluecksrad,
     findeNachschlag,
     getAktiveFlueche,
+    leseNachweise,
     planeAblauf,
     toFluch,
     verbraucheAnwendung,
@@ -403,6 +409,116 @@ export function createCardsRouter(db: Db): Hono {
             where: eq(schema.curses.id, curseId),
         }))!;
         return c.json({ curse: toFluch(aktualisiert) });
+    });
+
+    // ── POST /curses/:id/nachweise ────────────────────────────────────────────
+    //
+    // Nachweise kommen während der Laufzeit, nicht am Ende — Eiertanz verlangt
+    // "Foto beim Kauf" und später "Foto auf Verlangen". Darum ein eigener
+    // Endpunkt und kein Body an /end.
+    //
+    // Der Endpunkt nimmt ein Array, nicht einen Nachweis: Abstecher verlangt
+    // drei Fotos, und wer drei Dateien auf einmal auswählt, löst sonst drei
+    // Anfragen aus. Beides zusammen — Array plus die Transaktion unten — macht
+    // den verlorenen Nachweis unmöglich statt nur unwahrscheinlich.
+    //
+    // Hochladen dürfen beide Rollen: Warteschlange verlangt Nachweise von
+    // beiden Seiten ("Von dir dasselbe").
+
+    router.post("/curses/:id/nachweise", async (c) => {
+        const curseId = c.req.param("id");
+        const token = c.req.header("x-participant-token");
+        // Ohne Rumpf wirft c.req.json(). Das wäre ein 500er für einen Fehler
+        // des Aufrufers, darum abgefangen.
+        const body = (await c.req.json().catch(() => null)) as {
+            nachweise?: unknown;
+        } | null;
+
+        const curseRow = await db.query.curses.findFirst({
+            where: eq(schema.curses.id, curseId),
+        });
+        if (!curseRow) return c.json({ error: "Curse not found" }, 404);
+        if (curseRow.endedAt) return c.json({ error: "already_ended" }, 409);
+
+        const sessionRow = await db.query.sessions.findFirst({
+            where: eq(schema.sessions.id, curseRow.sessionId),
+        });
+        if (!sessionRow) return c.json({ error: "Session not found" }, 404);
+        if (!sessionRow.cardsEnabled) {
+            return c.json({ error: "cards_disabled" }, 409);
+        }
+
+        const participant = await resolveParticipant(db, sessionRow.id, token);
+        if (!participant) return c.json({ error: "Invalid token" }, 403);
+
+        // Nur die zwölf Flüche, deren Karte selbst einen Nachweis verlangt.
+        const karte = findeKarte(curseRow.cardId);
+        if (!karte?.nachweisUpload) {
+            return c.json({ error: "no_proof_for_card" }, 400);
+        }
+
+        const eingang = body?.nachweise;
+        if (!Array.isArray(eingang) || eingang.length === 0) {
+            return c.json({ error: "nachweise_required" }, 400);
+        }
+
+        const am = new Date().toISOString();
+        const neue: Nachweis[] = [];
+        for (const roh of eingang as Array<{ url?: unknown; art?: unknown }>) {
+            // In die Spalte kommt nur, was POST /api/upload zurückgegeben hat.
+            // Sonst landet beliebiger Text in einem src-Attribut.
+            if (typeof roh?.url !== "string" || !roh.url.startsWith("/uploads/")) {
+                return c.json({ error: "bad_url" }, 400);
+            }
+            const art = roh.art ?? "bild";
+            if (art !== "bild" && art !== "video") {
+                return c.json({ error: "bad_art" }, 400);
+            }
+            // Eintrag 8. POST /api/upload nimmt heute keine Videos an und
+            // würde ein mp4 als .jpg ablegen; eine Zeile mit art: "video" wäre
+            // also eine Lüge in der Datenbank.
+            if (art === "video") {
+                return c.json({ error: "video_not_supported" }, 400);
+            }
+            // Vogelkino und Kegelbahn verlangen zwingend Video: "ein Vogel, am
+            // Stück gefilmt" und "der Wurf, ungeschnitten". Ein Bild beweist
+            // davon nichts, und eine Zeile, die eines annimmt, behauptet das
+            // Gegenteil. Bis Eintrag 8 nehmen diese beiden darum gar nichts an.
+            if (karte.nachweisUpload === "video") {
+                return c.json({ error: "video_required" }, 400);
+            }
+            neue.push({ url: roh.url, art, von: participant.id, am });
+        }
+
+        // Anhängen ist Lesen-Ändern-Schreiben. Ohne Transaktion liegt zwischen
+        // Lesen und Schreiben ein await, und von zwei gleichzeitigen Anfragen
+        // gewinnt die zweite — der erste Nachweis wäre weg. Die Transaktion von
+        // better-sqlite3 ist synchron und nicht unterbrechbar, deshalb stehen
+        // hier .sync() und .run() und kein await.
+        const liste = db.transaction((tx) => {
+            const frisch = tx.query.curses
+                .findFirst({ where: eq(schema.curses.id, curseId) })
+                .sync();
+            const zusammen = [...leseNachweise(frisch?.nachweise ?? null), ...neue];
+            tx.update(schema.curses)
+                .set({ nachweise: JSON.stringify(zusammen) })
+                .where(eq(schema.curses.id, curseId))
+                .run();
+            return zusammen;
+        });
+
+        const ereignis: ServerToClientEvent = {
+            type: "curse_nachweise",
+            curseId,
+            nachweise: liste,
+        };
+        if (karte.geheim) {
+            wsManager.sendToRole(sessionRow.code, "hider", ereignis);
+        } else {
+            wsManager.broadcast(sessionRow.code, ereignis);
+        }
+
+        return c.json({ nachweise: liste });
     });
 
     // ── PATCH /sessions/:code/cards ───────────────────────────────────────────

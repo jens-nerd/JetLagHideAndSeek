@@ -33,6 +33,14 @@ vi.mock("@nanostores/react", () => ({
 vi.mock("@/lib/deck-context", () => ({
     activeCurses: stores.activeCurses,
     gesperrteKategorie: stores.gesperrteKategorie,
+    applyCurseNachweise: vi.fn(),
+}));
+
+// FotoBeweis hängt sein Overlay über DialogContent in einen DOM-Knoten; das
+// gibt es in dieser Umgebung nicht. Der Platzhalter trägt die Bildadresse, so
+// prüft der Test dasselbe, was der echte Knopf anzeigt.
+vi.mock("../session/FotoBeweis", () => ({
+    FotoBeweis: ({ src }: { src: string }) => <div data-fotobeweis={src} />,
 }));
 
 vi.mock("@/lib/session-context", () => ({
@@ -42,9 +50,11 @@ vi.mock("@/lib/session-context", () => ({
 
 vi.mock("@/lib/cards-api", () => ({
     fluchBeenden: vi.fn(),
+    nachweiseHochladen: vi.fn(),
 }));
 
 vi.mock("@/i18n", () => ({
+    t: (key: string) => key,
     useT: () => (key: string) => key,
     useTFmt: () => (key: string, vars?: Record<string, string | number>) =>
         vars ? `${key}|${Object.values(vars).join(",")}` : key,
@@ -81,7 +91,7 @@ const GLUECKSRAD = {
     anzahl: 1,
 };
 
-function fluch(karte: any, expiresAt: string | null) {
+function fluch(karte: any, expiresAt: string | null, nachweise: any[] = []) {
     return {
         id: `c-${karte.id}`,
         karte,
@@ -89,6 +99,7 @@ function fluch(karte: any, expiresAt: string | null) {
         expiresAt,
         endedAt: null,
         endedBy: null,
+        nachweise,
     };
 }
 
@@ -216,5 +227,108 @@ describe("FluchListe", () => {
         const markup = await render();
 
         expect(markup).not.toContain("cards.lockedCategory");
+    });
+});
+
+describe("FluchListe, Nachweise", () => {
+    beforeEach(() => {
+        stores.activeCurses.set([]);
+        stores.sessionParticipant.set({ role: "seeker", token: "t" });
+        stores.gesperrteKategorie.set(null);
+        vi.resetModules();
+    });
+
+    it("gibt einem Bild-Fluch einen Hochladeknopf", async () => {
+        const karte = { ...KARTE_OHNE_DAUER, nachweisUpload: "bild" };
+        stores.activeCurses.set([fluch(karte, null)]);
+
+        const markup = await render();
+
+        expect(markup).toContain('data-nachweis-knopf="c-fluch-brueckenzoll"');
+        expect(markup).toContain("cards.proofUpload");
+    });
+
+    it("gibt einem beides-Fluch einen Hochladeknopf", async () => {
+        const karte = { ...KARTE_OHNE_DAUER, id: "fluch-warteschlange", nachweisUpload: "beides" };
+        stores.activeCurses.set([fluch(karte, null)]);
+
+        const markup = await render();
+
+        expect(markup).toContain('data-nachweis-knopf="c-fluch-warteschlange"');
+    });
+
+    it("gibt einem Video-Fluch keinen Hochladeknopf", async () => {
+        // Vogelkino und Kegelbahn verlangen zwingend einen Film; der Upload
+        // nimmt bis Eintrag 8 nur Bilder.
+        const karte = { ...KARTE_OHNE_DAUER, id: "fluch-kegelbahn", nachweisUpload: "video" };
+        stores.activeCurses.set([fluch(karte, null)]);
+
+        const markup = await render();
+
+        expect(markup).not.toContain("data-nachweis-knopf");
+        expect(markup).not.toContain("cards.proofUpload");
+    });
+
+    it("gibt einem Fluch ohne nachweisUpload keinen Hochladeknopf", async () => {
+        // Auch dann nicht, wenn die Karte eine Nachweis-Zeile trägt: die haben
+        // nur sechs der zwölf, sie ist eine Abschrift und keine Funktion.
+        const karte = { ...KARTE_OHNE_DAUER, nachweis: "Foto beider Türme." };
+        stores.activeCurses.set([fluch(karte, null)]);
+
+        const markup = await render();
+
+        expect(markup).not.toContain("data-nachweis-knopf");
+    });
+
+    it("gibt auch dem Versteckenden den Hochladeknopf", async () => {
+        // fluch-warteschlange verlangt Nachweise von beiden Seiten.
+        stores.sessionParticipant.set({ role: "hider", token: "t" });
+        const karte = { ...KARTE_OHNE_DAUER, nachweisUpload: "beides" };
+        stores.activeCurses.set([fluch(karte, null)]);
+
+        const markup = await render();
+
+        expect(markup).toContain("data-nachweis-knopf");
+    });
+
+    it("zeigt die vorhandenen Nachweise als Vorschaubilder", async () => {
+        const karte = { ...KARTE_OHNE_DAUER, nachweisUpload: "bild" };
+        stores.activeCurses.set([
+            fluch(karte, null, [
+                { url: "/uploads/eins.jpg", art: "bild", von: "p1", am: "2026-10-06T10:00:00.000Z" },
+                { url: "/uploads/zwei.jpg", art: "bild", von: "p1", am: "2026-10-06T10:01:00.000Z" },
+            ]),
+        ]);
+
+        const markup = await render();
+
+        expect(markup).toContain('/uploads/eins.jpg"');
+        expect(markup).toContain('/uploads/zwei.jpg"');
+        expect(markup).toContain("cards.proofsUploaded");
+    });
+
+    it("zeichnet gar kein Nachweisfeld, wenn die Karte keinen verlangt", async () => {
+        stores.activeCurses.set([fluch(KARTE_OHNE_DAUER, null)]);
+
+        const markup = await render();
+
+        expect(markup).not.toContain("data-nachweisfeld");
+    });
+
+    it("zeigt vorhandene Nachweise auch an einem Video-Fluch", async () => {
+        // Flos Endpunkt lässt an einer Video-Karte ein Bild durch (seine
+        // Abweichung 4). Angekommene Nachweise sollen dann sichtbar sein,
+        // auch wenn hier kein Knopf steht.
+        const karte = { ...KARTE_OHNE_DAUER, id: "fluch-kegelbahn", nachweisUpload: "video" };
+        stores.activeCurses.set([
+            fluch(karte, null, [
+                { url: "/uploads/wurf.jpg", art: "bild", von: "p1", am: "2026-10-06T10:00:00.000Z" },
+            ]),
+        ]);
+
+        const markup = await render();
+
+        expect(markup).toContain('/uploads/wurf.jpg"');
+        expect(markup).not.toContain("data-nachweis-knopf");
     });
 });

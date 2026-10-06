@@ -22,7 +22,7 @@ import type {
 // ?? statt ||, damit der Rueckfall nur bei fehlendem Wert greift:
 // .env.production setzt die Variable absichtlich leer, das ergibt relative
 // URLs, die nginx weiterleitet.
-const BASE_URL = import.meta.env.PUBLIC_BACKEND_URL ?? "";
+export const BASE_URL = import.meta.env.PUBLIC_BACKEND_URL ?? "";
 
 // ── Typed API errors ─────────────────────────────────────────────────────────
 
@@ -179,6 +179,41 @@ export function answerQuestion(
         body: JSON.stringify(body),
         token,
     });
+}
+
+// ── Upload endpoint ──────────────────────────────────────────────────────────
+
+/**
+ * Laedt ein Bild hoch und gibt die Serveradresse zurueck, so wie sie in
+ * `answerData.photoUrl` und in einem Fluch-Nachweis steht: "/uploads/<uuid>.jpg".
+ *
+ * Nicht ueber `apiFetch`: der setzt `Content-Type: application/json`, und den
+ * Trenner einer Multipart-Anfrage muss der Browser selbst setzen.
+ */
+export async function bildHochladen(
+    datei: File,
+    token: string,
+): Promise<{ url: string }> {
+    const form = new FormData();
+    form.append("image", datei);
+
+    let res: Response;
+    try {
+        res = await fetch(`${BASE_URL}/api/upload`, {
+            method: "POST",
+            headers: { "x-participant-token": token },
+            body: form,
+        });
+    } catch {
+        throw new NetworkError();
+    }
+
+    if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw toTypedError(res.status, (body as any).error);
+    }
+
+    return res.json() as Promise<{ url: string }>;
 }
 
 // ── POI endpoints ────────────────────────────────────────────────────────────

@@ -638,6 +638,10 @@ export const de = {
     "cards.extraDrawLast": "Nachschlag: eine Karte mehr aufgedeckt. Das war die letzte Anwendung.",
     "cards.curseHit": "Fluch!",
     "cards.curseUnderstood": "Verstanden",
+    "cards.proofUpload": "Nachweis hochladen",
+    "cards.proofUploading": "Wird hochgeladen…",
+    "cards.proofsUploaded": "Hochgeladene Nachweise",
+    "cards.proofUploadFailed": "Nachweis konnte nicht hochgeladen werden.",
 
     // ── Karte (Map) ───────────────────────────────────────────────────────────
     "toast.map.refreshFailed":

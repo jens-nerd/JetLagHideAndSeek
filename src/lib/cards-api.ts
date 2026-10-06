@@ -3,9 +3,9 @@
  * Fehler kommen als ApiError mit der Kennung aus dem Antwortkörper zurück,
  * damit die Oberfläche `cards_disabled` und `hand_limit` unterscheiden kann.
  */
-import type { Fluch, HandKarte } from "@hideandseek/shared";
+import type { Fluch, HandKarte, Nachweis, Nachweisart } from "@hideandseek/shared";
 
-import { apiFetch } from "./session-api";
+import { apiFetch, bildHochladen } from "./session-api";
 
 export interface ZiehAntwort {
     angeboten: HandKarte[];
@@ -64,6 +64,48 @@ export function fluchBeenden(
         method: "POST",
         token,
     });
+}
+
+/**
+ * Haengt Nachweise an einen Fluch. Nimmt ein Array und gibt die ganze Liste
+ * des Fluchs zurueck, nicht nur den Zuwachs.
+ *
+ * `von` und `am` setzt der Server aus Token und Serverzeit; mitgeschickte
+ * Werte ignoriert er.
+ */
+export function nachweiseAnhaengen(
+    curseId: string,
+    token: string,
+    nachweise: { url: string; art: Nachweisart }[],
+): Promise<{ nachweise: Nachweis[] }> {
+    return apiFetch(`/api/curses/${curseId}/nachweise`, {
+        method: "POST",
+        token,
+        body: JSON.stringify({ nachweise }),
+    });
+}
+
+/**
+ * Der zweistufige Weg: jede Datei einzeln nach `/api/upload`, dann **ein**
+ * Aufruf von `nachweiseAnhaengen` mit allen Adressen.
+ *
+ * Ein Aufruf statt einer je Datei ist Pflicht, nicht Bequemlichkeit: der
+ * Endpunkt liest, haengt an und schreibt zurueck. Flo hat belegt, dass von
+ * fuenf gleichzeitigen Einzelaufrufen ohne Transaktion nur einer uebrig
+ * bleibt; mit einem Aufruf ist die Frage gar nicht gestellt.
+ */
+export async function nachweiseHochladen(
+    curseId: string,
+    token: string,
+    dateien: File[],
+): Promise<Nachweis[]> {
+    const neue: { url: string; art: Nachweisart }[] = [];
+    for (const datei of dateien) {
+        const { url } = await bildHochladen(datei, token);
+        neue.push({ url, art: "bild" });
+    }
+    const { nachweise } = await nachweiseAnhaengen(curseId, token, neue);
+    return nachweise;
 }
 
 export function kartenmechanikSchalten(
