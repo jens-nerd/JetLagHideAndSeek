@@ -31,7 +31,7 @@ import { applyQuestionsToMapGeoData, holedMask } from "@/maps";
 import { hiderifyQuestion } from "@/maps";
 import { clearCache, determineMapBoundaries } from "@/maps/api";
 
-import { activeHidingZone, revealedHidingZone, sessionParticipant } from "@/lib/session-context";
+import { activeHidingZone, pendingDraftKey, revealedHidingZone, sessionParticipant } from "@/lib/session-context";
 import { bottomSheetState } from "@/lib/bottom-sheet-state";
 import { DraggableMarkers } from "./DraggableMarkers";
 import { ebenenTauschen } from "./map-ebenen-tausch";
@@ -164,8 +164,16 @@ export const Map = ({ className }: { className?: string }) => {
                 // ueber questionKey / eliminationGeoJSON nicht mehr.
                 const neueEbenen = L.layerGroup();
 
+                // Der Entwurf des Seekers bleibt vom Schnitt ausgenommen. Punkt B
+                // ist bis zum Ende der Strecke geraten, 100 m oestlich von A, und
+                // das Schema setzt warmer auf true: die Karte wuerde die halbe
+                // Flaeche wegschneiden, bevor der Hider ueberhaupt geantwortet hat.
+                // Im Atom bleibt der Entwurf, dort haengen die ziehbaren A/B-Marker
+                // und der Absende-Knopf. Nach dem Absenden ist pendingDraftKey null,
+                // dann schneidet die Frage wie jede andere.
+                const entwurfsKey = pendingDraftKey.get();
                 const gebaut = await applyQuestionsToMapGeoData(
-                    $questions,
+                    $questions.filter((q) => q.key !== entwurfsKey),
                     eingangsGeoData,
                     planningModeEnabled.get(),
                     (geoJSONObj, question) => {
