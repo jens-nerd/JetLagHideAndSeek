@@ -216,11 +216,23 @@ export function MatchingConfig({
     const mapInst = leafletMapContext.get();
     // Startwert ist die eigene Position (dieselbe wie der "Ich"-Punkt); die
     // Kartenmitte dient nur als Platzhalter und sperrt das Absenden.
-    const start = startStandort(ownGpsPosition.get(), mapInst?.getCenter());
+    const $ownGps = useStore(ownGpsPosition);
+    const start = startStandort($ownGps, mapInst?.getCenter());
     const [centerLat, setCenterLat] = useState(start.lat);
     const [centerLng, setCenterLng] = useState(start.lng);
     const [herkunft, setHerkunft] = useState<Herkunft>(start.herkunft);
     const { gesperrt } = absendeSperre(herkunft);
+
+    // Kommt der GPS-Empfang erst nach dem Oeffnen des Formulars zustande, wird
+    // der Startwert nachgezogen und die Sperre geht auf. Nur solange die
+    // Koordinate noch die Kartenmitte ist: Was der Spieler gesetzt oder gezogen
+    // hat, traegt "eingabe" und bleibt stehen.
+    useEffect(() => {
+        if (!$ownGps || herkunft !== "karte") return;
+        setCenterLat($ownGps.lat);
+        setCenterLng($ownGps.lng);
+        setHerkunft("gps");
+    }, [$ownGps, herkunft]);
 
     // ── Find nearest state ───────────────────────────────────────────────────
     const [nearestResult, setNearestResult] = useState<{

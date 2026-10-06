@@ -69,10 +69,22 @@ export function RadiusConfig({ wsStatus, onBack, onSettings, onClose, onDone }: 
     // (the "Ich" marker) when known; the map center is only a fallback, and als
     // solche erkennbar: mit ihr allein laesst sich die Frage nicht absenden.
     const map = leafletMapContext.get();
-    const start = startStandort(ownGpsPosition.get(), map?.getCenter());
+    const $ownGps = useStore(ownGpsPosition);
+    const start = startStandort($ownGps, map?.getCenter());
     const [lat, setLat] = useState(start.lat);
     const [lng, setLng] = useState(start.lng);
     const [herkunft, setHerkunft] = useState<Herkunft>(start.herkunft);
+
+    // Kommt der GPS-Empfang erst nach dem Oeffnen des Formulars zustande, wird
+    // der Startwert nachgezogen und die Sperre geht auf. Nur solange die
+    // Koordinate noch die Kartenmitte ist: Was der Spieler gesetzt oder gezogen
+    // hat, traegt "eingabe" und bleibt stehen.
+    useEffect(() => {
+        if (!$ownGps || herkunft !== "karte") return;
+        setLat($ownGps.lat);
+        setLng($ownGps.lng);
+        setHerkunft("gps");
+    }, [$ownGps, herkunft]);
 
     // Live preview circle
     const circleRef = useRef<L.Circle | null>(null);

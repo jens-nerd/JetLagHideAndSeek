@@ -124,7 +124,8 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
     // keine Angabe - im Handbetrieb muss er gesetzt werden, im GPS-Betrieb wird
     // er gar nicht benutzt.
     const map = leafletMapContext.get();
-    const start = startStandort(ownGpsPosition.get(), map?.getCenter());
+    const $ownGps = useStore(ownGpsPosition);
+    const start = startStandort($ownGps, map?.getCenter());
     const [startLat, setStartLat] = useState(start.lat);
     const [startLng, setStartLng] = useState(start.lng);
     const [startHerkunft, setStartHerkunft] = useState<Herkunft>(start.herkunft);
@@ -139,6 +140,18 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
     const [endHerkunft, setEndHerkunft] = useState<Herkunft>("karte");
     /** Selected travel direction: true = Wärmer (toward B), false = Kälter (away from B) */
     const [selectedWarmer, setSelectedWarmer] = useState<boolean | null>(null);
+
+    // Kommt der GPS-Empfang erst nach dem Oeffnen des Formulars zustande, wird
+    // Punkt A nachgezogen und die Sperre geht auf. Nur solange die Koordinate
+    // noch die Kartenmitte ist: Was der Spieler gesetzt oder gezogen hat,
+    // traegt "eingabe" und bleibt stehen. Punkt B bleibt unberuehrt, er ist im
+    // Handbetrieb ohnehin von Hand zu setzen.
+    useEffect(() => {
+        if (!$ownGps || startHerkunft !== "karte") return;
+        setStartLat($ownGps.lat);
+        setStartLng($ownGps.lng);
+        setStartHerkunft("gps");
+    }, [$ownGps, startHerkunft]);
 
     // Leaflet layer refs
     const startMarkerRef = useRef<L.Marker | null>(null);
