@@ -38,6 +38,7 @@ const stores = vi.hoisted(() => {
         sessionParticipant: box<any>({ role: "seeker", token: "t" }),
         pickerOpen: box<boolean>(true),
         bottomSheetState: box<string>("expanded"),
+        gebietsausdehnungKm: box<number | null>(null),
     };
 });
 
@@ -47,6 +48,7 @@ vi.mock("react-toastify", () => ({ toast: { error: () => {} } }));
 vi.mock("@/lib/context", () => ({
     defaultUnit: stores.defaultUnit,
     leafletMapContext: stores.leafletMapContext,
+    gebietsausdehnungKm: stores.gebietsausdehnungKm,
 }));
 vi.mock("@/lib/session-context", () => ({
     sessionCode: stores.sessionCode,

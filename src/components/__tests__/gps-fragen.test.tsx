@@ -39,6 +39,7 @@ const stores = vi.hoisted(() => {
         pendingDraftKey: box<number | null>(null),
         thermometerGpsTracking: box<any>(null),
         questions: box<any[]>([]),
+        gebietsausdehnungKm: box<number | null>(null),
     };
 });
 
@@ -55,6 +56,7 @@ vi.mock("@/lib/context", () => ({
     leafletMapContext: stores.leafletMapContext,
     questions: stores.questions,
     addQuestion: () => {},
+    gebietsausdehnungKm: stores.gebietsausdehnungKm,
 }));
 vi.mock("@/lib/session-context", () => ({
     sessionCode: stores.sessionCode,

@@ -17,11 +17,18 @@ import * as turf from "@turf/turf";
 
 
 
+import {
+    stufenBeschriftung,
+    thermometerPunktBAbstandKm,
+    thermometerStufenM,
+} from "@hideandseek/shared";
+
 import { useT } from "@/i18n";
 import { bottomSheetState, pickerOpen } from "@/lib/bottom-sheet-state";
 import {
     addQuestion as addLocalQuestion,
     defaultUnit,
+    gebietsausdehnungKm,
     leafletMapContext,
     questions as questions_atom,
 } from "@/lib/context";
@@ -102,6 +109,7 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
     const tr = useT();
     const $defaultUnit = useStore(defaultUnit);
     const isMetric = $defaultUnit !== "miles";
+    const $ausdehnungKm = useStore(gebietsausdehnungKm);
 
     const [mode, setMode] = useState<Mode>("gps");
     const [submitting, setSubmitting] = useState(false);
@@ -111,15 +119,21 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
 
     // Coordinates — shared between GPS and manual mode. Punkt A ist die eigene
     // Position, sobald der GPS-Empfang eine hat; sonst die Kartenmitte, und die
-    // sperrt das Absenden. Punkt B bleibt ein Vorschlag 2 km oestlich von A: Er
-    // ist abgeleitet, also ebenfalls keine Angabe - im Handbetrieb muss er
-    // gesetzt werden, im GPS-Betrieb wird er gar nicht benutzt.
+    // sperrt das Absenden. Punkt B bleibt ein Vorschlag oestlich von A, ein
+    // Viertel der Gebietsausdehnung entfernt: Er ist abgeleitet, also ebenfalls
+    // keine Angabe - im Handbetrieb muss er gesetzt werden, im GPS-Betrieb wird
+    // er gar nicht benutzt.
     const map = leafletMapContext.get();
     const start = startStandort(ownGpsPosition.get(), map?.getCenter());
     const [startLat, setStartLat] = useState(start.lat);
     const [startLng, setStartLng] = useState(start.lng);
     const [startHerkunft, setStartHerkunft] = useState<Herkunft>(start.herkunft);
-    const offsetDest = turf.destination([start.lng, start.lat], 2, 90, { units: "kilometers" });
+    const offsetDest = turf.destination(
+        [start.lng, start.lat],
+        thermometerPunktBAbstandKm($ausdehnungKm),
+        90,
+        { units: "kilometers" },
+    );
     const [endLat, setEndLat] = useState(offsetDest.geometry.coordinates[1]);
     const [endLng, setEndLng] = useState(offsetDest.geometry.coordinates[0]);
     const [endHerkunft, setEndHerkunft] = useState<Herkunft>("karte");
@@ -254,21 +268,14 @@ export function ThermometerConfig({ wsStatus, onBack, onSettings, onClose, onDon
         };
     }, [mode, selectedWarmer, startLat, startLng, endLat, endLng]);
 
-    // Distance chips
-    const distanceChips: { label: string; km: number }[] = isMetric
-        ? [
-            { label: "1 km",  km: 1  },
-            { label: "3 km",  km: 3  },
-            { label: "8 km",  km: 8  },
-            { label: "25 km", km: 25 },
-            { label: "80 km", km: 80 },
-          ]
-        : [
-            { label: "½ mi",  km: 0.80  },
-            { label: "5 mi",  km: 8.05  },
-            { label: "15 mi", km: 24.14 },
-            { label: "50 mi", km: 80.47 },
-          ];
+    // Distance chips — aus der Gebietsausdehnung gerechnet, siehe
+    // thermometerStufenM in shared/src/groessen.ts.
+    const distanceChips: { label: string; km: number }[] = thermometerStufenM(
+        $ausdehnungKm,
+    ).map((meter) => ({
+        label: stufenBeschriftung(meter, isMetric ? "metrisch" : "imperial"),
+        km: meter / 1000,
+    }));
 
     // ── Staging helpers ─────────────────────────────────────────────────────────
 

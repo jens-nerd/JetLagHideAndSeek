@@ -1,3 +1,4 @@
+import { ausdehnungKmAusExtent } from "@hideandseek/shared";
 import { persistentAtom } from "@nanostores/persistent";
 import type { FeatureCollection, MultiPolygon, Polygon } from "geojson";
 import type { Map } from "leaflet";
@@ -41,6 +42,15 @@ export const mapGeoLocation = persistentAtom<OpenStreetMap>(
         encode: JSON.stringify,
         decode: JSON.parse,
     },
+);
+
+/**
+ * Laengste Kante des Spielgebiets in km, oder null wenn die Bounding-Box fehlt.
+ * Haengt an mapGeoLocation, das session-context.ts beim Beitritt setzt — daran
+ * haengen die Distanzstufen in den Fragen-Formularen.
+ */
+export const gebietsausdehnungKm = computed(mapGeoLocation, (loc) =>
+    ausdehnungKmAusExtent(loc?.properties?.extent),
 );
 
 export const additionalMapGeoLocations = persistentAtom<

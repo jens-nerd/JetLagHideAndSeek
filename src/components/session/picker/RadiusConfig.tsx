@@ -13,9 +13,12 @@ import { useStore } from "@nanostores/react";
 import * as L from "leaflet";
 import { useEffect, useRef, useState } from "react";
 
+import { radiusStufenM, stufenBeschriftung } from "@hideandseek/shared";
+
 import { bottomSheetState, pickerOpen } from "@/lib/bottom-sheet-state";
 import {
     defaultUnit,
+    gebietsausdehnungKm,
     leafletMapContext,
 } from "@/lib/context";
 import { addQuestion } from "@/lib/session-api";
@@ -54,6 +57,7 @@ export function RadiusConfig({ wsStatus, onBack, onSettings, onClose, onDone }: 
     const tr = useT();
     const $defaultUnit = useStore(defaultUnit);
     const isMetric = $defaultUnit !== "miles";
+    const $ausdehnungKm = useStore(gebietsausdehnungKm);
 
     const [submitting, setSubmitting] = useState(false);
     const [selectedChip, setSelectedChip] = useState<Chip | null>(null);
@@ -73,24 +77,13 @@ export function RadiusConfig({ wsStatus, onBack, onSettings, onClose, onDone }: 
     // Live preview circle
     const circleRef = useRef<L.Circle | null>(null);
 
-    // Distance chips
-    const chips: Chip[] = isMetric
-        ? [
-            { label: "300 m", value: 300, unit: "meters" },
-            { label: "500 m", value: 500, unit: "meters" },
-            { label: "1 km",  value: 1,  unit: "kilometers" },
-            { label: "3 km",  value: 3,  unit: "kilometers" },
-            { label: "8 km",  value: 8,  unit: "kilometers" },
-            { label: "25 km", value: 25, unit: "kilometers" },
-            { label: "80 km", value: 80, unit: "kilometers" },
-          ]
-        : [
-            { label: "¼ mi",  value: 0.25, unit: "miles" },
-            { label: "½ mi",  value: 0.5,  unit: "miles" },
-            { label: "5 mi",  value: 5,    unit: "miles" },
-            { label: "15 mi", value: 15,   unit: "miles" },
-            { label: "50 mi", value: 50,   unit: "miles" },
-          ];
+    // Distance chips — aus der Gebietsausdehnung gerechnet, siehe
+    // radiusStufenM in shared/src/groessen.ts.
+    const chips: Chip[] = radiusStufenM($ausdehnungKm).map((meter) => ({
+        label: stufenBeschriftung(meter, isMetric ? "metrisch" : "imperial"),
+        value: meter,
+        unit: "meters" as const,
+    }));
 
     // ── Derived: effective radius for preview + submit ─────────────────────────
     const effectiveChip: Chip | null = customMode

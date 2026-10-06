@@ -13,9 +13,12 @@ import { useStore } from "@nanostores/react";
 import * as L from "leaflet";
 import { useEffect, useRef, useState } from "react";
 
+import { stufenBeschriftung, tentakelStufenM } from "@hideandseek/shared";
+
 import { bottomSheetState, pickerOpen } from "@/lib/bottom-sheet-state";
 import {
     defaultUnit,
+    gebietsausdehnungKm,
     leafletMapContext,
 } from "@/lib/context";
 import { addQuestion, findNearestPoi } from "@/lib/session-api";
@@ -90,6 +93,7 @@ export function TentaclesConfig({ wsStatus, onBack, onSettings, onClose, onDone 
     const tr = useT();
     const $defaultUnit = useStore(defaultUnit);
     const isMetric = $defaultUnit !== "miles";
+    const $ausdehnungKm = useStore(gebietsausdehnungKm);
 
     // ── Center coordinate (reactive — LocationCard drives via onChange) ──────
     const mapInst = leafletMapContext.get();
@@ -112,20 +116,13 @@ export function TentaclesConfig({ wsStatus, onBack, onSettings, onClose, onDone 
     const circleRef = useRef<L.Circle | null>(null);
     const markersRef = useRef<L.CircleMarker[]>([]);
 
-    // Distance chips
-    const chips: Chip[] = isMetric
-        ? [
-            { label: "1 km",  value: 1,  unit: "kilometers" },
-            { label: "3 km",  value: 3,  unit: "kilometers" },
-            { label: "8 km",  value: 8,  unit: "kilometers" },
-            { label: "25 km", value: 25, unit: "kilometers" },
-          ]
-        : [
-            { label: "½ mi", value: 0.5, unit: "miles" },
-            { label: "2 mi", value: 2,   unit: "miles" },
-            { label: "5 mi", value: 5,   unit: "miles" },
-            { label: "15 mi", value: 15, unit: "miles" },
-          ];
+    // Distance chips — aus der Gebietsausdehnung gerechnet, siehe
+    // tentakelStufenM in shared/src/groessen.ts.
+    const chips: Chip[] = tentakelStufenM($ausdehnungKm).map((meter) => ({
+        label: stufenBeschriftung(meter, isMetric ? "metrisch" : "imperial"),
+        value: meter / 1000,
+        unit: "kilometers" as const,
+    }));
 
     const selectedCategory = CATEGORIES.find((c) => c.type === category) ?? CATEGORIES[0];
 
