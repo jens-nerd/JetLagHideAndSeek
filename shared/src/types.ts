@@ -60,10 +60,19 @@ export interface ParticipantWithToken extends Participant {
 
 // ── Question ──────────────────────────────────────────────────────────────────
 
-/** Duration in milliseconds before an unanswered question expires (5 minutes). */
+/**
+ * Duration in milliseconds before an unanswered question expires (5 minutes).
+ * Fallback only: it applies when the session has no usable play area. The
+ * regular deadline is derived from the area's extent in
+ * backend/src/lib/fristen.ts.
+ */
 export const QUESTION_DEADLINE_MS = 5 * 60 * 1000;
 
-/** Duration in milliseconds before a photo question expires (15 minutes). */
+/**
+ * Duration in milliseconds before a photo question expires (15 minutes).
+ * Fallback only, same as QUESTION_DEADLINE_MS: it applies when the session has
+ * no usable play area. Regular deadline in backend/src/lib/fristen.ts.
+ */
 export const PHOTO_DEADLINE_MS = 15 * 60 * 1000;
 
 export const questionStatusSchema = z.enum(["pending", "answered", "expired"]);

@@ -54,7 +54,12 @@ export const questions = sqliteTable("questions", {
         .notNull()
         .default(sql`(datetime('now'))`),
     answeredAt: text("answered_at"),
-    /** ISO8601 timestamp after which the question expires (set at creation, 5 min window). */
+    /**
+     * ISO8601 timestamp after which the question expires. Set once at creation
+     * and never recalculated, so a running deadline never jumps. The length of
+     * the window depends on the extent of the play area (see lib/fristen.ts),
+     * so it is not a flat 5 minutes any more.
+     */
     deadline: text("deadline"),
 });
 

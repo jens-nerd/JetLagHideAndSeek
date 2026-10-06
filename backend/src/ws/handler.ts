@@ -1,5 +1,4 @@
 import type { ClientToServerEvent } from "@hideandseek/shared";
-import { PHOTO_DEADLINE_MS, QUESTION_DEADLINE_MS } from "@hideandseek/shared";
 import { and, eq } from "drizzle-orm";
 import type { WSContext } from "hono/ws";
 import { nanoid } from "nanoid";
@@ -8,6 +7,7 @@ import { db as globalDb, schema } from "../db/index.js";
 import type { Db } from "../db/types.js";
 import { beendeAlleFlueche, findeGluecksrad, getAktiveFlueche } from "../lib/curses.js";
 import { ermittlePendingDraw, getDeckRest, getHand } from "../lib/deck.js";
+import { fristMsFuerFrage } from "../lib/fristen.js";
 import { sendPushNotifications } from "../lib/push.js";
 import { buildParticipantsMap, toSessionQuestion } from "../routes/sessions.js";
 import { type ConnectedClient, wsManager } from "./manager.js";
@@ -234,7 +234,7 @@ export async function handleWsMessage(
             if (!sessionRow || sessionRow.status === "finished") return;
 
             const questionId = nanoid();
-            const deadlineMs = event.questionType === "photo" ? PHOTO_DEADLINE_MS : QUESTION_DEADLINE_MS;
+            const deadlineMs = fristMsFuerFrage(sessionRow.mapLocation, event.questionType);
             const deadline = new Date(Date.now() + deadlineMs).toISOString();
 
             await client.db.insert(schema.questions).values({

@@ -4,7 +4,6 @@ import type {
     AnswerQuestionRequest,
     AnswerQuestionResponse,
 } from "@hideandseek/shared";
-import { PHOTO_DEADLINE_MS, QUESTION_DEADLINE_MS } from "@hideandseek/shared";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { nanoid } from "nanoid";
@@ -12,6 +11,7 @@ import { nanoid } from "nanoid";
 import { schema } from "../db/schema.js";
 import type { Db } from "../db/types.js";
 import { dreheGluecksrad, findeGluecksrad } from "../lib/curses.js";
+import { fristMsFuerFrage } from "../lib/fristen.js";
 import { wsManager } from "../ws/manager.js";
 import { buildParticipantsMap, toSessionQuestion } from "./sessions.js";
 
@@ -59,7 +59,7 @@ export function createQuestionsRouter(db: Db): Hono {
         }
 
         const questionId = nanoid();
-        const deadlineMs = body.type === "photo" ? PHOTO_DEADLINE_MS : QUESTION_DEADLINE_MS;
+        const deadlineMs = fristMsFuerFrage(sessionRow.mapLocation, body.type);
         const deadline = new Date(Date.now() + deadlineMs).toISOString();
 
         await db.insert(schema.questions).values({
