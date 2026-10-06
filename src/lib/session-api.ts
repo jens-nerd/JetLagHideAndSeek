@@ -210,7 +210,18 @@ export async function bildHochladen(
 
     if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw toTypedError(res.status, (body as any).error);
+        const code = (body as { error?: string }).error;
+        // Der Deckel ist der eine Fehler dieser Route, den ein Nutzer im
+        // normalen Spiel auslöst. toTypedError nimmt die Serverantwort wörtlich
+        // als Meldung, und der Code allein stünde unlesbar im Toast.
+        if (code === "file_too_large") {
+            throw new ApiError(
+                "Das Bild ist zu groß — höchstens 10 MB.",
+                res.status,
+                "FILE_TOO_LARGE",
+            );
+        }
+        throw toTypedError(res.status, code);
     }
 
     return res.json() as Promise<{ url: string }>;

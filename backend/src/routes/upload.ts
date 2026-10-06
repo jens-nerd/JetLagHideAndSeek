@@ -18,7 +18,12 @@ import { schema } from "../db/schema.js";
 import type { Db } from "../db/types.js";
 
 const UPLOADS_DIR = process.env.UPLOADS_DIR ?? join(process.cwd(), "uploads");
-const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+// 10 MB, weil ein Telefonfoto die alten 5 MB reißt. Der Deckel hängt an der
+// nginx-Site: `client_max_body_size` in `location /api/` muss über dem Rumpf
+// einer Anfrage liegen, also über Datei plus Multipart-Rahmen. Bei 10m weist
+// nginx eine 10-MB-Datei mit eigener HTML-Seite ab, bevor das Backend sie
+// sieht; der Wert dort muss 11m sein.
+const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
 
 // Ensure uploads directory exists
 mkdir(UPLOADS_DIR, { recursive: true }).catch(() => {});
@@ -51,7 +56,10 @@ export function createUploadRouter(db: Db): Hono {
         }
 
         if (file.size > MAX_SIZE) {
-            return c.json({ error: "File too large (max 5 MB)" }, 413);
+            // Code statt Satz, wie bei allen anderen Fehlern des Projekts: der
+            // englische Satz stand vorher unverändert im Toast, weil
+            // toTypedError die Serverantwort wörtlich als Meldung nimmt.
+            return c.json({ error: "file_too_large" }, 413);
         }
 
         // Determine extension from MIME type

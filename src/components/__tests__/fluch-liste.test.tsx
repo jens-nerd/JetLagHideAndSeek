@@ -246,6 +246,7 @@ describe("FluchListe, Nachweise", () => {
 
         expect(markup).toContain('data-nachweis-knopf="c-fluch-brueckenzoll"');
         expect(markup).toContain("cards.proofUpload");
+        expect(markup).not.toContain("cards.proofVideoAtEnd");
     });
 
     it("gibt einem beides-Fluch einen Hochladeknopf", async () => {
@@ -257,9 +258,9 @@ describe("FluchListe, Nachweise", () => {
         expect(markup).toContain('data-nachweis-knopf="c-fluch-warteschlange"');
     });
 
-    it("gibt einem Video-Fluch keinen Hochladeknopf", async () => {
-        // Vogelkino und Kegelbahn verlangen zwingend einen Film; der Upload
-        // nimmt bis Eintrag 8 nur Bilder.
+    it("gibt einem Video-Fluch keinen Hochladeknopf, sondern den Satz", async () => {
+        // Kegelbahn verlangt einen Film; hochgeladen wird er nicht, er wird am
+        // Spielende gezeigt.
         const karte = { ...KARTE_OHNE_DAUER, id: "fluch-kegelbahn", nachweisUpload: "video" };
         stores.activeCurses.set([fluch(karte, null)]);
 
@@ -267,6 +268,40 @@ describe("FluchListe, Nachweise", () => {
 
         expect(markup).not.toContain("data-nachweis-knopf");
         expect(markup).not.toContain("cards.proofUpload");
+        expect(markup).toContain('data-videohinweis="c-fluch-kegelbahn"');
+        expect(markup).toContain("cards.proofVideoAtEnd");
+    });
+
+    it("sagt dasselbe am Vogelkino", async () => {
+        const karte = { ...KARTE_OHNE_DAUER, id: "fluch-vogelkino", nachweisUpload: "video" };
+        stores.activeCurses.set([fluch(karte, null)]);
+
+        const markup = await render();
+
+        expect(markup).toContain('data-videohinweis="c-fluch-vogelkino"');
+        expect(markup).toContain("cards.proofVideoAtEnd");
+        expect(markup).not.toContain("data-nachweis-knopf");
+    });
+
+    it("stellt den Satz vor den Knopf erledigt", async () => {
+        const karte = { ...KARTE_OHNE_DAUER, id: "fluch-vogelkino", nachweisUpload: "video" };
+        stores.activeCurses.set([fluch(karte, null)]);
+
+        const markup = await render();
+
+        expect(markup.indexOf("cards.proofVideoAtEnd")).toBeLessThan(
+            markup.indexOf("cards.done"),
+        );
+    });
+
+    it("sagt dem Versteckenden dasselbe", async () => {
+        stores.sessionParticipant.set({ role: "hider", token: "t" });
+        const karte = { ...KARTE_OHNE_DAUER, id: "fluch-vogelkino", nachweisUpload: "video" };
+        stores.activeCurses.set([fluch(karte, null)]);
+
+        const markup = await render();
+
+        expect(markup).toContain("cards.proofVideoAtEnd");
     });
 
     it("gibt einem Fluch ohne nachweisUpload keinen Hochladeknopf", async () => {
@@ -278,6 +313,18 @@ describe("FluchListe, Nachweise", () => {
         const markup = await render();
 
         expect(markup).not.toContain("data-nachweis-knopf");
+    });
+
+    it("haengt den Satz nicht an eine Karte ohne nachweisUpload", async () => {
+        // Zwölf Flüche tragen nachweisUpload, die übrigen gar keinen; dort gibt
+        // es auch kein Video, über das etwas zu sagen wäre.
+        stores.activeCurses.set([fluch(KARTE_OHNE_DAUER, null)]);
+
+        const markup = await render();
+
+        expect(markup).not.toContain("cards.proofVideoAtEnd");
+        expect(markup).not.toContain("data-nachweis-knopf");
+        expect(markup).not.toContain("data-nachweisfeld");
     });
 
     it("gibt auch dem Versteckenden den Hochladeknopf", async () => {

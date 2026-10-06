@@ -474,16 +474,18 @@ export function createCardsRouter(db: Db): Hono {
             if (art !== "bild" && art !== "video") {
                 return c.json({ error: "bad_art" }, 400);
             }
-            // Eintrag 8. POST /api/upload nimmt heute keine Videos an und
-            // würde ein mp4 als .jpg ablegen; eine Zeile mit art: "video" wäre
-            // also eine Lüge in der Datenbank.
+            // POST /api/upload nimmt keine Videos an und würde ein mp4 als
+            // .jpg ablegen; eine Zeile mit art: "video" wäre also eine Lüge in
+            // der Datenbank. Das bleibt so: entschieden am 06.10.2026 gegen
+            // den Video-Upload, Videos werden am Spielende am Gerät gezeigt.
             if (art === "video") {
                 return c.json({ error: "video_not_supported" }, 400);
             }
             // Vogelkino und Kegelbahn verlangen zwingend Video: "ein Vogel, am
             // Stück gefilmt" und "der Wurf, ungeschnitten". Ein Bild beweist
             // davon nichts, und eine Zeile, die eines annimmt, behauptet das
-            // Gegenteil. Bis Eintrag 8 nehmen diese beiden darum gar nichts an.
+            // Gegenteil. Diese beiden nehmen darum dauerhaft nichts an; ihr
+            // Nachweis wird am Spielende am Gerät gezeigt, nicht hochgeladen.
             if (karte.nachweisUpload === "video") {
                 return c.json({ error: "video_required" }, 400);
             }

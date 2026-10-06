@@ -642,6 +642,7 @@ export const de = {
     "cards.proofUploading": "Wird hochgeladen…",
     "cards.proofsUploaded": "Hochgeladene Nachweise",
     "cards.proofUploadFailed": "Nachweis konnte nicht hochgeladen werden.",
+    "cards.proofVideoAtEnd": "Das Video darf am Spielende eingesehen werden.",
 
     // ── Karte (Map) ───────────────────────────────────────────────────────────
     "toast.map.refreshFailed":

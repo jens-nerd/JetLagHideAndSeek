@@ -640,6 +640,7 @@ export const en: Record<TranslationKey, string> = {
     "cards.proofUploading": "Uploading…",
     "cards.proofsUploaded": "Uploaded proofs",
     "cards.proofUploadFailed": "The proof could not be uploaded.",
+    "cards.proofVideoAtEnd": "Show the video once the game is over.",
 
     // ── Map ───────────────────────────────────────────────────────────────────
     "toast.map.refreshFailed":

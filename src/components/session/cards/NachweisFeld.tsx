@@ -6,11 +6,12 @@
  * zweiten tragen nur sechs der zwoelf Flueche, er ist eine Abschrift der
  * gedruckten Karte und keine Funktion.
  *
- * Bei `nachweisUpload: "video"` erscheint kein Knopf. Vogelkino und Kegelbahn
- * verlangen zwingend einen Film ("der Wurf, ungeschnitten", "ein Vogel, am
- * Stueck gefilmt"), und `POST /api/upload` nimmt bis Eintrag 8 nur Bilder. Ein
- * Feld, das dort ein Foto annimmt, behauptet einen Beweis, den das Foto nicht
- * liefert.
+ * Bei `nachweisUpload: "video"` erscheint kein Knopf, sondern ein Satz. Vogelkino
+ * und Kegelbahn verlangen zwingend einen Film ("der Wurf, ungeschnitten", "ein
+ * Vogel, am Stueck gefilmt"); ein Foto davon behauptet einen Beweis, den es
+ * nicht liefert, und ein Film liesse sich am Handy nur unter Verlust der Laenge
+ * hochladen. Also wird dort nichts hochgeladen: die beiden zeigen ihren
+ * Nachweis am Spielende aus der Hand.
  */
 import type { Fluch } from "@hideandseek/shared";
 import { useStore } from "@nanostores/react";
@@ -36,7 +37,11 @@ export function NachweisFeld({ curse }: { curse: Fluch }) {
     const darfHochladen =
         curse.karte.nachweisUpload === "bild" || curse.karte.nachweisUpload === "beides";
 
-    if (!darfHochladen && curse.nachweise.length === 0) return null;
+    // Statt eines Knopfes steht hier der Satz, wann der Film zu sehen ist. Der
+    // ist der einzige Inhalt des Feldes, muss also das Abkuerzen ueberleben.
+    const zeigtVideoHinweis = curse.karte.nachweisUpload === "video";
+
+    if (!darfHochladen && !zeigtVideoHinweis && curse.nachweise.length === 0) return null;
 
     async function hochladen(dateien: File[]) {
         const token = $participant?.token;
@@ -78,6 +83,12 @@ export function NachweisFeld({ curse }: { curse: Fluch }) {
                         <FotoBeweis key={n.url} src={`${BASE_URL}${n.url}`} />
                     ))}
                 </>
+            ) : null}
+
+            {zeigtVideoHinweis ? (
+                <p data-videohinweis={curse.id} style={kartenZusatz}>
+                    {tr("cards.proofVideoAtEnd")}
+                </p>
             ) : null}
 
             {darfHochladen ? (

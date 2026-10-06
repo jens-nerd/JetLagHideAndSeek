@@ -25,15 +25,18 @@ const PNG_1X1 = Buffer.from(
     "base64",
 );
 
-function bildAnfrage(token?: string): RequestInit {
+function bildAnfrage(token?: string, inhalt: Uint8Array = PNG_1X1): RequestInit {
     const form = new FormData();
-    form.append("image", new File([PNG_1X1], "foto.png", { type: "image/png" }));
+    form.append("image", new File([inhalt], "foto.png", { type: "image/png" }));
     return {
         method: "POST",
         body: form,
         ...(token ? { headers: { "x-participant-token": token } } : {}),
     };
 }
+
+/** Der Deckel aus routes/upload.ts. */
+const MAX_SIZE = 10 * 1024 * 1024;
 
 describe("Uploads", () => {
     let app: Hono;
@@ -75,6 +78,31 @@ describe("Uploads", () => {
         // nebenbei festlegen, wer Fotos hochladen darf.
         const { seeker } = await seedSession(app);
         const res = await app.request("/api/upload", bildAnfrage(seeker.token));
+        expect(res.status).toBe(200);
+    });
+
+    it("weist eine Datei über dem Deckel mit 413 und file_too_large ab", async () => {
+        const { hider } = await seedSession(app);
+
+        const res = await app.request(
+            "/api/upload",
+            bildAnfrage(hider.token, new Uint8Array(MAX_SIZE + 1)),
+        );
+        expect(res.status).toBe(413);
+
+        // Ein Code, kein englischer Satz: das Frontend baut die Meldung daraus,
+        // siehe bildHochladen in src/lib/session-api.ts.
+        const { error } = (await res.json()) as { error: string };
+        expect(error).toBe("file_too_large");
+    });
+
+    it("nimmt eine Datei knapp unter dem Deckel an", async () => {
+        const { hider } = await seedSession(app);
+
+        const res = await app.request(
+            "/api/upload",
+            bildAnfrage(hider.token, new Uint8Array(MAX_SIZE - 1)),
+        );
         expect(res.status).toBe(200);
     });
 });
