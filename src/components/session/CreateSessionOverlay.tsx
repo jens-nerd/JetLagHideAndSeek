@@ -118,6 +118,16 @@ export function CreateSessionOverlay() {
         }
     }, [$hiderConfirmed, step]);
 
+    // Sobald der Beitritt steht, geht der Schritt zurueck auf den Anfang. Das
+    // Overlay wird dabei nicht ausgehaengt, es rendert nur `null` – sein
+    // useState ueberlebt also. Ohne diesen Ruecksprung landet man nach dem
+    // Verlassen der Session wieder auf der Rollenwahl statt am ersten Schritt.
+    useEffect(() => {
+        if ($participant !== null) {
+            setStep("entry");
+        }
+    }, [$participant]);
+
     // Don't render when already in a session
     if ($participant !== null) return null;
 

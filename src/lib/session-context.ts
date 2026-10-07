@@ -193,6 +193,19 @@ export function leaveSession(): void {
     gameSize.set(null);
     resetDeckState();
 
+    // ── Mitspieler und ihre Positionen ────────────────────────────────────
+    // Beide werden nur durch Server-Ereignisse gefuellt. Blieben sie stehen,
+    // zeigte die naechste Session bis zum ersten `sync` bzw.
+    // `seeker_positions` noch die Namen und Pins der alten.
+    sessionMembers.set([]);
+    seekerPositions.set([]);
+
+    // Offene Benachrichtigungen verweisen auf Fragen der alten Session;
+    // ihre IDs gibt es danach nicht mehr.
+    recentlyAnswered.set(null);
+    newQuestionReceived.set(null);
+    autoExpandQuestionId.set(null);
+
     // ── Map cache – fully clear all session-specific cached data ──────────
     clearCache(CacheType.CACHE);
     clearCache(CacheType.ZONE_CACHE);

@@ -128,8 +128,8 @@ describe("CreateSessionOverlay – Beitritt nach Verlassen der Session", () => {
 
         // Session verlassen: der Store wird zurückgesetzt, die Komponente
         // wird dabei NICHT ausgehängt (sie rendert nur `null`, solange
-        // sessionParticipant gesetzt ist) – ihr React-State überlebt also,
-        // inklusive step="rolle": das Overlay taucht direkt dort wieder auf.
+        // sessionParticipant gesetzt ist). Das Overlay taucht am ersten
+        // Schritt wieder auf, der Flow wird also erneut durchlaufen.
         act(() => {
             sessionParticipant.set(null);
         });
@@ -139,6 +139,7 @@ describe("CreateSessionOverlay – Beitritt nach Verlassen der Session", () => {
             session: { code: "ABCDEF" },
             participant: { role: "seeker", token: "t2" },
         });
+        await gotoRolle("ABCDEF");
         click(buttonByText("overlay.roleName.seeker"));
         await flush();
 
@@ -147,6 +148,28 @@ describe("CreateSessionOverlay – Beitritt nach Verlassen der Session", () => {
             displayName: "Testperson",
             role: "seeker",
         });
+    });
+
+    it("zeigt nach dem Verlassen wieder den ersten Schritt und nicht die Rollenwahl", async () => {
+        joinSession.mockResolvedValue({
+            session: { code: "ABCDEF" },
+            participant: { role: "seeker", token: "t1" },
+        });
+        getSession.mockResolvedValue({ session: {} });
+
+        await gotoRolle("ABCDEF");
+        click(buttonByText("overlay.roleName.seeker"));
+        await flush();
+
+        // Session verlassen: der Store fällt zurück, die Komponente bleibt
+        // eingehängt. Ihr Schritt muss trotzdem am Anfang stehen.
+        act(() => {
+            sessionParticipant.set(null);
+        });
+
+        expect(buttonByText("overlay.newGame")).not.toBeNull();
+        expect(buttonByText("overlay.joinGame")).not.toBeNull();
+        expect(buttonByText("overlay.roleName.seeker")).toBeNull();
     });
 
     it("löscht einen alten Fehlertext, sobald danach erfolgreich beigetreten und die Session verlassen wird", async () => {
