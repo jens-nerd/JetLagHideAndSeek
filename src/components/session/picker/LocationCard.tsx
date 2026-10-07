@@ -117,7 +117,7 @@ export function LocationCard({
             const newLng = pos.coords.longitude;
             onChange(newLat, newLng, "gps");
         } catch {
-            setGpsError("GPS nicht verfügbar. Bitte Berechtigungen prüfen.");
+            setGpsError("GPS nicht verfügbar. Bitte prüf die Berechtigungen.");
         } finally {
             setGpsLoading(false);
         }

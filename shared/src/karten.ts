@@ -441,7 +441,7 @@ export const KARTEN: Karte[] = [
         gruppe: "bewegung",
         name: "Zwangsausstieg",
         text: "Die Suchenden verlassen ihr Verkehrsmittel an der nächsten Station.\n\nDer Fluch greift nur, wenn die Station in den nächsten 0,5 / 0,5 / 1 Stunden noch von einem anderen Verkehrsmittel bedient wird. Sonst verfällt die Karte wirkungslos, etwa auf einer Nachtstrecke um kurz vor eins.",
-        kosten: "Sie müssen gerade in die falsche Richtung fahren. Maßgeblich ist, ob ihre nächste planmäßige Station weiter von dir entfernt liegt als ihr jetziger Standort. Dass die Linie später wieder auf dich zuführt, ändert nichts.",
+        kosten: "Die Suchenden müssen gerade in die falsche Richtung fahren. Maßgeblich ist, ob ihre nächste planmäßige Station weiter von dir entfernt liegt als ihr jetziger Standort. Dass die Linie später wieder auf dich zuführt, ändert nichts.",
         dauerMin: null,
         anzahl: 1,
     },
