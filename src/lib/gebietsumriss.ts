@@ -8,13 +8,16 @@
  * mit HTTP 504. Ohne Umriss gibt es nichts zuzuschneiden, die Karte sieht dann
  * unbeschraenkt aus.
  *
- * Darum zwei Dinge hier, beide ohne Stores und ohne Leaflet, damit sie
- * einzeln pruefbar bleiben:
+ * Darum drei Dinge hier, alle ohne Stores und ohne Leaflet, damit sie einzeln
+ * pruefbar bleiben. `Map.tsx` ist es wegen Leaflet nicht, und jede Entscheidung,
+ * die dort bleibt, ruht auf Lesen statt auf einem Test:
  *
  *  - `gebietskennung` beschreibt, aus welchen OSM-Objekten ein Umriss gebaut
  *    wurde. Der Zwischenspeicher legt sie neben den Umriss. Aendert sich das
  *    Gebiet, passt die Kennung nicht mehr, und der alte Umriss wird nicht
  *    benutzt. Veralten kann er deshalb nicht.
+ *  - `umrissAblegen` entscheidet, ob ein geholter Umriss gespeichert werden
+ *    darf, und faengt dabei einen vollen Speicher ab.
  *  - `umrissBesorgen` wiederholt einen gescheiterten Abruf, statt den Fehler
  *    zu verschlucken.
  */
@@ -61,6 +64,62 @@ export function gebietskennung(
     });
 
     return [basis, ...teile].join("+");
+}
+
+export type Ablageergebnis =
+    /** Im bleibenden Speicher. */
+    | "abgelegt"
+    /** Nicht abgelegt, weil die Kennung fehlt oder nicht mehr passt. */
+    | "verworfen"
+    /** Ablegen hat geworfen, etwa weil der localStorage voll ist. */
+    | "gescheitert";
+
+/**
+ * Entscheidet, ob ein geholter Umriss in den bleibenden Speicher darf, und
+ * legt ihn ab.
+ *
+ * Die Entscheidung steht hier und nicht beim Aufrufer, weil sie die subtilste
+ * Stelle des ganzen Umbaus ist und ihr Bruch im Spiel am spaetesten auffaellt:
+ * Die Karte sieht dann nicht unbeschraenkt aus, sondern falsch beschraenkt.
+ *
+ * Der Umriss wird vor dem Abruf einem Gebiet zugeordnet, der Abruf dauert aber
+ * Sekunden. Kommt in dieser Zeit ein Stadtteil hinzu, liefert Overpass den
+ * Umriss fuer das erweiterte Gebiet, `kennungVorher` beschreibt aber noch das
+ * alte. Ein Umriss unter falscher Kennung waere schlimmer als keiner: er wuerde
+ * beim naechsten Start als gueltig gelten und ein Gebiet von vorgestern zeigen.
+ * Darum wird die Kennung mit `kennungJetzt()` neu erhoben und verglichen.
+ *
+ * `kennungJetzt` ist absichtlich eine Funktion und kein Wert - ein Wert waere
+ * vom Aufrufer schon vor dem Abruf berechnet worden und wuerde genau den Fall
+ * verschweigen, um den es geht.
+ *
+ * Das Ablegen selbst liegt mit in dieser Funktion, damit ein Wurf nicht beim
+ * Aufrufer landet. In `Map.tsx` steht der Aufruf vor dem try-Block von
+ * `refreshQuestions`: ein `QuotaExceededError` wuerde dort `isLoading` auf
+ * `true` stehen lassen, und die Karte wuerde sich fuer den Rest der Sitzung
+ * nicht mehr erneuern. Ohne Speicher laeuft es wie vor dem Umbau, das ist der
+ * harmlosere Ausgang.
+ */
+export function umrissAblegen<T>({
+    kennungVorher,
+    kennungJetzt,
+    umriss,
+    ablegen,
+}: {
+    kennungVorher: string | null;
+    kennungJetzt: () => string | null;
+    umriss: T;
+    ablegen: (eintrag: { kennung: string; umriss: T }) => void;
+}): Ablageergebnis {
+    if (kennungVorher === null) return "verworfen";
+    if (kennungJetzt() !== kennungVorher) return "verworfen";
+
+    try {
+        ablegen({ kennung: kennungVorher, umriss });
+        return "abgelegt";
+    } catch {
+        return "gescheitert";
+    }
 }
 
 /**

@@ -25,7 +25,11 @@ import {
     thunderforestApiKey,
     triggerLocalRefresh,
 } from "@/lib/context";
-import { gebietskennung, umrissBesorgen } from "@/lib/gebietsumriss";
+import {
+    gebietskennung,
+    umrissAblegen,
+    umrissBesorgen,
+} from "@/lib/gebietsumriss";
 import { DEFAULT_VIEWPORT } from "@hideandseek/shared";
 import { locale, t } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -147,35 +151,26 @@ export const Map = ({ className }: { className?: string }) => {
                     mapGeoJSON.set(ergebnis.umriss);
                     mapGeoData = ergebnis.umriss;
 
-                    // Nur ablegen, wenn das Gebiet waehrend des Abrufs
-                    // unveraendert blieb - die Zusatzgebiete eingeschlossen.
-                    // `nochGueltig` prueft nur die osm_id des Hauptgebiets, ein
-                    // hinzugekommener Stadtteil kaeme also durch. Ein Umriss
-                    // unter falscher Kennung waere schlimmer als keiner: er
-                    // wuerde beim naechsten Start als gueltig gelten und ein
-                    // Gebiet von vorgestern zeigen.
-                    const kennungDanach = gebietskennung(
-                        mapGeoLocation.get(),
-                        additionalMapGeoLocations.get(),
-                    );
-                    if (kennung !== null && kennungDanach === kennung) {
-                        try {
-                            gebietsumrissSpeicher.set({
-                                kennung,
-                                umriss: ergebnis.umriss,
-                            });
-                        } catch (fehler) {
-                            // Ein grosses Gebiet kann den localStorage sprengen.
-                            // Das darf hier nicht nach oben durchschlagen: der
-                            // Aufruf steht vor dem try-Block, ein Wurf wuerde
-                            // `isLoading` gesetzt lassen und die Karte haette
-                            // sich fuer den Rest der Sitzung aufgehoert zu
-                            // erneuern. Ohne Speicher laeuft es wie vorher.
-                            console.warn(
-                                "[Map] Gebietsumriss nicht gespeichert:",
-                                fehler,
-                            );
-                        }
+                    // Ob der Umriss abgelegt werden darf, entscheidet
+                    // `umrissAblegen` - samt der Neuerhebung der Kennung und
+                    // dem Abfangen eines vollen localStorage. Beides steht
+                    // dort und nicht hier, damit es einen Test hat: diese
+                    // Datei ist wegen Leaflet nicht pruefbar.
+                    const stand = umrissAblegen({
+                        kennungVorher: kennung,
+                        kennungJetzt: () =>
+                            gebietskennung(
+                                mapGeoLocation.get(),
+                                additionalMapGeoLocations.get(),
+                            ),
+                        umriss: ergebnis.umriss,
+                        ablegen: (eintrag) =>
+                            gebietsumrissSpeicher.set(eintrag),
+                    });
+                    if (stand === "gescheitert") {
+                        console.warn(
+                            "[Map] Gebietsumriss nicht gespeichert, vermutlich voller Speicher",
+                        );
                     }
                 } else if (ergebnis.grund === "fehler") {
                     // Frueher verschluckte ein .catch(console.log) diesen Fehler,

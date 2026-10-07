@@ -29,8 +29,9 @@ import {
     mapGeoLocation,
     polyGeoJSON,
 } from "../context";
-import { gebietskennung, umrissBesorgen } from "../gebietsumriss";
+import { gebietskennung, umrissAblegen, umrissBesorgen } from "../gebietsumriss";
 import { applyServerMapLocation } from "../session-context";
+import { t } from "@/i18n";
 
 /**
  * Die echte Gebietsangabe aus CNNM2F, wie sie in `sessions.map_location`
@@ -149,6 +150,134 @@ describe("gebietskennung", () => {
     it("liefert null, wenn das Hauptgebiet keine OSM-Kennung hat", () => {
         expect(gebietskennung({ properties: { name: "Irgendwo" } }, [])).toBeNull();
         expect(gebietskennung(null, [])).toBeNull();
+    });
+});
+
+describe("umrissAblegen", () => {
+    const HAMM = "R/1455385";
+    const HAMM_MIT_HORN = "R/1455385+R/1455386:1";
+
+    it("legt ab, wenn die Kennung nach dem Abruf noch passt", () => {
+        const ablegen = vi.fn();
+
+        const stand = umrissAblegen({
+            kennungVorher: HAMM,
+            kennungJetzt: () => HAMM,
+            umriss: umriss(),
+            ablegen,
+        });
+
+        expect(stand).toBe("abgelegt");
+        expect(ablegen).toHaveBeenCalledWith({
+            kennung: HAMM,
+            umriss: umriss(),
+        });
+    });
+
+    it("verwirft, wenn waehrend des Abrufs ein Zusatzgebiet hinzukam", () => {
+        // Der gefaehrlichste Fall des ganzen Umbaus. Der Abruf dauert
+        // Sekunden; kommt in dieser Zeit ein Stadtteil dazu, gehoert der
+        // gelieferte Umriss zum erweiterten Gebiet, die vorher berechnete
+        // Kennung aber zum alten. Abgelegt wuerde er beim naechsten Start als
+        // gueltig gelten: Die Karte waere dann nicht unbeschraenkt, sondern
+        // falsch beschraenkt - und das faellt im Spiel am spaetesten auf.
+        const ablegen = vi.fn();
+
+        const stand = umrissAblegen({
+            kennungVorher: HAMM,
+            kennungJetzt: () => HAMM_MIT_HORN,
+            umriss: umriss(),
+            ablegen,
+        });
+
+        expect(stand).toBe("verworfen");
+        expect(ablegen).not.toHaveBeenCalled();
+    });
+
+    it("verwirft, wenn waehrend des Abrufs ein Zusatzgebiet wegfiel", () => {
+        const ablegen = vi.fn();
+
+        const stand = umrissAblegen({
+            kennungVorher: HAMM_MIT_HORN,
+            kennungJetzt: () => HAMM,
+            umriss: umriss(),
+            ablegen,
+        });
+
+        expect(stand).toBe("verworfen");
+        expect(ablegen).not.toHaveBeenCalled();
+    });
+
+    it("verwirft ohne Kennung", () => {
+        const ablegen = vi.fn();
+
+        const stand = umrissAblegen({
+            kennungVorher: null,
+            kennungJetzt: () => null,
+            umriss: umriss(),
+            ablegen,
+        });
+
+        expect(stand).toBe("verworfen");
+        expect(ablegen).not.toHaveBeenCalled();
+    });
+
+    it("erhebt die Kennung wirklich neu, statt die alte zu glauben", () => {
+        // Ein Wert statt einer Funktion waere vom Aufrufer vor dem Abruf
+        // berechnet worden und wuerde genau den Fall verschweigen, um den es
+        // geht. Also muss die Funktion auch aufgerufen werden.
+        const kennungJetzt = vi.fn().mockReturnValue(HAMM);
+
+        umrissAblegen({
+            kennungVorher: HAMM,
+            kennungJetzt,
+            umriss: umriss(),
+            ablegen: vi.fn(),
+        });
+
+        expect(kennungJetzt).toHaveBeenCalledTimes(1);
+    });
+
+    it("faengt einen vollen Speicher ab, statt zu werfen", () => {
+        // Der Aufruf steht in Map.tsx vor dem try-Block von refreshQuestions.
+        // Ein Wurf wuerde `isLoading` auf true stehen lassen, und die Karte
+        // wuerde sich fuer den Rest der Sitzung nicht mehr erneuern - also
+        // schlimmer als der Mangel, den der Speicher behebt.
+        const ablegen = vi.fn().mockImplementation(() => {
+            throw new DOMException("quota", "QuotaExceededError");
+        });
+
+        let stand: string | undefined;
+        expect(() => {
+            stand = umrissAblegen({
+                kennungVorher: HAMM,
+                kennungJetzt: () => HAMM,
+                umriss: umriss(),
+                ablegen,
+            });
+        }).not.toThrow();
+        expect(stand).toBe("gescheitert");
+    });
+});
+
+describe("Meldung an den Spieler", () => {
+    it("steht in beiden Sprachen und faellt nicht auf Deutsch zurueck", () => {
+        // t() faellt bei einem fehlenden Schluessel still auf Deutsch zurueck
+        // (src/i18n/index.ts:31-35). Ein nur in de.ts angelegter Schluessel
+        // wuerde englischen Spielern also unbemerkt Deutsch zeigen.
+        const de = t("toast.map.boundaryMissing", "de");
+        const en = t("toast.map.boundaryMissing", "en");
+
+        expect(de).not.toBe("toast.map.boundaryMissing");
+        expect(en).not.toBe("toast.map.boundaryMissing");
+        expect(en).not.toBe(de);
+    });
+
+    it("sagt, was der Spieler davon hat, nicht nur dass etwas schiefging", () => {
+        // Vorgabe aus dem Auftrag: nicht "Fehler beim Laden der Kartendaten",
+        // sondern der Hinweis, dass die Karte gerade mehr zeigt als erlaubt.
+        expect(t("toast.map.boundaryMissing", "de")).toMatch(/mehr Fläche/);
+        expect(t("toast.map.boundaryMissing", "en")).toMatch(/more ground/);
     });
 });
 
