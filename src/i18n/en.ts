@@ -645,4 +645,6 @@ export const en: Record<TranslationKey, string> = {
     // ── Map ───────────────────────────────────────────────────────────────────
     "toast.map.refreshFailed":
         "Map data could not be loaded. The view is not up to date.",
+    "toast.map.boundaryMissing":
+        "The play area won't load. The map is showing more ground than is still allowed. Don't rely on it.",
 };

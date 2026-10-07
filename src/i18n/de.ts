@@ -647,6 +647,8 @@ export const de = {
     // ── Karte (Map) ───────────────────────────────────────────────────────────
     "toast.map.refreshFailed":
         "Kartendaten konnten nicht geladen werden. Die Ansicht ist nicht auf dem aktuellen Stand.",
+    "toast.map.boundaryMissing":
+        "Das Spielgebiet lädt nicht. Die Karte zeigt gerade mehr Fläche, als noch erlaubt ist. Verlass dich nicht darauf.",
 } as const;
 
 export type Translations = typeof de;

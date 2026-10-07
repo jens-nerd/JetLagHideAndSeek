@@ -11,6 +11,7 @@ import {
     additionalMapGeoLocations,
     animateMapMovements,
     autoZoom,
+    gebietsumrissSpeicher,
     hiderMode,
     highlightTrainLines,
     isLoading,
@@ -24,6 +25,7 @@ import {
     thunderforestApiKey,
     triggerLocalRefresh,
 } from "@/lib/context";
+import { gebietskennung, umrissBesorgen } from "@/lib/gebietsumriss";
 import { DEFAULT_VIEWPORT } from "@hideandseek/shared";
 import { locale, t } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -108,27 +110,90 @@ export const Map = ({ className }: { className?: string }) => {
 
         if (!mapGeoData) {
             const polyGeoData = polyGeoJSON.get();
+            const kennung = gebietskennung(
+                locationAtStart,
+                additionalMapGeoLocations.get(),
+            );
+            const gespeichert = gebietsumrissSpeicher.get();
+
             if (polyGeoData) {
+                // Ein selbst gezeichnetes oder geladenes Vieleck hat Vorrang.
                 mapGeoData = polyGeoData;
                 mapGeoJSON.set(polyGeoData);
+            } else if (kennung !== null && gespeichert?.kennung === kennung) {
+                // Umriss aus einem frueheren Abruf, fuer genau dieses Gebiet.
+                // Spart den Netzabruf beim Start der App - der Grund, warum die
+                // Karte nach einem Neustart eine Weile unbeschraenkt aussah.
+                mapGeoData = gespeichert.umriss;
+                mapGeoJSON.set(gespeichert.umriss);
             } else {
-                await toast.promise(
-                    determineMapBoundaries()
-                        .then((x) => {
-                            // Only cache the result when the location hasn't changed
-                            // during the async Overpass fetch (race-condition guard).
-                            // Compare by osm_id (stable) instead of object reference.
-                            const currentOsmId = (mapGeoLocation.get() as any)?.properties?.osm_id;
-                            if (currentOsmId === osmIdAtStart) {
-                                mapGeoJSON.set(x);
-                                mapGeoData = x;
-                            }
-                        })
-                        .catch((error) => console.log(error)),
-                    {
-                        error: "Error refreshing map data",
-                    },
-                );
+                const ergebnis = await umrissBesorgen({
+                    holen: determineMapBoundaries,
+                    // Wechselt das Gebiet mitten im Abruf (z. B. der Suchende
+                    // tritt bei), passt das Ergebnis nicht mehr. Vergleich ueber
+                    // osm_id, weil applyServerMapLocation fuer dasselbe Gebiet
+                    // ein neues Objekt anlegt und === immer fehlschlagen wuerde.
+                    nochGueltig: () =>
+                        (mapGeoLocation.get() as any)?.properties?.osm_id ===
+                        osmIdAtStart,
+                    warten: (ms) =>
+                        new Promise((fertig) => setTimeout(fertig, ms)),
+                    // Die ueberlappenden Laeufe beim Start teilen sich einen
+                    // Abruf, statt dieselbe Abfrage mehrfach zu schicken.
+                    schluessel: kennung,
+                });
+
+                if (ergebnis.ok) {
+                    mapGeoJSON.set(ergebnis.umriss);
+                    mapGeoData = ergebnis.umriss;
+
+                    // Nur ablegen, wenn das Gebiet waehrend des Abrufs
+                    // unveraendert blieb - die Zusatzgebiete eingeschlossen.
+                    // `nochGueltig` prueft nur die osm_id des Hauptgebiets, ein
+                    // hinzugekommener Stadtteil kaeme also durch. Ein Umriss
+                    // unter falscher Kennung waere schlimmer als keiner: er
+                    // wuerde beim naechsten Start als gueltig gelten und ein
+                    // Gebiet von vorgestern zeigen.
+                    const kennungDanach = gebietskennung(
+                        mapGeoLocation.get(),
+                        additionalMapGeoLocations.get(),
+                    );
+                    if (kennung !== null && kennungDanach === kennung) {
+                        try {
+                            gebietsumrissSpeicher.set({
+                                kennung,
+                                umriss: ergebnis.umriss,
+                            });
+                        } catch (fehler) {
+                            // Ein grosses Gebiet kann den localStorage sprengen.
+                            // Das darf hier nicht nach oben durchschlagen: der
+                            // Aufruf steht vor dem try-Block, ein Wurf wuerde
+                            // `isLoading` gesetzt lassen und die Karte haette
+                            // sich fuer den Rest der Sitzung aufgehoert zu
+                            // erneuern. Ohne Speicher laeuft es wie vorher.
+                            console.warn(
+                                "[Map] Gebietsumriss nicht gespeichert:",
+                                fehler,
+                            );
+                        }
+                    }
+                } else if (ergebnis.grund === "fehler") {
+                    // Frueher verschluckte ein .catch(console.log) diesen Fehler,
+                    // und weil das ueberwachte Versprechen damit erfuellt war,
+                    // erschien nicht einmal eine Meldung: Der Spieler sah eine
+                    // unbeschraenkte Karte und hatte keinen Hinweis darauf.
+                    console.error(
+                        "[Map] Gebietsumriss nach",
+                        ergebnis.versuche,
+                        "Versuchen nicht geladen:",
+                        ergebnis.fehler,
+                    );
+                    toast.error(t("toast.map.boundaryMissing", locale.get()), {
+                        toastId: "map-boundary-missing",
+                    });
+                }
+                // grund === "veraltet": stillschweigend weiter, der Lauf fuer
+                // das neue Gebiet wird unten eingeplant.
             }
         }
 

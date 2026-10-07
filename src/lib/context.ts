@@ -70,6 +70,31 @@ export const polyGeoJSON = persistentAtom<FeatureCollection<
     decode: JSON.parse,
 });
 
+/**
+ * Bleibender Zwischenspeicher fuer den ueber Overpass geholten Gebietsumriss.
+ *
+ * Nicht dasselbe wie `polyGeoJSON`: das bedeutet "der Nutzer hat ein eigenes
+ * Vieleck gezeichnet oder geladen" und schaltet im PlacePicker die Auswahl der
+ * Gebiete ab (siehe PlacePicker.tsx:116, :141, :163). Hier liegt nur das
+ * Ergebnis eines Abrufs, ohne Wirkung auf die Bedienung.
+ *
+ * `kennung` ist die `gebietskennung()` des Gebiets, aus dem der Umriss gebaut
+ * wurde. Benutzt wird er nur, wenn sie zum aktuellen Gebiet passt. Damit kann
+ * er nicht veralten, auch wenn irgendwo das Gebiet gewechselt wird, ohne
+ * diesen Speicher anzufassen.
+ *
+ * Grund (Spiel CNNM2F, 05.10.2026): `mapGeoJSON` lebt nur im Speicher, also
+ * musste der Umriss nach jedem Start der App neu ueber das Netz geholt werden.
+ * Bis er da war, zeigte die Karte keine Einschraenkung.
+ */
+export const gebietsumrissSpeicher = persistentAtom<{
+    kennung: string;
+    umriss: FeatureCollection<Polygon | MultiPolygon>;
+} | null>("gebietsumriss", null, {
+    encode: JSON.stringify,
+    decode: JSON.parse,
+});
+
 export const questions = persistentAtom<Questions>("questions", [], {
     encode: JSON.stringify,
     decode: (x) => questionsSchema.parse(JSON.parse(x)),
