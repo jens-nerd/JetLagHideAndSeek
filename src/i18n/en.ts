@@ -647,4 +647,6 @@ export const en: Record<TranslationKey, string> = {
         "Map data could not be loaded. The view is not up to date.",
     "toast.map.boundaryMissing":
         "The play area won't load. The map is showing more ground than is still allowed. Don't rely on it.",
+    "toast.map.questionsDropped":
+        "Some saved questions could not be read and were dropped. The map is not showing every restriction. Don't rely on it.",
 };

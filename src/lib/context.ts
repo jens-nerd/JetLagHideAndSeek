@@ -14,7 +14,6 @@ import {
     type Question,
     type Questions,
     questionSchema,
-    questionsSchema,
     type Units,
 } from "@/maps/schema";
 
@@ -95,9 +94,98 @@ export const gebietsumrissSpeicher = persistentAtom<{
     decode: JSON.parse,
 });
 
+/**
+ * Beim Lesen der gespeicherten Fragen wurde etwas verworfen.
+ *
+ * Gesetzt wird der Merker in `fragenLesen`, also mitten in `onMount` des
+ * questions-Atoms (@nanostores/persistent/index.js:68-73: `decode` steht in
+ * `restore()`, `restore()` haengt in `onMount`). Das laeuft im Render der
+ * ersten Komponente, die `questions` liest - von dort einen Toast zu schicken
+ * ist bestenfalls unzuverlaessig. Deshalb hier nur merken; abgeschickt wird die
+ * Meldung in Map.tsx, bei den uebrigen Meldungen zum Kartenzustand.
+ *
+ * Nur mit `.get()` lesen, nicht mit `useStore` abonnieren: das Setzen passiert
+ * waehrend eines Renders, und React beklagt ein Update an einer anderen
+ * Komponente.
+ */
+export const fragenUnvollstaendig = atom(false);
+
+/**
+ * Schickt die Meldung ueber verworfene Fragen, aber nur einmal.
+ *
+ * Steht hier und nicht in Map.tsx, damit es einen Test hat: diese Datei ist
+ * wegen Leaflet nicht pruefbar. Das Zuruecksetzen gehoert dazu - ein erneutes
+ * Mounten der Karte darf die Meldung nicht wiederholen, der Speicher wird nur
+ * einmal je Sitzung gelesen.
+ */
+export function verworfeneFragenMelden(melden: () => void): void {
+    if (!fragenUnvollstaendig.get()) return;
+
+    melden();
+    fragenUnvollstaendig.set(false);
+}
+
+/**
+ * Liest die gespeicherten Fragen und rettet, was lesbar ist.
+ *
+ * Vorher stand hier `questionsSchema.parse(JSON.parse(x))`. Ein einziger
+ * Eintrag, den das Schema nicht kennt - eine Frage aus einer aelteren Fassung
+ * wie die nie angelegte "street"-Frage, ein von Hand veraenderter Speicher -,
+ * brachte damit das erste Lesen des Atoms zum Wurf. Nicht das Modulladen: der
+ * Wurf kam aus `restore()` in `onMount`, also aus dem Render jeder Komponente
+ * mit `useStore(questions)` und aus jedem `questions.get()`. Derselbe Wurf
+ * steckte im `listener` fuer Speicher-Ereignisse aus anderen Tabs
+ * (@nanostores/persistent/index.js:56-66).
+ *
+ * Ein Rueckfall auf `[]` waere schlimmer als der Wurf: dieses Atom treibt den
+ * Zuschnitt der Karte. Eine leere Liste heisst "keine Einschraenkung", und zwar
+ * dauerhaft, nicht fuer Sekunden. Aus einem Absturz wuerde eine Karte, die
+ * stillschweigend zu viel zeigt. Deshalb jede Frage einzeln pruefen - und wenn
+ * etwas fehlt, erfaehrt der Spieler es.
+ */
+export function fragenLesen(rohtext: string): Questions {
+    let roh: unknown;
+    try {
+        roh = JSON.parse(rohtext);
+    } catch {
+        // Abgeschnittener oder fremder Inhalt unter dem Schluessel.
+        roh = null;
+    }
+
+    // Gueltiges JSON, falsche Gestalt. `"[]"` landet hier nicht, das ist eine
+    // Liste mit null Eintraegen und der normale Zustand ohne Fragen.
+    if (!Array.isArray(roh)) {
+        console.warn(
+            "[context] Gespeicherte Fragen unlesbar, Liste bleibt leer",
+        );
+        fragenUnvollstaendig.set(true);
+        return [];
+    }
+
+    const fragen: Questions = [];
+    let verworfen = 0;
+    for (const eintrag of roh) {
+        const geprueft = questionSchema.safeParse(eintrag);
+        if (geprueft.success) {
+            fragen.push(geprueft.data);
+        } else {
+            verworfen++;
+        }
+    }
+
+    if (verworfen > 0) {
+        console.warn(
+            `[context] ${verworfen} gespeicherte Frage(n) verworfen, ${fragen.length} behalten`,
+        );
+        fragenUnvollstaendig.set(true);
+    }
+
+    return fragen;
+}
+
 export const questions = persistentAtom<Questions>("questions", [], {
     encode: JSON.stringify,
-    decode: (x) => questionsSchema.parse(JSON.parse(x)),
+    decode: fragenLesen,
 });
 export const addQuestion = (question: DeepPartial<Question>) =>
     questionModified(questions.get().push(questionSchema.parse(question)));

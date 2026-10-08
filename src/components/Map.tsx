@@ -24,6 +24,7 @@ import {
     questions,
     thunderforestApiKey,
     triggerLocalRefresh,
+    verworfeneFragenMelden,
 } from "@/lib/context";
 import {
     gebietskennung,
@@ -354,6 +355,21 @@ export const Map = ({ className }: { className?: string }) => {
 
         refreshQuestions(true);
     }, [$questions, map, $hiderMode, $mapGeoLocation]);
+
+    // Beim Lesen der gespeicherten Fragen wurde etwas verworfen (siehe
+    // fragenLesen in lib/context.ts). Die Meldung kann nicht von dort kommen:
+    // `decode` laeuft in `restore()` innerhalb von `onMount`, also waehrend
+    // eines Renders. Hier ist sie richtig, weil das `useStore(questions)` oben
+    // genau dieses Lesen ausloest - der Merker steht also, wenn dieser Effekt
+    // laeuft - und weil die uebrigen Meldungen zum Kartenzustand ebenfalls hier
+    // stehen (toast.map.boundaryMissing oben in refreshQuestions).
+    useEffect(() => {
+        verworfeneFragenMelden(() =>
+            toast.error(t("toast.map.questionsDropped", locale.get()), {
+                toastId: "map-questions-dropped",
+            }),
+        );
+    }, []);
 
     useEffect(() => {
         const intervalId = setInterval(async () => {
