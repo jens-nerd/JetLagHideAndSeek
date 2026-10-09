@@ -2,7 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n";
 import { PlacePicker } from "@/components/PlacePicker";
-import { additionalMapGeoLocations, mapGeoLocation } from "@/lib/context";
+import { additionalMapGeoLocations, mapGeoJSON, mapGeoLocation } from "@/lib/context";
 import { hiderAreaConfirmed, pendingRole } from "@/lib/session-context";
 
 export function HiderAreaSearch({ onBack }: { onBack?: () => void } = {}) {
@@ -26,6 +26,17 @@ export function HiderAreaSearch({ onBack }: { onBack?: () => void } = {}) {
             if (firstAdded) {
                 mapGeoLocation.set(firstAdded.location);
                 additionalMapGeoLocations.set(additional.filter((x) => x !== firstAdded));
+
+                // Der Zuschnitt aendert sich hier: vorher Deutschland vereinigt
+                // mit dem Stadtteil, also Deutschland, nachher der Stadtteil
+                // allein. `mapGeoJSON` haelt noch den alten, deutschlandgrossen
+                // Umriss; `refreshQuestions` in Map.tsx liest ihn als Erstes und
+                // ueberspringt bei einem Treffer die ganze Beschaffung. Die Karte
+                // blieb dann auf Deutschland zugeschnitten.
+                //
+                // `polyGeoJSON` bleibt stehen: das heisst "der Nutzer hat ein
+                // eigenes Vieleck", und das ueberlebt die Bestaetigung.
+                mapGeoJSON.set(null);
             }
         }
         hiderAreaConfirmed.set(true);
